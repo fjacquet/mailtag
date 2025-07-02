@@ -20,7 +20,7 @@ def main():
     setup_logging(CONFIG.logging.level, CONFIG.logging.file)
 
     try:
-        db_path = Path("data/sender_classification_db.json")
+        db_path = Path("db/sender_classification_db.json")
         database = ClassificationDatabase(db_path)
         mail_service = MailService(CONFIG.general.mail_dir)
         classifier = Classifier(CONFIG.general.ollama_model, database)
