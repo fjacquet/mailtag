@@ -1,0 +1,19 @@
+# Main configuration for the MailTag application.
+
+[general]
+# Directory where the Mail application stores its data.
+# Use "~" for the user's home directory.
+mail_dir = "~/Library/Mail"
+
+# The name of the Ollama model to use for classification.
+ollama_model = "gemma3"
+
+# Prefix for the temporary database file.
+temp_db_prefix = "EnvelopeIndex_copy"
+
+[logging]
+# The logging level. Can be DEBUG, INFO, WARNING, ERROR, CRITICAL.
+level = "INFO"
+
+# The file to write logs to.
+file = "logs/mailtag.log"

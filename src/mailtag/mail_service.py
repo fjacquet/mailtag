@@ -10,7 +10,7 @@ from typing import Dict, Iterator, List
 
 from bs4 import BeautifulSoup
 
-from .config import TEMP_DB_PREFIX
+from .config import CONFIG
 from .models import Email
 
 
@@ -19,6 +19,7 @@ class MailService:
 
     def __init__(self, mail_dir: Path):
         self.mail_dir = mail_dir
+        self.temp_db_prefix = CONFIG.general.temp_db_prefix
         self.latest_v_folder = self._find_latest_mail_v_folder()
         self.db_path = self.latest_v_folder / "MailData/Envelope Index"
         self.emlx_index = self._build_emlx_index()
@@ -41,7 +42,7 @@ class MailService:
     @contextmanager
     def _db_connection(self) -> Iterator[sqlite3.Connection]:
         """Provides a read-only connection to a temporary copy of the Mail database."""
-        temp_db_path = Path(f"/tmp/{TEMP_DB_PREFIX}_{os.getpid()}.db")
+        temp_db_path = Path(f"/tmp/{self.temp_db_prefix}_{os.getpid()}.db")
         try:
             shutil.copyfile(self.db_path, temp_db_path)
             logging.info(f"Database copied to {temp_db_path}")

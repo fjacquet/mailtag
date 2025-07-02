@@ -6,21 +6,24 @@ Main entry point for the mailtag email classification script.
 """
 
 import logging
+from pathlib import Path
 
 from mailtag.classifier import Classifier
-from mailtag.config import MAIL_DIR, OLLAMA_MODEL
+from mailtag.config import CONFIG
+from mailtag.database import ClassificationDatabase
+from mailtag.logging_config import setup_logging
 from mailtag.mail_service import MailService
 
 
 def main():
     """Main function to run the email classification script."""
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    setup_logging(CONFIG.logging.level, CONFIG.logging.file)
 
     try:
-        mail_service = MailService(MAIL_DIR)
-        classifier = Classifier(OLLAMA_MODEL)
+        db_path = Path("data/sender_classification_db.json")
+        database = ClassificationDatabase(db_path)
+        mail_service = MailService(CONFIG.general.mail_dir)
+        classifier = Classifier(CONFIG.general.ollama_model, database)
     except FileNotFoundError as e:
         logging.critical(e)
         return
