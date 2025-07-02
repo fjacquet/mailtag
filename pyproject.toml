@@ -1,0 +1,29 @@
+[project]
+name = "mailtag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "ollama>=0.3.0",
+    "pytest>=8.4.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "yamllint",
+    "pytest-cov",
+    "pydantic",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=mailtag --cov-report=term-missing"
+testpaths = ["tests"]
+

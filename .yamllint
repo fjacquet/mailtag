@@ -1,0 +1,10 @@
+---
+extends: default
+
+rules:
+  # 88 is better for line_length.
+  line-length:
+    max: 88
+  # I like my indents to be 2 spaces.
+  indentation:
+    spaces: 2

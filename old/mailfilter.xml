@@ -1,0 +1,780 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom'
+    xmlns:apps='http://schemas.google.com/apps/2006'>
+    <!--
+    Modèle XML pour l'importation de filtres Gmail.
+    Pour utiliser ce fichier :
+    1. Copiez tout le contenu de ce bloc XML.
+    2. Collez-le dans un fichier texte et enregistrez-le avec l'extension .xml (ex: gmail_filters.xml).
+    3. Allez dans Gmail > Paramètres (icône roue dentée) > Voir tous les paramètres > Filtres et adresses bloquées.
+    4. En bas de la page, cliquez sur "Importer les filtres", choisissez votre fichier .xml et cliquez sur "Ouvrir le fichier".
+    5. Confirmez l'importation.
+
+    IMPORTANT :
+    - Remplacez 'expediteur@domaine.com' par les adresses e-mail réelles des expéditeurs.
+    - Assurez-vous que les libellés dans Gmail (ex: Factures/Apple) existent et correspondent EXACTEMENT à la valeur 'label' (respectez la casse et les slashs).
+    - Pour chaque entrée, l'e-mail sera archivé (retiré de la boîte de réception) et marqué comme lu.
+    - Si vous ne souhaitez pas une action (ex: ne pas marquer comme lu), supprimez la ligne correspondante ou changez 'true' en 'false'.
+    -->
+
+    <!-- FILTRE : À Traiter (ex: e-mails marqués par une étoile ou un mot-clé spécifique) -->
+    <entry>
+        <category term='filter'></category>
+        <title>À Traiter</title>
+        <!-- Exemple : les e-mails étoilés vont dans À Traiter, si vous utilisez la fonction étoile pour cela -->
+        <!-- Pour les e-mails que vous marquez manuellement, il n'y a pas de filtre automatique, mais c'est un bon endroit pour les regrouper.
+             Vous pouvez aussi filtrer sur un mot-clé que vous ajoutez au sujet pour les e-mails à traiter, ex: "[ACTION]" -->
+        <apps:property name='subject' value='[ACTION]'></apps:property>
+        <apps:property name='label' value='À Traiter'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='false'></apps:property>        <!-- Laisser non lu pour action -->
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : À Classer (Exemple : pour les e-mails de nouveaux expéditeurs ou qui ne correspondent pas à d'autres filtres) -->
+    <!-- Ce filtre est plus complexe à définir car il doit attraper ce qui n'est pas déjà classé.
+         Souvent, ce libellé est utilisé manuellement pour le tri.
+         Un filtre pourrait être basé sur des mots-clés génériques que vous savez ne pas être dans vos autres catégories.
+         Ou simplement, les e-mails qui restent dans la boîte de réception après application des autres filtres.
+         Ce modèle est donc plus une suggestion pour un libellé manuel ou un filtre très générique.
+    -->
+    <entry>
+        <category term='filter'></category>
+        <title>À Classer</title>
+        <!-- Exemple : Si le sujet contient "Unsubscribe" mais n'est pas déjà classé (très difficile à faire avec un seul filtre simple) -->
+        <!-- Ce libellé est souvent rempli manuellement ou par des filtres très spécifiques d'exclusion -->
+        <!-- Pour un début, il est plus simple de le gérer manuellement et de créer des filtres au fur et à mesure. -->
+        <apps:property name='label' value='À Classer'></apps:property>
+        <apps:property name='shouldArchive' value='false'></apps:property>        <!-- Laisser dans la boîte de réception ou archiver si vous voulez vider -->
+        <apps:property name='shouldMarkAsRead' value='false'></apps:property>
+    </entry>
+
+    <!-- DÉBUT : Finances & Administratif -->
+
+    <!-- FILTRE : Factures / Apple -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Apple</title>
+        <apps:property name='from' value='noreply@email.apple.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Apple'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Bitdefender -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Bitdefender</title>
+        <apps:property name='from' value='noreply@bitdefender.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Bitdefender'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / CFF -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / CFF</title>
+        <apps:property name='from' value='facture@sbb.ch OR info@cff.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/CFF'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Cumulus -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Cumulus</title>
+        <apps:property name='from' value='noreply@cumulus.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Cumulus'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Digiposte -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Digiposte</title>
+        <apps:property name='from' value='noreply@digiposte.fr'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Digiposte'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / EasyPark -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / EasyPark</title>
+        <apps:property name='from' value='noreply@easypark.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/EasyPark'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / GoDaddy -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / GoDaddy</title>
+        <apps:property name='from' value='noreply@godaddy.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/GoDaddy'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Interflora -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Interflora</title>
+        <apps:property name='from' value='noreply@interflora.fr'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Interflora'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Leukerbad -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Leukerbad</title>
+        <apps:property name='from' value='noreply@leukerbad.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Leukerbad'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Licences -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Licences</title>
+        <apps:property name='subject' value='facture licence OR renouvellement licence'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Licences'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Medecins -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Medecins</title>
+        <apps:property name='subject' value='facture medecin OR honoraires médicaux'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Medecins'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Officiel -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Officiel</title>
+        <apps:property name='subject' value='facture officielle OR document administratif'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Officiel'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Payot -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Payot</title>
+        <apps:property name='from' value='noreply@payot.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Payot'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Radisson Blu -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Radisson Blu</title>
+        <apps:property name='from' value='noreply@radissonblu.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Radisson Blu'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Reka -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Reka</title>
+        <apps:property name='from' value='noreply@reka.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Reka'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / REME -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / REME</title>
+        <apps:property name='from' value='noreply@reme.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/REME'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Factures / Selma -->
+    <entry>
+        <category term='filter'></category>
+        <title>Factures / Selma</title>
+        <apps:property name='from' value='noreply@selma.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Factures/Selma'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Bloomberg -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Bloomberg</title>
+        <apps:property name='from' value='newsletter@bloomberg.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Bloomberg'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / CA -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / CA</title>
+        <apps:property name='from' value='noreply@creditagricole.fr'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/CA'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Coinbase -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Coinbase</title>
+        <apps:property name='from' value='noreply@coinbase.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Coinbase'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / eBill -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / eBill</title>
+        <apps:property name='from' value='noreply@ebill.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/eBill'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / ImmoScout -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / ImmoScout</title>
+        <apps:property name='from' value='noreply@immoscout24.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/ImmoScout'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Kraken -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Kraken</title>
+        <apps:property name='from' value='noreply@kraken.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Kraken'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Linxo -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Linxo</title>
+        <apps:property name='from' value='noreply@linxo.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Linxo'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Paypal -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Paypal</title>
+        <apps:property name='from' value='noreply@paypal.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Paypal'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Revolut -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Revolut</title>
+        <apps:property name='from' value='notifications@revolut.com OR support@revolut.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Revolut'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Selma -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Selma</title>
+        <apps:property name='from' value='noreply@selma.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Selma'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / swissborg -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / swissborg</title>
+        <apps:property name='from' value='noreply@swissborg.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/swissborg'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Banque & Investissements / Vaudoise -->
+    <entry>
+        <category term='filter'></category>
+        <title>Banque &amp; Investissements / Vaudoise</title>
+        <apps:property name='from' value='noreply@vaudoise.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Banque &amp; Investissements/Vaudoise'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / Apple -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / Apple</title>
+        <apps:property name='from' value='support@apple.com OR icloud@apple.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/Apple'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / BitDefender -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / BitDefender</title>
+        <apps:property name='from' value='support@bitdefender.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/BitDefender'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / MyHeritage -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / MyHeritage</title>
+        <apps:property name='from' value='support@myheritage.com OR newsletter@myheritage.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/MyHeritage'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / Snyk -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / Snyk</title>
+        <apps:property name='from' value='noreply@snyk.io'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/Snyk'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / Syno -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / Syno</title>
+        <apps:property name='from' value='noreply@synology.com'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/Syno'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Contrats & Services / UFE -->
+    <entry>
+        <category term='filter'></category>
+        <title>Contrats &amp; Services / UFE</title>
+        <apps:property name='from' value='contact@ufe.ch'></apps:property>
+        <apps:property name='label' value='Finances &amp; Administratif/Contrats &amp; Services/UFE'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FIN : Finances & Administratif -->
+
+    <!-- DÉBUT : Informations & Contenus -->
+
+    <!-- FILTRE : Actualités & Veille / 24 heures -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / 24 heures</title>
+        <apps:property name='from' value='newsletter@24heures.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/24 heures'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / BonASavoir -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / BonASavoir</title>
+        <apps:property name='from' value='newsletter@bonasavoir.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/BonASavoir'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Cookomix -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Cookomix</title>
+        <apps:property name='from' value='newsletter@cookomix.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Cookomix'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Gites de France -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Gites de France</title>
+        <apps:property name='from' value='info@gites-de-france.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Gites de France'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / HashiCorp -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / HashiCorp</title>
+        <apps:property name='from' value='newsletter@hashicorp.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/HashiCorp'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / ImmoScout24 -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / ImmoScout24</title>
+        <apps:property name='from' value='newsletter@immoscout24.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/ImmoScout24'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Jobs -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Jobs</title>
+        <apps:property name='subject' value='offre d&apos;emploi OR alerte emploi'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Jobs'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Kuoni -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Kuoni</title>
+        <apps:property name='from' value='newsletter@kuoni.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Kuoni'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Le Temps -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Le Temps</title>
+        <apps:property name='from' value='newsletter@letemps.ch OR abo@letemps.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Le Temps'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Manor -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Manor</title>
+        <apps:property name='from' value='newsletter@manor.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Manor'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Mobility -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Mobility</title>
+        <apps:property name='from' value='newsletter@mobility.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Mobility'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / MyHeritage -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / MyHeritage</title>
+        <apps:property name='from' value='news@myheritage.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/MyHeritage'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Nouvelliste -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Nouvelliste</title>
+        <apps:property name='from' value='newsletter@lenouvelliste.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Nouvelliste'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / Todoist -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / Todoist</title>
+        <apps:property name='from' value='hello@todoist.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/Todoist'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / UFE -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / UFE</title>
+        <apps:property name='from' value='newsletter@ufe.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/UFE'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Actualités & Veille / VMUG -->
+    <entry>
+        <category term='filter'></category>
+        <title>Actualités &amp; Veille / VMUG</title>
+        <apps:property name='from' value='noreply@vmug.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Actualités &amp; Veille/VMUG'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Notifications / CFF -->
+    <entry>
+        <category term='filter'></category>
+        <title>Notifications / CFF</title>
+        <apps:property name='from' value='notification@sbb.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Notifications/CFF'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Notifications / Filae -->
+    <entry>
+        <category term='filter'></category>
+        <title>Notifications / Filae</title>
+        <apps:property name='from' value='contact@filae.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Notifications/Filae'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Notifications / Newsletters (génériques) -->
+    <entry>
+        <category term='filter'></category>
+        <title>Notifications / Newsletters</title>
+        <apps:property name='subject' value='newsletter'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Notifications/Newsletters'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Promotions & Offres / FNAC -->
+    <entry>
+        <category term='filter'></category>
+        <title>Promotions &amp; Offres / FNAC</title>
+        <apps:property name='from' value='info@fnac.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Promotions &amp; Offres/FNAC'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Promotions & Offres / ifolor -->
+    <entry>
+        <category term='filter'></category>
+        <title>Promotions &amp; Offres / ifolor</title>
+        <apps:property name='from' value='info@ifolor.ch'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Promotions &amp; Offres/ifolor'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Promotions & Offres / Interflora -->
+    <entry>
+        <category term='filter'></category>
+        <title>Promotions &amp; Offres / Interflora</title>
+        <apps:property name='from' value='promos@interflora.fr'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Promotions &amp; Offres/Interflora'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Promotions & Offres / Netflix -->
+    <entry>
+        <category term='filter'></category>
+        <title>Promotions &amp; Offres / Netflix</title>
+        <apps:property name='from' value='info@mailer.netflix.com OR no-reply@netflix.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Promotions &amp; Offres/Netflix'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Promotions & Offres / Skylum -->
+    <entry>
+        <category term='filter'></category>
+        <title>Promotions &amp; Offres / Skylum</title>
+        <apps:property name='from' value='newsletter@skylum.com'></apps:property>
+        <apps:property name='label' value='Informations &amp; Contenus/Promotions &amp; Offres/Skylum'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FIN : Informations & Contenus -->
+
+    <!-- DÉBUT : Vie Personnelle & Projets -->
+
+    <!-- FILTRE : Vie Personnelle & Projets / Personnel -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Personnel</title>
+        <apps:property name='subject' value='personnel'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Personnel'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Vie Personnelle & Projets / Patricia -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Patricia</title>
+        <apps:property name='from' value='patricia@example.com'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Patricia'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Vie Personnelle & Projets / Notes -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Notes</title>
+        <apps:property name='subject' value='note OR pense-bête'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Notes'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Vie Personnelle & Projets / Recherches & Développement -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Recherches &amp; Développement</title>
+        <apps:property name='subject' value='tech dev OR recherche projet'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Recherches &amp; Développement'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Vie Personnelle & Projets / Sécurité -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Sécurité</title>
+        <apps:property name='subject' value='alerte sécurité OR authentification'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Sécurité'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FILTRE : Vie Personnelle & Projets / Voyages -->
+    <entry>
+        <category term='filter'></category>
+        <title>Vie Personnelle &amp; Projets / Voyages</title>
+        <apps:property name='from' value='booking@airlines.com OR confirmation@hotel.com'></apps:property>
+        <apps:property name='subject' value='confirmation de réservation OR Votre voyage'></apps:property>
+        <apps:property name='label' value='Vie Personnelle &amp; Projets/Voyages'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+
+    <!-- FIN : Vie Personnelle & Projets -->
+
+</feed>

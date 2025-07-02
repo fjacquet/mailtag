@@ -1,0 +1,78 @@
+# This file defines the hierarchical classification schema for emails.
+
+- name: À Traiter
+- name: À Classer
+- name: Finances
+  sublabels:
+    - name: Bloomberg
+    - name: CA
+    - name: Coinbase
+    - name: eBill
+    - name: Kraken
+    - name: Linxo
+    - name: Paypal
+    - name: Revolut
+    - name: Selma
+    - name: swissborg
+- name: Administratif
+  sublabels:
+    - name: Digiposte
+    - name: Medecins
+    - name: Officiel
+    - name: REME
+    - name: UFE
+    - name: Vaudoise
+- name: Services
+  sublabels:
+    - name: Apple
+    - name: Bitdefender
+    - name: GoDaddy
+    - name: Licences
+    - name: Netflix
+    - name: Skylum
+    - name: Snyk
+    - name: Synology
+    - name: Todoist
+- name: Achats
+  sublabels:
+    - name: Cumulus
+    - name: FNAC
+    - name: ifolor
+    - name: Interflora
+    - name: Manor
+    - name: Payot
+- name: Transports
+  sublabels:
+    - name: CFF
+    - name: EasyPark
+    - name: Mobility
+- name: Voyages
+  sublabels:
+    - name: Gites de France
+    - name: Kuoni
+    - name: Leukerbad
+    - name: Radisson Blu
+    - name: Reka
+    - name: Réservations
+- name: Informations
+  sublabels:
+    - name: 24 heures
+    - name: BonASavoir
+    - name: Cookomix
+    - name: HashiCorp
+    - name: Le Temps
+    - name: Newsletters
+    - name: Nouvelliste
+    - name: VMUG
+- name: Carrière et Immobilier
+  sublabels:
+    - name: ImmoScout24
+    - name: Jobs
+- name: Personnel
+  sublabels:
+    - name: Filae
+    - name: MyHeritage
+    - name: Notes
+    - name: Patricia
+    - name: Recherches & Développement
+    - name: Sécurité
