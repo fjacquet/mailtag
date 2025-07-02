@@ -27,6 +27,12 @@ def main():
     except FileNotFoundError as e:
         logging.critical(e)
         return
+    except PermissionError:
+        logging.critical(
+            "Permission denied to access Mail directory. "
+            "Please grant Full Disk Access to your terminal application in System Settings."
+        )
+        return
 
     emails = mail_service.get_inbox_emails()
     if not emails:
