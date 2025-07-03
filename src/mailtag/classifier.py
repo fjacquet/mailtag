@@ -2,7 +2,7 @@ import logging
 import yaml
 from pathlib import Path
 
-import ollama
+import litellm
 
 from .models import Email
 from .database import ClassificationDatabase
@@ -36,7 +36,7 @@ class Classifier:
         return categories
 
     def classify_email(self, email: Email, body: str) -> str:
-        """Classifies an email using Ollama and updates the sender database."""
+        """Classifies an email using litellm."""
         sender = (
             f"{email.sender_name} <{email.sender_address}>"
             if email.sender_name
@@ -55,8 +55,12 @@ class Classifier:
             "Si aucune catégorie ne correspond parfaitement, réponds avec 'UNCERTAIN' suivi de la catégorie la plus proche ou d'une nouvelle suggestion de catégorie."
         )
         try:
-            response = ollama.generate(model=self.model, prompt=prompt)
-            classification = response["response"].strip()
+            response = litellm.completion(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                api_base="http://localhost:11434",  # Assuming Ollama is running locally
+            )
+            classification = response.choices[0].message.content.strip()
 
             if classification.startswith("UNCERTAIN"):
                 proposal = classification.replace("UNCERTAIN:", "").strip()
@@ -71,7 +75,7 @@ class Classifier:
             self.database.update(email.sender_address, classification)
             return classification
         except Exception as e:
-            logging.error(f"Error calling Ollama: {e}")
+            logging.error(f"Error calling litellm: {e}")
             return "(Model Error)"
 
     def _log_proposal(self, email: Email, body: str, proposal: str):
@@ -87,3 +91,4 @@ class Classifier:
             f.write(f"Subject: {email.subject}\n")
             f.write(f"Proposed Category: {proposal}\n")
             f.write(f"Body:\n{body}\n\n")
+

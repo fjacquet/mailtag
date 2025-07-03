@@ -26,13 +26,13 @@ def classifier(mock_db: MagicMock) -> Classifier:
         - name: Bloomberg
     - name: À Classer
     """
-    # Mock for the schema file
-    mock_schema_path = MagicMock(spec=Path)
-    mock_schema_path.exists.return_value = True
-    mock_schema_path.open.return_value = mock_open(read_data=schema_content).return_value
+    with patch("pathlib.Path") as mock_path_constructor:
+        mock_path_instance = mock_path_constructor.return_value
+        mock_path_instance.exists.return_value = True
+        mock_path_instance.open.return_value = mock_open(
+            read_data=schema_content
+        ).return_value
 
-    # We'll patch the Path constructor to return our mock
-    with patch("pathlib.Path", return_value=mock_schema_path):
         with patch("yaml.safe_load", return_value=yaml.safe_load(schema_content)):
             classifier_instance = Classifier(model="test-model", database=mock_db)
             # Now, replace the proposal_file attribute with a separate mock
@@ -50,8 +50,14 @@ def test_classify_and_update_db(classifier: Classifier, mock_db: MagicMock):
     )
     body = "This is a test email body."
 
-    with patch("ollama.generate") as mock_ollama_generate:
-        mock_ollama_generate.return_value = {"response": "Finances/Bloomberg"}
+    with patch("litellm.completion") as mock_completion:
+        # Mock the response structure for litellm
+        mock_choice = MagicMock()
+        mock_choice.message.content = "Finances/Bloomberg"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_completion.return_value = mock_response
+
         category = classifier.classify_email(email, body)
         assert category == "Finances/Bloomberg"
         mock_db.update.assert_called_once_with(
@@ -69,11 +75,13 @@ def test_classify_email_with_uncertain_match(classifier: Classifier, mock_db: Ma
     )
     body = "Your new bill is available."
 
-    with patch("ollama.generate") as mock_ollama_generate:
-        mock_ollama_generate.return_value = {
-            "response": "UNCERTAIN: Finances/Utilities"
-        }
-        # Since proposal_file is a Path object, we mock its open method
+    with patch("litellm.completion") as mock_completion:
+        mock_choice = MagicMock()
+        mock_choice.message.content = "UNCERTAIN: Finances/Utilities"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_completion.return_value = mock_response
+
         with patch.object(classifier.proposal_file, "open", mock_open()) as m:
             category = classifier.classify_email(email, body)
             assert category == "À Classer"
@@ -92,8 +100,13 @@ def test_classify_email_with_unknown_category(classifier: Classifier, mock_db: M
     )
     body = "This email is about something completely new."
 
-    with patch("ollama.generate") as mock_ollama_generate:
-        mock_ollama_generate.return_value = {"response": "NewStuff/Personal"}
+    with patch("litellm.completion") as mock_completion:
+        mock_choice = MagicMock()
+        mock_choice.message.content = "NewStuff/Personal"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_completion.return_value = mock_response
+
         with patch.object(classifier.proposal_file, "open", mock_open()) as m:
             category = classifier.classify_email(email, body)
             assert category == "À Classer"

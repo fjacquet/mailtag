@@ -1,2 +1,2 @@
 #!/bin/bash
-pytest --cov-report=html
+uv run pytest --cov-report=html

@@ -6,7 +6,7 @@
 mail_dir = "~/Library/Mail"
 
 # The name of the Ollama model to use for classification.
-ollama_model = "gemma3"
+ollama_model = "ollama_chat/gemma3"
 
 # Prefix for the temporary database file.
 temp_db_prefix = "EnvelopeIndex_copy"
