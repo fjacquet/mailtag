@@ -11,15 +11,22 @@ class LoggingConfig:
 
 @dataclass
 class GeneralConfig:
-    mail_dir: Path
     ollama_model: str
-    temp_db_prefix: str
+    api_base: str
+
+
+@dataclass
+class PreclassificationConfig:
+    enabled: bool
+    min_count: int
+    confidence_threshold: float
 
 
 @dataclass
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
+    preclassification: PreclassificationConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -29,13 +36,17 @@ def load_config(path: Path) -> AppConfig:
             data = tomllib.load(f)
             return AppConfig(
                 general=GeneralConfig(
-                    mail_dir=Path(data["general"]["mail_dir"]).expanduser(),
                     ollama_model=data["general"]["ollama_model"],
-                    temp_db_prefix=data["general"]["temp_db_prefix"],
+                    api_base=data["general"]["api_base"],
                 ),
                 logging=LoggingConfig(
                     level=data["logging"]["level"],
                     file=data["logging"]["file"],
+                ),
+                preclassification=PreclassificationConfig(
+                    enabled=data["preclassification"]["enabled"],
+                    min_count=data["preclassification"]["min_count"],
+                    confidence_threshold=data["preclassification"]["confidence_threshold"],
                 ),
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError) as e:
@@ -50,9 +61,11 @@ except RuntimeError as e:
     # Provide a default/fallback config or exit
     CONFIG = AppConfig(
         general=GeneralConfig(
-            mail_dir=Path.home() / "Library/Mail",
             ollama_model="gemma3",
-            temp_db_prefix="EnvelopeIndex_copy",
+            api_base="http://localhost:11434",
         ),
         logging=LoggingConfig(level="INFO", file="mailtag.log"),
+        preclassification=PreclassificationConfig(
+            enabled=True, min_count=3, confidence_threshold=0.8
+        ),
     )

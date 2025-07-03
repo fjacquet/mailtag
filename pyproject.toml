@@ -9,6 +9,7 @@ dependencies = [
     "litellm>=1.73.6",
     "ollama>=0.3.0",
     "pytest>=8.4.1",
+    "streamlit>=1.46.1",
 ]
 
 [tool.setuptools.packages.find]

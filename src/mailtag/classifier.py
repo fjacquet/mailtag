@@ -6,13 +6,16 @@ import litellm
 
 from .models import Email
 from .database import ClassificationDatabase
+from .config import AppConfig
 
 
 class Classifier:
     """Classifies emails using an AI model."""
 
-    def __init__(self, model: str, database: ClassificationDatabase):
-        self.model = model
+    def __init__(
+        self, config: AppConfig, database: ClassificationDatabase
+    ):
+        self.config = config
         self.proposal_file = Path("proposals.log")
         self.categories = self._load_categories()
         self.database = database
@@ -35,8 +38,40 @@ class Classifier:
                 categories.append(category["name"])
         return categories
 
+    def _get_preclassified_category(self, sender_address: str) -> str | None:
+        """
+        Returns a pre-classified category for a sender if the confidence
+        threshold is met.
+        """
+        if not self.config.preclassification.enabled:
+            return None
+
+        sender_classifications = self.database.sender_db.get(sender_address)
+        if not sender_classifications:
+            return None
+
+        total_count = sum(sender_classifications.values())
+        if total_count < self.config.preclassification.min_count:
+            return None
+
+        most_common_category = max(sender_classifications, key=sender_classifications.get)
+        confidence = sender_classifications[most_common_category] / total_count
+
+        if confidence >= self.config.preclassification.confidence_threshold:
+            logging.info(
+                f"Pre-classifying sender {sender_address} as "
+                f"{most_common_category} with {confidence:.2f} confidence."
+            )
+            return most_common_category
+        return None
+
     def classify_email(self, email: Email, body: str) -> str:
         """Classifies an email using litellm."""
+        # Try to get a pre-classified category first
+        preclassified_category = self._get_preclassified_category(email.sender_address)
+        if preclassified_category:
+            return preclassified_category
+
         sender = (
             f"{email.sender_name} <{email.sender_address}>"
             if email.sender_name
@@ -56,9 +91,9 @@ class Classifier:
         )
         try:
             response = litellm.completion(
-                model=self.model,
+                model=self.config.general.ollama_model,
                 messages=[{"role": "user", "content": prompt}],
-                api_base="http://localhost:11434",  # Assuming Ollama is running locally
+                api_base=self.config.general.api_base,
             )
             classification = response.choices[0].message.content.strip()
 

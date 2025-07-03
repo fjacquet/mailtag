@@ -1,15 +1,22 @@
 # Main configuration for the MailTag application.
 
 [general]
-# Directory where the Mail application stores its data.
-# Use "~" for the user's home directory.
-mail_dir = "~/Library/Mail"
-
 # The name of the Ollama model to use for classification.
 ollama_model = "ollama_chat/gemma3"
 
-# Prefix for the temporary database file.
-temp_db_prefix = "EnvelopeIndex_copy"
+# The base URL for the Ollama API.
+api_base = "http://localhost:11434"
+
+[preclassification]
+# Enable or disable pre-classification based on sender history.
+enabled = true
+
+# The minimum number of times a sender must be classified before pre-classification is used.
+min_count = 3
+
+# The confidence threshold (e.g., 0.8 = 80%) for a category to be used for pre-classification.
+confidence_threshold = 0.8
+
 
 [logging]
 # The logging level. Can be DEBUG, INFO, WARNING, ERROR, CRITICAL.

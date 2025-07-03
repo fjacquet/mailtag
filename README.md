@@ -28,13 +28,30 @@ The `src/main.py` script performs the following steps:
 
 ## Usage
 
+### Command-Line Interface
+
 1.  Install the dependencies:
     ```bash
     uv pip install -e ".[dev]"
     ```
-2.  Run the script:
+2.  Run the classification script:
     ```bash
     python src/main.py
+    ```
+3.  Generate the mail filters:
+    ```bash
+    python src/main.py --generate-filters
+    ```
+
+### Web Interface
+
+1.  Install the dependencies (if you haven't already):
+    ```bash
+    uv pip install -e ".[dev]"
+    ```
+2.  Run the Streamlit app:
+    ```bash
+    streamlit run src/streamlit_app.py
     ```
 
 ## Configuration
