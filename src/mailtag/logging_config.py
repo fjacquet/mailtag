@@ -25,7 +25,6 @@ def setup_logging(log_level: str, log_file: str):
             rotation="1 MB",
             retention="5 days",
             encoding="utf-8",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | "
-            "{name}:{function}:{line} - {message}",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
         )
     logger.info(f"Logging initialized with level {log_level}")

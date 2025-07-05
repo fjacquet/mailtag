@@ -29,6 +29,7 @@ confidence_threshold = 0.9
     config_path.write_text(config_content)
     return config_path
 
+
 def test_load_config_success(mock_config_file: Path):
     """Tests that the config is loaded correctly from a valid file."""
     config = load_config(mock_config_file)
@@ -37,10 +38,12 @@ def test_load_config_success(mock_config_file: Path):
     assert config.logging.level == "WARNING"
     assert not config.preclassification.enabled
 
+
 def test_load_config_file_not_found():
     """Tests that a RuntimeError is raised when the config file is not found."""
     with pytest.raises(RuntimeError, match="Failed to load or parse config file"):
         load_config(Path("non_existent_file.toml"))
+
 
 def test_load_config_invalid_toml(tmp_path: Path):
     """Tests that a RuntimeError is raised for an invalid TOML file."""
@@ -48,6 +51,7 @@ def test_load_config_invalid_toml(tmp_path: Path):
     invalid_config_path.write_text("this is not valid toml")
     with pytest.raises(RuntimeError, match="Failed to load or parse config file"):
         load_config(invalid_config_path)
+
 
 def test_load_config_missing_key(tmp_path: Path):
     """Tests that a RuntimeError is raised if a key is missing."""

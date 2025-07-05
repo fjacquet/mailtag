@@ -12,9 +12,7 @@ from .models import Email
 class Classifier:
     """Classifies emails using an AI model."""
 
-    def __init__(
-        self, config: AppConfig, database: ClassificationDatabase
-    ):
+    def __init__(self, config: AppConfig, database: ClassificationDatabase):
         self.config = config
         self.proposal_file = Path("proposals.log")
         self.categories = self._load_categories()
@@ -54,9 +52,7 @@ class Classifier:
         if total_count < self.config.preclassification.min_count:
             return None
 
-        most_common_category = max(
-            sender_classifications, key=sender_classifications.get
-        )
+        most_common_category = max(sender_classifications, key=sender_classifications.get)
         confidence = sender_classifications[most_common_category] / total_count
 
         if confidence >= self.config.preclassification.confidence_threshold:
@@ -75,9 +71,7 @@ class Classifier:
             return preclassified_category
 
         sender = (
-            f"{email.sender_name} <{email.sender_address}>"
-            if email.sender_name
-            else email.sender_address
+            f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
         )
 
         category_list = "\n".join([f"- {cat}" for cat in self.categories])
@@ -121,9 +115,7 @@ class Classifier:
     def _log_proposal(self, email: Email, body: str, proposal: str):
         """Logs a classification proposal to a file."""
         sender = (
-            f"{email.sender_name} <{email.sender_address}>"
-            if email.sender_name
-            else email.sender_address
+            f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
         )
         with self.proposal_file.open("a", encoding="utf-8") as f:
             f.write("=" * 80 + "\n")

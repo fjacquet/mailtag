@@ -69,10 +69,7 @@ class MailService:
 
     def get_email_body(self, email: Email) -> str:
         """Reads the body of a specific email using AppleScript."""
-        script = (
-            f'tell application "Mail" to return content of message '
-            f"{email.msg_id} of inbox"
-        )
+        script = f'tell application "Mail" to return content of message {email.msg_id} of inbox'
         return self._run_applescript(script)
 
     def _parse_sender(self, raw_sender: str) -> (str, str):

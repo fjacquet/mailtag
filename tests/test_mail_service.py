@@ -54,12 +54,14 @@ def test_applescript_error(mail_service: MailService):
         with pytest.raises(subprocess.CalledProcessError):
             mail_service.get_inbox_emails()
 
+
 def test_osascript_not_found(mail_service: MailService):
     """Tests the handling of `osascript` not being found."""
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = FileNotFoundError
         with pytest.raises(FileNotFoundError):
             mail_service.get_inbox_emails()
+
 
 def test_email_parsing_error(mail_service: MailService):
     """Tests that malformed email lines are handled gracefully."""
