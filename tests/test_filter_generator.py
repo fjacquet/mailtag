@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock, mock_open, patch
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
 import pytest
 
 from mailtag.filter_generator import FilterGenerator

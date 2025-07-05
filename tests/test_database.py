@@ -1,8 +1,9 @@
-from unittest.mock import patch, mock_open, MagicMock
 import json
-from pathlib import Path
-import pytest
 from collections import defaultdict
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
 
 from mailtag.database import ClassificationDatabase
 

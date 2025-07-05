@@ -1,5 +1,7 @@
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
+
 from mailtag.logging_config import setup_logging
+
 
 def test_setup_logging(tmp_path):
     """Tests the loguru logging configuration."""
@@ -8,7 +10,7 @@ def test_setup_logging(tmp_path):
         setup_logging("INFO", str(log_file))
         assert mock_add.call_count == 2
         # Check the stderr handler
-        mock_add.call_args_list[0].kwargs["level"] == "INFO"
+        assert mock_add.call_args_list[0].kwargs["level"] == "INFO"
         # Check the file handler
-        mock_add.call_args_list[1].kwargs["level"] == "INFO"
-        mock_add.call_args_list[1].args[0] == str(log_file)
+        assert mock_add.call_args_list[1].kwargs["level"] == "INFO"
+        assert mock_add.call_args_list[1].args[0] == str(log_file)

@@ -1,14 +1,19 @@
-from unittest.mock import patch, mock_open, MagicMock
+from collections import defaultdict
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import yaml
-from pathlib import Path
-from collections import defaultdict
 
 from mailtag.classifier import Classifier
+from mailtag.config import (
+    AppConfig,
+    GeneralConfig,
+    LoggingConfig,
+    PreclassificationConfig,
+)
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
-from mailtag.config import AppConfig, GeneralConfig, LoggingConfig, PreclassificationConfig
 
 
 @pytest.fixture
@@ -28,9 +33,7 @@ def config() -> AppConfig:
             api_base="http://localhost:11434",
         ),
         logging=LoggingConfig(level="DEBUG", file=""),
-        preclassification=PreclassificationConfig(
-            enabled=True, min_count=3, confidence_threshold=0.8
-        ),
+        preclassification=PreclassificationConfig(enabled=True, min_count=3, confidence_threshold=0.8),
     )
 
 
@@ -46,9 +49,7 @@ def classifier(config: AppConfig, mock_db: MagicMock) -> Classifier:
     with patch("pathlib.Path") as mock_path_constructor:
         mock_path_instance = mock_path_constructor.return_value
         mock_path_instance.exists.return_value = True
-        mock_path_instance.open.return_value = mock_open(
-            read_data=schema_content
-        ).return_value
+        mock_path_instance.open.return_value = mock_open(read_data=schema_content).return_value
 
         with patch("yaml.safe_load", return_value=yaml.safe_load(schema_content)):
             classifier_instance = Classifier(config=config, database=mock_db)
@@ -60,7 +61,7 @@ def test_preclassification_success(classifier: Classifier, mock_db: MagicMock):
     """Tests that pre-classification is used when confidence is high."""
     sender = "confident@example.com"
     mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 4, "À Classer": 1})
-    
+
     email = Email(msg_id=1, subject="Confident", sender_address=sender, sender_name="")
     body = "This should be pre-classified."
 
@@ -84,11 +85,12 @@ def test_preclassification_failure_low_confidence(classifier: Classifier, mock_d
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         mock_completion.return_value = mock_response
-        
+
         category = classifier.classify_email(email, body)
         assert category == "Finances/Bloomberg"
         mock_completion.assert_called_once()
         mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
+
 
 def test_preclassification_failure_min_count(classifier: Classifier, mock_db: MagicMock):
     """Tests that LLM is called when the sender has too few classifications."""
@@ -104,11 +106,12 @@ def test_preclassification_failure_min_count(classifier: Classifier, mock_db: Ma
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         mock_completion.return_value = mock_response
-        
+
         category = classifier.classify_email(email, body)
         assert category == "Finances/Bloomberg"
         mock_completion.assert_called_once()
         mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
+
 
 def test_uncertain_classification(classifier: Classifier):
     """Tests that 'À Classer' is returned for uncertain classifications."""
@@ -126,6 +129,7 @@ def test_uncertain_classification(classifier: Classifier):
         assert category == "À Classer"
         classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
 
+
 def test_new_category_proposal(classifier: Classifier):
     """Tests that 'À Classer' is returned when a new category is proposed."""
     email = Email(msg_id=1, subject="New Cat", sender_address="test@example.com", sender_name="")
@@ -141,6 +145,7 @@ def test_new_category_proposal(classifier: Classifier):
         category = classifier.classify_email(email, body)
         assert category == "À Classer"
         classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
+
 
 def test_model_error(classifier: Classifier):
     """Tests that '(Model Error)' is returned when the LLM call fails."""

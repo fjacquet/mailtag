@@ -1,8 +1,12 @@
-import pytest
 from pathlib import Path
-import tomllib
 
-from mailtag.config import load_config, AppConfig, GeneralConfig, LoggingConfig, PreclassificationConfig
+import pytest
+
+from mailtag.config import (
+    AppConfig,
+    load_config,
+)
+
 
 @pytest.fixture
 def mock_config_file(tmp_path: Path) -> Path:
