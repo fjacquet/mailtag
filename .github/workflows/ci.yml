@@ -1,0 +1,69 @@
+name: CI Tests and Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: create env file
+      run: |
+         touch .env
+         echo BASE_URL=${{ secrets.BASE_URL }} >> .env    
+         echo RAPIDAPI_KEY=${{ secrets.RAPIDAPI_KEY }} >> .env    
+         echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env    
+         echo OPENAI_MODEL_NAME=${{ secrets.OPENAI_MODEL_NAME }} >> .env    
+         echo MAIL=${{ secrets.MAIL }} >> .env    
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install the latest version of uv and activate the environment
+      uses: astral-sh/setup-uv@v6
+      with:
+        activate-environment: true
+        enable-cache: true
+        prune-cache: false
+
+    
+    - name: Install project dependencies with uv
+      run: |
+        uv sync -U
+    
+    - name: Run tests with coverage
+      run: |
+        uv run pytest tests/ --cov=src --cov-report=xml --cov-report=term
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: fjacquet/epic_news
+        fail_ci_if_error: false
+    
+    - name: Run ruff linter
+      run: |
+        uv run ruff check .
+    
+    - name: Run ruff formatter check
+      run: |
+        uv run ruff format --check .

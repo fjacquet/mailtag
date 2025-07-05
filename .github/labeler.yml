@@ -1,0 +1,89 @@
+# .github/labeler.yml
+# This file configures the 'actions/labeler' GitHub Action.
+# It automatically labels PRs based on the paths of files being changed or the branch name.
+
+# -----------------------------------------------------------------------------
+# Labels based on file paths
+# -----------------------------------------------------------------------------
+
+# Label for changes related to documentation.
+# This includes the 'docs' directory and any Markdown files.
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - '**/*.md'
+
+# Label for changes to the core source code.
+source-code:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/**/*'
+
+# Label for changes related to tests.
+tests:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'tests/**/*'
+
+# Label for changes to CI/CD workflows or GitHub-specific configurations.
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**/*'
+
+# Label for changes to dependency management files.
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/pyproject.toml'
+      - '**/requirements.txt'
+      - '**/poetry.lock'
+      - '**/Pipfile'
+
+# Label for changes to configuration files at the root.
+configuration:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '*.yml'
+      - '*.yaml'
+      - '*.toml'
+      - '*.ini'
+      - '.*rc'
+      - '.*.json'
+
+# -----------------------------------------------------------------------------
+# Labels based on branch names
+# -----------------------------------------------------------------------------
+
+# Label for new features.
+feature:
+  - head-branch:
+    - 'feature/*'
+    - 'feat/*'
+
+# Label for bug fixes.
+bug:
+  - head-branch:
+    - 'fix/*'
+    - 'bugfix/*'
+
+# Label for refactoring work that doesn't add features or fix bugs.
+refactor:
+  - head-branch:
+    - 'refactor/*'
+
+# Label for maintenance, chores, or other non-source changes.
+chore:
+  - head-branch:
+    - 'chore/*'
+
+# -----------------------------------------------------------------------------
+# Labels based on the PR's base branch
+# -----------------------------------------------------------------------------
+
+# Label for PRs targeting the 'main' branch, typically releases.
+release:
+ - base-branch:
+   - 'main'
+   - 'master'
