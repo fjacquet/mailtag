@@ -19,6 +19,12 @@ dependencies = [
     "pytest>=8.4.1",
     "streamlit>=1.46.1",
     "loguru>=0.7.2",
+    "faker>=37.4.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.12.2",
+    "pendulum>=3.1.0",
+    "yamlfix>=1.17.0",
 ]
 
 [project.optional-dependencies]
