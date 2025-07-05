@@ -15,8 +15,8 @@ def mail_service() -> MailService:
 def test_get_inbox_emails(mail_service: MailService):
     """Tests fetching emails from the inbox via AppleScript."""
     script_output = """
-123|||Test Subject 1|||Sender One <sender1@example.com>
-456|||Test Subject 2|||sender2@example.com
+123:::Test Subject 1:::Sender One <sender1@example.com>
+456:::Test Subject 2:::sender2@example.com
 """
     with patch("subprocess.run") as mock_run:
         mock_process = MagicMock()
@@ -52,3 +52,21 @@ def test_applescript_error(mail_service: MailService):
         mock_run.side_effect = subprocess.CalledProcessError(1, "osascript", stderr="An error occurred.")
         with pytest.raises(subprocess.CalledProcessError):
             mail_service.get_inbox_emails()
+
+def test_osascript_not_found(mail_service: MailService):
+    """Tests the handling of `osascript` not being found."""
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            mail_service.get_inbox_emails()
+
+def test_email_parsing_error(mail_service: MailService):
+    """Tests that malformed email lines are handled gracefully."""
+    script_output = "this is not a valid email line"
+    with patch("subprocess.run") as mock_run:
+        mock_process = MagicMock()
+        mock_process.stdout = script_output
+        mock_run.return_value = mock_process
+
+        emails = mail_service.get_inbox_emails()
+        assert len(emails) == 0

@@ -1,8 +1,8 @@
 import json
-from pathlib import Path
 from collections import defaultdict
-from xml.etree.ElementTree import Element, SubElement, tostring, register_namespace
+from pathlib import Path
 from xml.dom import minidom
+from xml.etree.ElementTree import Element, SubElement, register_namespace, tostring
 
 
 class FilterGenerator:
@@ -42,11 +42,36 @@ class FilterGenerator:
             title = SubElement(entry, "title")
             title.text = f"MailTag - {most_common_category}"
             
-            SubElement(entry, "{http://schemas.google.com/apps/2006}property", name="from", value=sender)
-            SubElement(entry, "{http://schemas.google.com/apps/2006}property", name="label", value=most_common_category)
-            SubElement(entry, "{http://schemas.google.com/apps/2006}property", name="shouldArchive", value="true")
-            SubElement(entry, "{http://schemas.google.com/apps/2006}property", name="shouldMarkAsRead", value="true")
-            SubElement(entry, "{http://schemas.google.com/apps/2006}property", name="shouldNeverSpam", value="true")
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="from",
+                value=sender,
+            )
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="label",
+                value=most_common_category,
+            )
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="shouldArchive",
+                value="true",
+            )
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="shouldMarkAsRead",
+                value="true",
+            )
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="shouldNeverSpam",
+                value="true",
+            )
 
         # Pretty print the XML
         xml_str = tostring(feed, "utf-8")

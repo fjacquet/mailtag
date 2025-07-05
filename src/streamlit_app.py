@@ -1,6 +1,7 @@
-import streamlit as st
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+import streamlit as st
 
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG

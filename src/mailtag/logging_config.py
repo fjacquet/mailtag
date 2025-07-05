@@ -1,32 +1,31 @@
-import logging
 import sys
-from logging import handlers
+
+from loguru import logger
 
 
 def setup_logging(log_level: str, log_file: str):
-    """Configures the application's logging."""
-    level = getattr(logging, log_level.upper(), logging.INFO)
-
-    # Create a logger
-    logger = logging.getLogger()
-    logger.setLevel(level)
-
-    # Create a formatter
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    """Configures the application's logging using loguru."""
+    logger.remove()  # Remove default handler
+    log_format = (
+        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+        "<level>{message}</level>"
     )
-
-    # Create a console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # Create a file handler
+    logger.add(
+        sys.stderr,
+        level=log_level.upper(),
+        format=log_format,
+        colorize=True,
+    )
     if log_file:
-        file_handler = handlers.RotatingFileHandler(
-            log_file, maxBytes=1024 * 1024, backupCount=5, encoding="utf-8"
+        logger.add(
+            log_file,
+            level=log_level.upper(),
+            rotation="1 MB",
+            retention="5 days",
+            encoding="utf-8",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | "
+            "{name}:{function}:{line} - {message}",
         )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    logging.info(f"Logging initialized with level {log_level}")
+    logger.info(f"Logging initialized with level {log_level}")

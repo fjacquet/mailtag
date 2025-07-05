@@ -1,7 +1,8 @@
 import json
-import logging
 from collections import defaultdict
 from pathlib import Path
+
+from loguru import logger
 
 
 class ClassificationDatabase:
@@ -23,7 +24,7 @@ class ClassificationDatabase:
                     db[sender] = defaultdict(int, cats)
                 return db
         except (json.JSONDecodeError, FileNotFoundError):
-            logging.error(f"Could not read or parse db file at {self.db_path}")
+            logger.error(f"Could not read or parse db file at {self.db_path}")
             return defaultdict(lambda: defaultdict(int))
 
     def _save(self):

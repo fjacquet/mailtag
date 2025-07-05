@@ -522,4 +522,34 @@
         <apps:property name='shouldMarkAsRead' value='true'></apps:property>
         <apps:property name='shouldNeverSpam' value='true'></apps:property>
     </entry>
+    <entry>
+        <category term='filter'></category>
+        <title>System Notifications/Backups</title>
+        <apps:property name='from' value='fred.jacquet@gmail.com'></apps:property>
+        <apps:property name='subject' value='OpenStack Swift cloud backup - OpenStack Swift 1 successful on ds923fj'></apps:property>
+        <apps:property name='label' value='System Notifications/Backups'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+    <entry>
+        <category term='filter'></category>
+        <title>System Notifications/Backups</title>
+        <apps:property name='from' value='fred.jacquet@gmail.com'></apps:property>
+        <apps:property name='subject' value='Monthly Drive Health Report on ds923fj - Healthy'></apps:property>
+        <apps:property name='label' value='System Notifications/Backups'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
+    <entry>
+        <category term='filter'></category>
+        <title>Technology Reports</title>
+        <apps:property name='from' value='fred.jacquet@gmail.com'></apps:property>
+        <apps:property name='subject' value='New on'></apps:property>
+        <apps:property name='label' value='Technology Reports'></apps:property>
+        <apps:property name='shouldArchive' value='true'></apps:property>
+        <apps:property name='shouldMarkAsRead' value='true'></apps:property>
+        <apps:property name='shouldNeverSpam' value='true'></apps:property>
+    </entry>
 </feed>

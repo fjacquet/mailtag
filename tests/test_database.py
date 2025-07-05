@@ -47,3 +47,10 @@ def test_update_db(mock_db_path: MagicMock):
 
         # Check that save was called twice
         assert m.call_count == 2
+
+def test_load_db_corrupted_file(mock_db_path: MagicMock):
+    """Tests that an empty db is created when the file is corrupted."""
+    mock_db_path.exists.return_value = True
+    with patch.object(mock_db_path, "open", mock_open(read_data="invalid json")):
+        db = ClassificationDatabase(db_path=mock_db_path)
+        assert db.sender_db == defaultdict(lambda: defaultdict(int))

@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Main entry point for the mailtag email classification script.
 """
 
-import logging
 import argparse
 from pathlib import Path
+
+from loguru import logger
 
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
 from mailtag.database import ClassificationDatabase
+from mailtag.filter_generator import FilterGenerator
 from mailtag.logging_config import setup_logging
 from mailtag.mail_service import MailService
-from mailtag.filter_generator import FilterGenerator
 
 
 def run_classification():
@@ -25,27 +25,30 @@ def run_classification():
         mail_service = MailService()
         classifier = Classifier(CONFIG, database)
     except FileNotFoundError as e:
-        logging.critical(e)
+        logger.critical(e)
         return
 
     emails = mail_service.get_inbox_emails()
     if not emails:
-        logging.info("No emails found in the inbox.")
+        logger.info("No emails found in the inbox.")
         return
 
-    logging.info(f"Found {len(emails)} emails. Starting analysis...")
+    logger.info(f"Found {len(emails)} emails. Starting analysis...")
 
     for email in emails:
-        body = mail_service.get_email_body(email)
-        category = classifier.classify_email(email, body)
-        logging.info(
-            'Email "%s" from %s -> Category: %s',
-            email.subject,
-            email.sender_address,
-            category,
-        )
+        try:
+            body = mail_service.get_email_body(email)
+            category = classifier.classify_email(email, body)
+            logger.info(
+                'Email "%s" from %s -> Category: %s',
+                email.subject,
+                email.sender_address,
+                category,
+            )
+        except Exception as e:
+            logger.error(f"Could not process email {email.msg_id}: {e}")
 
-    logging.info("Analysis complete.")
+    logger.info("Analysis complete.")
 
 
 def generate_filters():
@@ -54,7 +57,7 @@ def generate_filters():
     output_path = Path("data/mailfilter.xml")
     generator = FilterGenerator(db_path, output_path)
     generator.generate_filters()
-    logging.info(f"Filters generated at {output_path}")
+    logger.info(f"Filters generated at {output_path}")
 
 
 def main():

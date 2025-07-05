@@ -110,3 +110,45 @@ def test_preclassification_failure_min_count(classifier: Classifier, mock_db: Ma
         mock_completion.assert_called_once()
         mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
 
+def test_uncertain_classification(classifier: Classifier):
+    """Tests that 'À Classer' is returned for uncertain classifications."""
+    email = Email(msg_id=1, subject="Uncertain", sender_address="test@example.com", sender_name="")
+    body = "This is an uncertain email."
+
+    with patch("litellm.completion") as mock_completion:
+        mock_choice = MagicMock()
+        mock_choice.message.content = "UNCERTAIN: New Category"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_completion.return_value = mock_response
+
+        category = classifier.classify_email(email, body)
+        assert category == "À Classer"
+        classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
+
+def test_new_category_proposal(classifier: Classifier):
+    """Tests that 'À Classer' is returned when a new category is proposed."""
+    email = Email(msg_id=1, subject="New Cat", sender_address="test@example.com", sender_name="")
+    body = "This email suggests a new category."
+
+    with patch("litellm.completion") as mock_completion:
+        mock_choice = MagicMock()
+        mock_choice.message.content = "New/Category"
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_completion.return_value = mock_response
+
+        category = classifier.classify_email(email, body)
+        assert category == "À Classer"
+        classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
+
+def test_model_error(classifier: Classifier):
+    """Tests that '(Model Error)' is returned when the LLM call fails."""
+    email = Email(msg_id=1, subject="Error", sender_address="test@example.com", sender_name="")
+    body = "This email will cause an error."
+
+    with patch("litellm.completion") as mock_completion:
+        mock_completion.side_effect = Exception("Test error")
+
+        category = classifier.classify_email(email, body)
+        assert category == "(Model Error)"

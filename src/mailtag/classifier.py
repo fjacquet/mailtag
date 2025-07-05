@@ -1,12 +1,12 @@
-import logging
-import yaml
 from pathlib import Path
 
 import litellm
+import yaml
+from loguru import logger
 
-from .models import Email
-from .database import ClassificationDatabase
 from .config import AppConfig
+from .database import ClassificationDatabase
+from .models import Email
 
 
 class Classifier:
@@ -24,7 +24,7 @@ class Classifier:
         """Loads classification categories from the YAML file."""
         schema_path = Path("data/classification_schema.yml")
         if not schema_path.exists():
-            logging.error(f"Classification schema not found at {schema_path}")
+            logger.error(f"Classification schema not found at {schema_path}")
             return []
         with schema_path.open("r", encoding="utf-8") as f:
             schema = yaml.safe_load(f)
@@ -54,11 +54,13 @@ class Classifier:
         if total_count < self.config.preclassification.min_count:
             return None
 
-        most_common_category = max(sender_classifications, key=sender_classifications.get)
+        most_common_category = max(
+            sender_classifications, key=sender_classifications.get
+        )
         confidence = sender_classifications[most_common_category] / total_count
 
         if confidence >= self.config.preclassification.confidence_threshold:
-            logging.info(
+            logger.info(
                 f"Pre-classifying sender {sender_address} as "
                 f"{most_common_category} with {confidence:.2f} confidence."
             )
@@ -86,8 +88,11 @@ class Classifier:
             f"Corps : {body}\n\n"
             "Classe cet e-mail dans l'une des catégories suivantes:\n"
             f"{category_list}\n\n"
-            "Réponds uniquement avec le nom complet de la catégorie (ex: Finances/Bloomberg).\n"
-            "Si aucune catégorie ne correspond parfaitement, réponds avec 'UNCERTAIN' suivi de la catégorie la plus proche ou d'une nouvelle suggestion de catégorie."
+            "Réponds uniquement avec le nom complet de la catégorie "
+            "(ex: Finances/Bloomberg).\n"
+            "Si aucune catégorie ne correspond parfaitement, "
+            "réponds avec 'UNCERTAIN' suivi de la catégorie la plus "
+            "proche ou d'une nouvelle suggestion de catégorie."
         )
         try:
             response = litellm.completion(
@@ -110,7 +115,7 @@ class Classifier:
             self.database.update(email.sender_address, classification)
             return classification
         except Exception as e:
-            logging.error(f"Error calling litellm: {e}")
+            logger.error(f"Error calling litellm: {e}")
             return "(Model Error)"
 
     def _log_proposal(self, email: Email, body: str, proposal: str):
@@ -126,4 +131,3 @@ class Classifier:
             f.write(f"Subject: {email.subject}\n")
             f.write(f"Proposed Category: {proposal}\n")
             f.write(f"Body:\n{body}\n\n")
-

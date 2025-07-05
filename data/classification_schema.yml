@@ -1,5 +1,5 @@
+---
 # This file defines the hierarchical classification schema for emails.
-
 - name: À Traiter
 - name: À Classer
 - name: Finances
