@@ -65,7 +65,5 @@ except RuntimeError as e:
             api_base="http://localhost:11434",
         ),
         logging=LoggingConfig(level="INFO", file="mailtag.log"),
-        preclassification=PreclassificationConfig(
-            enabled=True, min_count=3, confidence_threshold=0.8
-        ),
+        preclassification=PreclassificationConfig(enabled=True, min_count=3, confidence_threshold=0.8),
     )

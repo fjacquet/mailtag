@@ -14,7 +14,6 @@ class FilterGenerator:
         self.sender_db = self._load_database()
         register_namespace("apps", "http://schemas.google.com/apps/2006")
 
-
     def _load_database(self) -> defaultdict:
         """Loads the sender classification database from a JSON file."""
         if not self.db_path.exists():
@@ -41,7 +40,7 @@ class FilterGenerator:
             SubElement(entry, "category", term="filter")
             title = SubElement(entry, "title")
             title.text = f"MailTag - {most_common_category}"
-            
+
             SubElement(
                 entry,
                 "{http://schemas.google.com/apps/2006}property",

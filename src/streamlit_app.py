@@ -67,7 +67,7 @@ def run_classification():
         # Update progress bar
         progress_text = f"Processing email {i + 1}/{total_emails}: {email.subject}"
         progress_bar.progress((i + 1) / total_emails, text=progress_text)
-        
+
         # Yield for real-time display
         yield
 
@@ -87,20 +87,16 @@ with col1:
     )
 
 with col2:
-    stop_button = st.button(
-        "Stop", disabled=not st.session_state.is_running, use_container_width=True
-    )
+    stop_button = st.button("Stop", disabled=not st.session_state.is_running, use_container_width=True)
 
 if start_button:
     st.session_state.results = []
     placeholder = st.empty()
-    
+
     # This will consume the generator and update the UI
     for _ in run_classification():
         with placeholder.container():
-            st.dataframe(
-                pd.DataFrame(st.session_state.results), use_container_width=True
-            )
+            st.dataframe(pd.DataFrame(st.session_state.results), use_container_width=True)
 
 if stop_button:
     st.session_state.is_running = False
