@@ -2,22 +2,24 @@
 
 MailTag is a Python script that classifies emails from Apple Mail using a local AI model (via Ollama). It is designed to be extensible, allowing you to define your own classification schema and improve the classification over time.
 
+[![CI Tests and Checks](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml)
+
 ## How It Works
 
 The `src/main.py` script performs the following steps:
 
-1.  **Loads Configuration**: It reads the `config.toml` file to get the necessary settings.
-2.  **Finds the Mail Database**: It locates the `Envelope Index` SQLite database used by Apple Mail.
-3.  **Copies the Database**: To avoid locking issues, it creates a temporary copy of the database.
-4.  **Fetches Emails**: It queries the database to get all emails from the inbox.
-5.  **Indexes Email Files**: It builds an index of all `.emlx` files to quickly find the content of each email.
-6.  **Classifies Emails**: For each email, it:
+1. **Loads Configuration**: It reads the `config.toml` file to get the necessary settings.
+2. **Finds the Mail Database**: It locates the `Envelope Index` SQLite database used by Apple Mail.
+3. **Copies the Database**: To avoid locking issues, it creates a temporary copy of the database.
+4. **Fetches Emails**: It queries the database to get all emails from the inbox.
+5. **Indexes Email Files**: It builds an index of all `.emlx` files to quickly find the content of each email.
+6. **Classifies Emails**: For each email, it:
     - Finds the corresponding `.emlx` file.
     - Extracts the body of the email.
     - Uses the configured Ollama model to classify the email into a category.
-7.  **Updates Database**: It updates the `sender_classification_db.json` file with the classification for each sender.
-8.  **Logs Proposals**: If the classifier is uncertain about a classification, it logs a proposal to the `proposals.log` file.
-9.  **Outputs the Results**: It prints the subject, sender, and predicted category for each email.
+7. **Updates Database**: It updates the `sender_classification_db.json` file with the classification for each sender.
+8. **Logs Proposals**: If the classifier is uncertain about a classification, it logs a proposal to the `proposals.log` file.
+9. **Outputs the Results**: It prints the subject, sender, and predicted category for each email.
 
 ## Prerequisites
 
@@ -30,26 +32,34 @@ The `src/main.py` script performs the following steps:
 
 ### Command-Line Interface
 
-1.  Install the dependencies:
+1. Install the dependencies:
+
     ```bash
     uv pip install -e ".[dev]"
     ```
-2.  Run the classification script:
+
+2. Run the classification script:
+
     ```bash
     python src/main.py
     ```
-3.  Generate the mail filters:
+
+3. Generate the mail filters:
+
     ```bash
     python src/main.py --generate-filters
     ```
 
 ### Web Interface
 
-1.  Install the dependencies (if you haven't already):
+1. Install the dependencies (if you haven't already):
+
     ```bash
     uv pip install -e ".[dev]"
     ```
-2.  Run the Streamlit app:
+
+2. Run the Streamlit app:
+
     ```bash
     streamlit run src/streamlit_app.py
     ```
