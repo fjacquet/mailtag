@@ -1,4 +1,5 @@
 import base64
+from contextlib import contextmanager
 from email import utils as email_utils
 
 from loguru import logger
@@ -17,12 +18,26 @@ class GmailService(EmailProvider):
         self.service = None
         self._label_cache = {}
 
+    @contextmanager
     def connect(self):
-        """Connects to the Gmail API and caches labels."""
-        self.service = get_gmail_service(self.config.credentials_file, self.config.token_file)
-        if self.service:
-            logger.info("Successfully connected to Gmail API.")
-            self._cache_labels()
+        """
+        Connects to the Gmail API and yields the service as a context manager.
+        """
+        try:
+            self.service = get_gmail_service(self.config.credentials_file, self.config.token_file)
+            if self.service:
+                logger.info("Successfully connected to Gmail API.")
+                self._cache_labels()
+                yield self
+            else:
+                raise ConnectionError("Failed to get Gmail service.")
+        except Exception as e:
+            logger.error(f"Failed to connect to Gmail API: {e}")
+            raise ConnectionError(f"Gmail connection failed: {e}") from e
+        finally:
+            # The Gmail API client doesn't have an explicit disconnect/logout method
+            # as it's based on HTTP requests with tokens.
+            logger.info("Gmail service context exited.")
 
     def _cache_labels(self):
         """Caches all available user labels for quick lookup."""

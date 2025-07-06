@@ -23,40 +23,42 @@ PROVIDER_CLASSES = {
 }
 
 
-def run_classification(args, provider):
-    """Runs the email classification process."""
+def run_classification(args, provider_instance):
+    """Runs the email classification process using a given provider instance."""
     try:
         db_path = Path("db/sender_classification_db.json")
         database = ClassificationDatabase(db_path)
         classifier = Classifier(CONFIG, database)
-    except FileNotFoundError as e:
+
+        with provider_instance.connect() as provider:
+            emails = provider.get_emails(
+                subject=args.subject,
+                sender=args.sender,
+                status=args.status,
+            )
+
+            if not emails:
+                logger.info("No emails found matching the criteria.")
+                return
+
+            logger.info(f"Found {len(emails)} emails. Starting analysis...")
+
+            for email in emails:
+                try:
+                    category = classifier.classify_email(email)
+                    logger.info(
+                        f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
+                    )
+                    if not args.validate and category not in ["Unclassified", "À Classer"]:
+                        provider.move_email(email, category)
+                except Exception as e:
+                    logger.error(f"Could not process email {email.msg_id}: {e}")
+
+            logger.info("Analysis complete.")
+
+    except (FileNotFoundError, ConnectionError) as e:
         logger.critical(e)
         return
-
-    provider.connect()
-
-    emails = provider.get_emails(
-        subject=args.subject,
-        sender=args.sender,
-        status=args.status,
-    )
-
-    if not emails:
-        logger.info("No emails found matching the criteria.")
-        return
-
-    logger.info(f"Found {len(emails)} emails. Starting analysis...")
-
-    for email in emails:
-        try:
-            category = classifier.classify_email(email)
-            logger.info(f'Email "{email.subject}" from {email.sender_address} -> Category: {category}')
-            if not args.validate and category not in ["Unclassified", "À Classer"]:
-                provider.move_email(email, category)
-        except Exception as e:
-            logger.error(f"Could not process email {email.msg_id}: {e}")
-
-    logger.info("Analysis complete.")
 
 
 def generate_filters():

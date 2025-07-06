@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-from pytest_mock import MockerFixture
 
 from mailtag.config import (
     AppConfig,
@@ -20,6 +19,11 @@ api_base = "http://test-host:1234"
 [logging]
 level = "WARNING"
 file = "/test/log.file"
+
+[classifier]
+ai_confidence_threshold = 0.7
+historical_confidence_threshold = 0.9
+min_count = 3
 
 [preclassification]
 enabled = false
@@ -46,7 +50,7 @@ def test_load_config_success(mock_config_file: Path):
     assert isinstance(config, AppConfig)
     assert config.general.ollama_model == "test-model"
     assert config.logging.level == "WARNING"
-    assert not config.preclassification.enabled
+    assert config.classifier.ai_confidence_threshold == 0.7
     assert config.imap.host == "imap.test.com"
     assert config.gmail.credentials_file == "creds.json"
 

@@ -1,7 +1,7 @@
 import email
 import imaplib
 import re
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 
 from bs4 import BeautifulSoup
 from loguru import logger
@@ -22,21 +22,41 @@ class ImapService(EmailProvider):
         """Checks if the mail client is connected."""
         return self.mail is not None
 
+    @contextmanager
     def connect(self):
-        """Connects to the IMAP server."""
+        """
+        Connects to the IMAP server and yields the connection as a context manager.
+        Ensures disconnection on exit.
+        """
         try:
             self.mail = imaplib.IMAP4_SSL(self.config.host)
             self.mail.login(self.config.user, self.config.password)
             logger.info(f"Successfully connected to IMAP server: {self.config.host}")
+            yield self
         except imaplib.IMAP4.error as e:
             logger.error(f"Failed to connect to IMAP server: {e}")
             self.mail = None
+            # Re-raise the exception to be handled by the caller
+            raise ConnectionError(f"IMAP connection failed: {e}") from e
+        finally:
+            if self.mail:
+                self.mail.logout()
+                logger.info("Disconnected from IMAP server.")
 
-    def disconnect(self):
-        """Closes the connection to the IMAP server."""
-        if self.mail:
-            self.mail.logout()
-            logger.info("Disconnected from IMAP server.")
+    @contextmanager
+    def _readonly_inbox(self):
+        """A context manager to safely select and operate on the inbox in read-only mode."""
+        if not self.mail:
+            raise ConnectionError("Not connected to IMAP server.")
+        try:
+            select_status, _ = self.mail.select("inbox", readonly=True)
+            if select_status != "OK":
+                raise imaplib.IMAP4.error("Failed to select inbox.")
+            yield
+        finally:
+            # Ensure the inbox is always returned to a read-write state
+            if self.mail:
+                self.mail.select("inbox", readonly=False)
 
     def get_emails(
         self,
@@ -48,79 +68,61 @@ class ImapService(EmailProvider):
         Fetches emails from the Inbox, including their body and labels,
         without marking them as read.
         """
-        if not self.is_connected():
+        if not self.mail:
             raise ConnectionError("Not connected to IMAP server.")
 
-        try:
-            # Select in read-only mode to prevent marking emails as read
-            select_status, _ = self.mail.select("inbox", readonly=True)
-            if select_status != "OK":
-                logger.error("Failed to select inbox.")
-                return []
-        except imaplib.IMAP4.error as e:
-            logger.error(f"Failed to select inbox: {e}")
-            return []
-
-        search_criteria = ["ALL"]
-        if subject:
-            search_criteria.append(f'(HEADER Subject "{subject}")')
-        if sender:
-            search_criteria.append(f'(HEADER From "{sender}")')
-        if status:
-            search_criteria.append(status)
-
-        typ, messages = self.mail.search(None, *search_criteria)
-        if typ != "OK":
-            logger.error("Failed to search for emails.")
-            # Ensure we leave the mailbox in a read-write state
-            self.mail.select("inbox", readonly=False)
-            return []
-
         emails = []
-        for num in messages[0].split():
-            try:
-                # Use BODY.PEEK to fetch content without setting the \Seen flag.
-                # Also fetch X-GM-LABELS for Gmail-specific labels via IMAP.
-                typ, data = self.mail.fetch(num, "(BODY.PEEK[] X-GM-LABELS)")
-                if typ != "OK":
-                    logger.warning(f"Failed to fetch email with UID: {num}")
-                    continue
+        with self._readonly_inbox():
+            search_criteria = ["ALL"]
+            if subject:
+                search_criteria.append(f'(HEADER Subject "{subject}")')
+            if sender:
+                search_criteria.append(f'(HEADER From "{sender}")')
+            if status:
+                search_criteria.append(status)
 
-                raw_email = data[0][1]
-                msg = email.message_from_bytes(raw_email)
+            typ, messages = self.mail.search(None, *search_criteria)
+            if typ != "OK":
+                logger.error("Failed to search for emails.")
+                return []
 
-                # Extract labels from the second part of the fetch data
-                labels = []
-                if len(data) > 1 and isinstance(data[1], bytes):
-                    labels_raw = data[1].decode("utf-8", "ignore")
-                    if "X-GM-LABELS" in labels_raw:
-                        match = re.search(r"\((.*?)\)", labels_raw)
-                        if match:
-                            # This regex handles both quoted and unquoted labels
-                            label_parts = re.findall(r'"([^"]*)"|(\S+)', match.group(1))
-                            labels = [p[0] or p[1] for p in label_parts if not p[1].startswith("\\")]
+            for num in messages[0].split():
+                try:
+                    typ, data = self.mail.fetch(num, "(BODY.PEEK[] X-GM-LABELS)")
+                    if typ != "OK":
+                        logger.warning(f"Failed to fetch email with UID: {num}")
+                        continue
 
-                sender_header = msg["From"]
-                subject_header = msg["Subject"]
-                sender_name, sender_address = self._parse_sender(sender_header)
-                body = self._get_body_from_msg(msg)
+                    raw_email = data[0][1]
+                    msg = email.message_from_bytes(raw_email)
 
-                emails.append(
-                    Email(
-                        msg_id=num.decode(),
-                        subject=str(subject_header),
-                        sender_address=sender_address,
-                        sender_name=sender_name,
-                        body=body,
-                        labels=labels,
+                    labels = []
+                    if len(data) > 1 and isinstance(data[1], bytes):
+                        labels_raw = data[1].decode("utf-8", "ignore")
+                        if "X-GM-LABELS" in labels_raw:
+                            match = re.search(r"\((.*?)\)", labels_raw)
+                            if match:
+                                label_parts = re.findall(r'"([^"]*)"|(\S+)', match.group(1))
+                                labels = [p[0] or p[1] for p in label_parts if not p[1].startswith("\\")]
+
+                    sender_header = msg["From"]
+                    subject_header = msg["Subject"]
+                    sender_name, sender_address = self._parse_sender(sender_header)
+                    body = self._get_body_from_msg(msg)
+
+                    emails.append(
+                        Email(
+                            msg_id=num.decode(),
+                            subject=str(subject_header),
+                            sender_address=sender_address,
+                            sender_name=sender_name,
+                            body=body,
+                            labels=labels,
+                        )
                     )
-                )
-            except Exception as e:
-                logger.warning(f"Failed to process email with UID: {num} - {e}")
-                continue
-
-        # Crucially, re-select the inbox in read-write mode to allow subsequent operations
-        self.mail.select("inbox", readonly=False)
+                except Exception as e:
+                    logger.warning(f"Failed to process email with UID: {num} - {e}")
+                    continue
         return emails
 
     def _get_body_from_msg(self, msg: email.message.Message) -> str:
@@ -163,18 +165,12 @@ class ImapService(EmailProvider):
 
     def move_email(self, email_model: Email, destination: str):
         """Moves an email to a new destination."""
-        if not self.is_connected():
+        if not self.mail:
             raise ConnectionError("Not connected to IMAP server.")
 
-        try:
-            # Ensure the destination mailbox exists
+        # Use suppress to ignore the "mailbox already exists" error.
+        with suppress(imaplib.IMAP4.error):
             self.mail.create(destination)
-        except imaplib.IMAP4.error as e:
-            # If the mailbox already exists, the server will return an error.
-            # We can safely ignore it and proceed.
-            if "ALREADYEXISTS" not in str(e):
-                # However, if it's a different error, we should raise it.
-                raise
 
         try:
             self.mail.copy(email_model.msg_id.encode(), destination)

@@ -34,7 +34,7 @@ This phase focuses on implementing the new Adaptive Multi-Signal Classification 
   - Update tests to mock and test the new `get_emails` implementation and label caching.
 - [x] **`tests/` - Update Application Tests:**
   - Update tests for `app.py` (or `main.py`) to cover the `--validate` argument and its behavior.
-- [ ] **Quality Checks:**
+- [x] **Quality Checks:**
   - Run `uv run yamlfix .` to fix YAML file formatting.
   - Run `uv run ruff check --fix .` to ensure code quality and style.
 

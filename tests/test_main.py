@@ -56,6 +56,7 @@ class TestMain:
         mocker.patch("app.ClassificationDatabase")
         mock_classifier = mocker.patch("app.Classifier")
         mock_provider = mocker.MagicMock()
+        mock_provider.connect.return_value.__enter__.return_value = mock_provider
         mock_provider.get_emails.return_value = [mocker.MagicMock(msg_id="1")]
         mock_classifier.return_value.classify_email.return_value = "TestCategory"
 
