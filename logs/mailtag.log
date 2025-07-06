@@ -1,8 +1,878 @@
-2025-07-06 21:48:23 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
-2025-07-06 21:48:23 | ERROR    | mailtag.database:_load:29 - Could not read or parse db file at db/sender_classification_db.json
-2025-07-06 21:48:23 | ERROR    | mailtag.database:_load:29 - Could not read or parse db file at db/validated_classification_db.json
-2025-07-06 21:48:23 | INFO     | __main__:run:161 - Running classification for provider: ImapService
-2025-07-06 21:48:24 | INFO     | mailtag.imap_service:connect:39 - Successfully connected to IMAP server: mail.infomaniak.com
-2025-07-06 21:48:24 | INFO     | __main__:run_classification:34 - Starting Fast Parse classification for IMAP...
-2025-07-06 21:48:25 | INFO     | __main__:run_classification:58 - Pass 1 complete. 0 emails moved.
-2025-07-06 21:48:25 | INFO     | __main__:run_classification:61 - Starting Pass 2: AI classification...
+2025-07-06 22:23:50 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2025-07-06 22:23:50 | ERROR    | mailtag.database:_load:29 - Could not read or parse db file at db/sender_classification_db.json
+2025-07-06 22:23:50 | INFO     | __main__:run:162 - Running classification for provider: ImapService
+2025-07-06 22:23:50 | INFO     | mailtag.imap_service:connect:39 - Successfully connected to IMAP server: mail.infomaniak.com
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:34 - Starting Fast Parse classification for IMAP...
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "2 new job offers found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is down 4.4% to $50.64 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RWFybiDigqw3MCBmb3IgZWFjaCBmcmllbmQgdGhhdCBzaWducyB1?=
+	=?utf-8?B?cCB0byBSZXZvbHV0IPCfkrAg?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?Q?La_Grande_=C3=A9vasion_du_jeudi_27=C2=A0mars_2025?=" from newsletter@lenouvelliste.ch -> Category: Informations/Nouvelliste (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Embracing Data Portability: The Key to Resilience" from newsletters-noreply@linkedin.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RmFpdGVzIGRlIHZvdHJlIGludMOpcmk=?=
+ =?utf-8?B?ZXVyIHVuIGVzcGFjZSB2cmFpbWVudA==?=
+ =?utf-8?B?IHNww6ljaWFsISDwn5Sl?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?U8OpaXNtZSBlbiBBc2llIGR1IFN1ZC1Fc3Qg4oCTIExlcyBlbmZh?=
+ =?UTF-8?B?bnRzIGVuIGTDqXRyZXNzZQ==?=" from newsletter@email.unicef.ch -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm90cmUgZW5yZWdpc3RyZW1lbnQgZW4gbGlnbmUgw6AgUmFkaXNzb24gQmx1IEhvdGVsLCBMdWNlcm5lIGVzdCBtYWludGVuYW50IGRpc3BvbmlibGUgIQ==?=" from noreply@email.radissonhotels.com -> Category: Voyages/Radisson Blu (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] Container n8n-postgres-1 in Container Manager
+ stopped unexpectedly" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?Q?FACTURE_ADH5A05509_de_la_r=C3=A9servation_39NXKC8V?=" from <info.lucerne@radissonblu.com> -> Category: Voyages/Radisson Blu (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm9pY2kgdm90cmUgcsOpY2FwaXR1bGF0aWYgUmV2UG9pbnRzIG1l?=
+	=?utf-8?B?bnN1ZWzCoPCflJQ=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Cisco Insider Advocates: See what you've missed!" from insideradvocates@cisco.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?Q?V13_=F0=9F=A4=9D_VeeamON_Online?=" from veeam_team@veeam.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+TuCBPYnRlbmV6IEx1bWluYXIgTW9iaWxlIMOgIHZpZSwgYXZl?=
+	=?utf-8?B?YyAyMCAlIGRlIHLDqWR1Y3Rpb24=?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?RnJlZGVyaWMsIFByw6ljb21tYW5kZXogbGVzIHByb2NoYWluZXMgc29ydGllcyBNRUlBTiA6IFRoZSBOZXcgR2F0ZSwgRmFpbHVyZSBGcmFtZSwgVGVuUHVydSwgTG9uZXIgTGlmZSBpbiBBbm90aGVyIFdvcmxkLi4u?=" from noreply@anime-store.fr -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is up 2.53% to $45.39 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Thanks for backing Feedly" from pro@feedly.com -> Category: Services/Feedly (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Q29kZTogQkxPT00xNUNILCBhY2N1ZQ==?=
+ =?utf-8?B?aWxsZXogbGUgcHJpbnRlbXBzIGVuIA==?=
+ =?utf-8?B?YmVhdXTDqSE=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Best Practices for Cloud Detection & Response" from newsletters-noreply@linkedin.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 2.76% to $145.86 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is down 11.22% to $40.85 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "New invoice" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?SnVzcXUnw6AgMjAlIGRlIHLDqWR1Y3Rp?=
+ =?utf-8?B?b24gZGUgUMOicXVlcyogcG91ciB2b3Q=?=
+ =?utf-8?B?cmUgbmlkIPCfkKM=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "NetApp Inc is down 6.15% to $76.10 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 5.37% to $154.14 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UGx1cyBxdWUgN8Kgam91cnMgcG91ciBnYWduZXIgNzDCoOKCrMKg?=
+	=?utf-8?B?8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is down 2.09% to $124.50 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UG91ciBsZXMgbm9jdGFtYnVsZXM6IA==?=
+ =?utf-8?B?MzAlIGRlIHJlbWlzZSBzcMOpY2lhbGU=?=
+ =?utf-8?B?Kg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 12.2% to $139.69 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?QW1pcyBldCBmYW1pbGxlIHBldXZlbnQgZW52b3llciBkZXMgZm9u?=
+	=?utf-8?B?ZHMgZGlyZWN0ZW1lbnQgw6AgVG9iaWFzwqDwn5Kq?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] Container n8n-n8n-1 in Container Manager stopped unexpectedly" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] Container n8n-postgres-1 in Container Manager
+ stopped unexpectedly" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is down 6.94% to $172.30 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?RnJlZGVyaWMsIFByw6ljb21tYW5kZXogbGVzIHByb2NoYWluZXMgc29ydGllcyBNRUlBTiA6IEtpbmdkb20gRGVsdXhlIEVkaXRpb24sIFNpc3RlciBhbmQgR2lhbnQsIElET0x4SURPTCBTdG9yeSEuLi4=?=" from noreply@anime-store.fr -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "11th April 2025 Azure Weekly Update" from newsletters-noreply@linkedin.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Google Cloud CEO Thomas Kurian On Agentic AI's Starring Role" from newsletters-noreply@linkedin.com -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 3.79% to $81.93 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TWFpbnRlbmFudCBqdXNxdeKAmcOgIDIwJQ==?=
+ =?utf-8?B?IGRlIHJhYmFpcyDwn5CjKg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGl0ZXMgYXUgcmV2b2lyIGF1IFdpLUZpIHB1YmxpYyBhdmVjIG5v?=
+	=?utf-8?B?cyBmb3JmYWl0cyBkZSBkb25uw6llc8Kg8J+Ttg==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 3.98% to $85.19 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgcmVsZXbDqSBlc3QgcHLDqnTCoOKchQ==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is down 2.49% to $83.36 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?R2FnbmV6IDcwwqDigqwgcG91ciBjaGFxdWUgYW1pIHF1aSBzJ2lu?=
+	=?utf-8?B?c2NyaXQgw6AgUmV2b2x1dMKg8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RnJlZGVyaWMsIHZvdHJlIFNww6ljaWE=?=
+ =?utf-8?B?bCBQw6JxdWVzOiAyNSUgc3VyIFRPVVM=?=
+ =?utf-8?B?IGxlcyBsaXZyZXMgcGhvdG8g8J+kkSo=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?Q?La_Grande_=C3=A9vasion_du_jeudi_17_avril?=" from newsletter@lenouvelliste.ch -> Category: Informations/Nouvelliste (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is up 2.81% to $35.11 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Q29ubmV4aW9uIHN1ciB1biBub3V2ZWwgYXBwYXJlaWzCoPCflJQ=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TmV3IGRldmljZSBsb2dpbiDwn5SU?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+ToiBEZXJuacOocmUgY2hhbmNlIDogMjU=?=
+ =?utf-8?B?JSBzdXIgVE9VUyBsZXMgbGl2cmVzIA==?=
+ =?utf-8?B?cGhvdG8qIQ==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is down 2.84% to $82.39 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?SGFwcHkgSG91ciDwn6SRIDIwJSBkZSByYQ==?=
+ =?utf-8?B?YmFpcyBzdXIgVE9VUyBsZXMgcHJvZA==?=
+ =?utf-8?B?dWl0cyBwaG90byo=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 3.6% to $127.24 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 4.32% to $176.91 USD today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvel avis" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGl0ZXMgYXUgcmV2b2lyIGF1IFdpLUZpIHB1YmxpYyBhdmVjIG5v?=
+	=?utf-8?B?cyBmb3JmYWl0cyBkZSBkb25uw6llc8Kg8J+Ttg==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?Q?La_Grande_=C3=A9vasion_du_jeudi_24_avril_2025?=" from newsletter@lenouvelliste.ch -> Category: Informations/Nouvelliste (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 6.35% to $188.15 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+SkCBGcmVkZXJpYzogSnVzcXXigJnDoCAyMA==?=
+ =?utf-8?B?JSBkZSByYWJhaXMgcG91ciB2b3RyZQ==?=
+ =?utf-8?B?IG1hbWFuKg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 2.21% to $192.31 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm91cyBhdmV6IHJlw6d1IHVuIG1lc3NhZ2UgcGVyc29ubmVsIGR1?=
+	=?UTF-8?B?IENyw6lkaXQgQWdyaWNvbGU=?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pay your taxes in a few taps" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UGx1cyBxdWUgN8Kgam91cnMgcG91ciBnYWduZXIgNzDCoOKCrMKg?=
+	=?utf-8?B?8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Q29kZTogWDJCTE9PTUNILCBhY2N1ZQ==?=
+ =?utf-8?B?aWxsZXogbGUgcHJpbnRlbXBzIGVuIA==?=
+ =?utf-8?B?YmVhdXTDqSE=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "NetApp Inc is up 2.15% to $89.75 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is up 2.42% to $46.46 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGl0ZXMgT1VJIMOgIDI1JSBkZSByYWI=?=
+ =?utf-8?B?YWlzIHN1ciB0b3VzIGxlcyBwcm9kdQ==?=
+ =?utf-8?B?aXRzIHBob3RvKiDinaTvuI/igI3wn5Sl?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is up 2.97% to $47.84 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TCdvZmZyZSBzdXIgbGUgbG90ICJFZmZldHMgU3DDqWNpYXV4IiBz?=
+	=?utf-8?B?ZSB0ZXJtaW5lIGRhbnMgNDggaGV1cmVz8J+aqA==?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TmV3IGRldmljZSBsb2dpbiDwn5SU?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is down 2.79% to $33.76 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UG91ciBsZXMgbm9jdGFtYnVsZXM6IA==?=
+ =?utf-8?B?MzAlIGRlIHJlbWlzZSBzcMOpY2lhbGU=?=
+ =?utf-8?B?Kg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 2.36% to $204.81 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?R2FnbmV6IDcwwqDigqwgcG91ciBjaGFxdWUgYW1pIHF1aSBzJ2lu?=
+	=?utf-8?B?c2NyaXQgw6AgUmV2b2x1dMKg8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is up 2.45% to $34.32 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm9pY2kgdm90cmUgMsOobWUgY2hhbmM=?=
+ =?utf-8?B?ZSDwn5mP?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:50 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?QXBwcmVuZXogbGUgSERSIGV0IGxhIHJldG91Y2hlIHBob3RvIGRl?=
+	=?utf-8?B?IHBheXNhZ2VzIGF2ZWMgSmltIE5peCDwn46v?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 6.43% to $221.58 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgSUJBTiB2aXJ0dWVsIHN1aXNzZSBpbmRpdmlkdWVsIHZv?=
+	=?utf-8?B?dXMgYXR0ZW5kwqDwn4eo8J+HrQ==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?QmllbnZlbnVlIHN1ciBSZXZvbHV0wqAhIFZvaWNpIHF1ZWxxdWVz?=
+	=?utf-8?B?IGRvY3VtZW50cyBpbXBvcnRhbnRzIHBvdXIgdm91c8Kg8J+agA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 4.28% to $107.85 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TcOpZ2EtcmFiYWlzOiAyNSUgc3VyIFQ=?=
+ =?utf-8?B?T1VTIGxlcyBwcm9kdWl0cyBwaG90bw==?=
+ =?utf-8?B?ISo=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RG9ubmV6IHZpZSDDoCB2b3MgcGhvdG9zIGdyw6JjZSBhdXggdGV4?=
+	=?utf-8?B?dHVyZXMgZCdBbnRob255IFR1cm5oYW0g8J+OqA==?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 2.94% to $111.02 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?T2ZmcmV6IHVuIGNhZGVhdSBxdWkgc2VydmlyYSB2cmFpbWVudMKg?=
+	=?utf-8?B?8J+OgQ==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Q29kZTogU1BSSU5HQ0gyNSBwb3VyIA==?=
+ =?utf-8?B?ZGVzIG1vbWVudHMgZCfDqXTDqSBpbm91?=
+ =?utf-8?B?YmxpYWJsZXMg8J+Mng==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 2.99% to $114.19 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?MjQgaG91cnMgbGVmdCDij7M3IGNvdXJzZXMgZm9yIGp1c3QgJDk5?=
+	=?utf-8?B?IGluc3RlYWQgb2YgJDEyMjc=?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Q29kZTogU1BSSU5HMjEyNSwgYWNjdQ==?=
+ =?utf-8?B?ZWlsbGV6IGxlIHByaW50ZW1wcyBlbg==?=
+ =?utf-8?B?IGJlYXV0w6kh?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Pure Storage Inc is down 2.02% to $55.40 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+SuCBMZXMgaWZvbG9yIFNhbGUgRGF5cw==?=
+ =?utf-8?B?IHNvbnQgbMOgIQ==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?w4AgbmUgcGFzIHJhdGVyIDogbGVzIDI1ICUgREUgUkVNSVNFIHN1?=
+	=?utf-8?B?ciBMdW1pbmFyIGV4cGlyZW50IGJpZW50w7R0?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvel avis" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGVybmnDqHJlIGNoYW5jZTogMjAlIGQ=?=
+ =?utf-8?B?ZSByw6lkdWN0aW9uIHN1ciBUT1VTIGw=?=
+ =?utf-8?B?ZXMgcHJvZHVpdHMgcGhvdG8hKg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+UpSBMZXMgMjUgJSBERSBSRU1JU0Ugc3VyIEx1bWluYXIgcG91?=
+	=?utf-8?B?ciBtb2JpbGUgc2UgdGVybWluZW50IGF1am91cmQnaHVp?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Honor Memorial Day with full creative power" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 3.81% to $161.91 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm90cmUgZW5yZWdpc3RyZW1lbnQgZW4gbGlnbmUgw6AgUmFkaXNzb24gQmx1IEhvdGVsLCBMeW9uIGVzdCBtYWludGVuYW50IGRpc3BvbmlibGUgIQ==?=" from noreply@email.radissonhotels.com -> Category: Voyages/Radisson Blu (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm90cmUgZW5yZWdpc3RyZW1lbnQgZW4gbGlnbmUgw6AgUmFkaXNzb24gQmx1IEhvdGVsLCBMeW9uIGVzdCBtYWludGVuYW50IGRpc3BvbmlibGUgIQ==?=" from noreply@email.radissonhotels.com -> Category: Voyages/Radisson Blu (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] Packages on ds923fj are out-of-date" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?R2FnbmV6IDcwwqDigqwgcG91ciBjaGFxdWUgYW1pIHF1aSBzJ2lu?=
+	=?utf-8?B?c2NyaXQgw6AgUmV2b2x1dMKg8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?Q?Vos_actifs_Secret_Network_g=C3=A9n=C3=A8rent_des_r=C3=A9compenses_sur_Kraken=C2=A0!?=" from noreply@kraken.com -> Category: Finances/Kraken (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "NVIDIA Corp is up 3.25% to $139.19 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGl0ZXMgYXUgcmV2b2lyIGF1IFdpLUZpIHB1YmxpYyBhdmVjIG5v?=
+	=?utf-8?B?cyBmb3JmYWl0cyBkZSBkb25uw6llc8Kg8J+Ttg==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?QmllbnZlbnVlIGNoZXogUmV2b2x1dCBTZWN1cml0aWVzIEV1cm9w?=
+	=?utf-8?B?ZSBVQULCoPCfkYs=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgYW5jaWVuIElCQU4gdmEgYmllbnTDtHQgw6p0cmUgZMOp?=
+	=?utf-8?B?c2FjdGl2w6nCoPCfk6M=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RGVzIGTDqXNlcnRzIGF1IHBheXNhZ2VzIGR5c3RvcGllbnMgOiBy?=
+	=?utf-8?B?ZXRvdWNoZXogYXZlYyB1biBzdHlsZSBlbWJsw6ltYXRpcXVl?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is down 2.08% to $111.27 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+ToiBEZXJuacOocmUgY2hhbmNlOiAyNSU=?=
+ =?utf-8?B?IHN1ciBUT1VTIGxlcyBsaXZyZXMgcA==?=
+ =?utf-8?B?aG90byoh?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+NiUNyw6htZSBzb2xhaXJlID8gQydlc3QgZmFpdC4gTWFpbGxv?=
+	=?utf-8?B?dCBkZSBiYWluID8gQydlc3QgZmFpdC4gS2l0IHBvdXIgbGEgcGhvdG8gPyBQ?=
+	=?utf-8?B?cmVzcXVlLg==?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?RnJlZGVyaWMsIGRpdGVzLW5vdXMgY2UgcXVlIHZvdXMgcGVuc2V6?=
+	=?utf-8?B?IGRlIG5vdXPCoPCfk50=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is down 2.87% to $108.08 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 3.27% to $256.85 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?MjAlIGRlIHJhYmFpcyBzdXIgVE9VUw==?=
+ =?utf-8?B?IGxlcyBwcm9kdWl0cyBwaG90byog8J+SuA==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+MnkNvbnRlbnUgZHUgS2l0ICJFbnNvbGVpbGxlbWVudCBVbml2?=
+	=?utf-8?B?ZXJzZWwi?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UGFycmFpbmV6IGRlcyBlbnRyZXByaXNlcyBldCBnYWduZXogMTgw?=
+	=?utf-8?B?wqDigqzCoPCfkrA=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgYW5jaWVuIElCQU4gdmEgYmllbnTDtHQgw6p0cmUgZMOp?=
+	=?utf-8?B?c2FjdGl2w6nCoPCfk6M=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is down 5% to $246.93 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgcmVsZXbDqSBlc3QgcHLDqnTCoOKchQ==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is up 4.1% to $35.52 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?SGFwcHkgSG91ciDwn6SRIDIwJSBkZSByYQ==?=
+ =?utf-8?B?YmFpcyBzdXIgVE9VUyBsZXMgcHJvZA==?=
+ =?utf-8?B?dWl0cyBwaG90byo=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 3.38% to $252.91 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 13.31% to $199.86 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?SnVzcXXigJnDoCAyMCUgZGUgcmFiYWlzKg==?=
+ =?utf-8?B?IHN1ciB2b3MgYXZlbnR1cmVzIGVzdA==?=
+ =?utf-8?B?aXZhbGVzIPCfk7g=?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?Q?Un_nouvel_appareil_s=E2=80=99est_connect=C3=A9_=C3=A0_votre_compte?=" from noreply@kraken.com -> Category: Finances/Kraken (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?Q?You=E2=80=99re_all_set_to_earn_rewards!?=" from noreply@kraken.com -> Category: Finances/Kraken (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?U8OpY3VyaXTDqSBLcmFrZW4gLSBOb3V2ZWxsZSBDbMOpIEE=?=
+ =?UTF-8?B?UEk=?=" from noreply@kraken.com -> Category: Finances/Kraken (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is down 2.88% to $248.70 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Dell Technologies Inc is up 3.82% to $113.74 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm90cmUgYW5jaWVuIElCQU4gdmEgYmllbnTDtHQgw6p0cmUgZMOp?=
+	=?utf-8?B?c2FjdGl2w6nCoPCfk6M=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UmV2b2x1dMKgPDE4IGRldmllbnQgUmV2b2x1dMKgSmV1bmVzwqA=?=
+	=?utf-8?B?4p6h77iP?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UG91ciBsZXMgbm9jdGFtYnVsZXM6IA==?=
+ =?utf-8?B?MzAlIGRlIHJlbWlzZSBzcMOpY2lhbGU=?=
+ =?utf-8?B?Kg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "2 new job offers found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?R2FnbmV6IDcwwqDigqwgcG91ciBjaGFxdWUgYW1pIHF1aSBzJ2lu?=
+	=?utf-8?B?c2NyaXQgw6AgUmV2b2x1dMKg8J+SsA==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?SW1wb3J0YW50wqA6IFJlY3RpZmljYXRpb24gY29uY2VybmFudCBs?=
+	=?utf-8?B?ZSBub3V2ZWF1IG5vbSBkZSBSZXZvbHV0wqA8MTjCoOKeoe+4jw==?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is down 2.7% to $205.17 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "[ds923fj.myds.me] OpenStack Swift cloud backup - OpenStack Swift 1
+ successful on ds923fj" from fred.jacquet@gmail.com -> Category: System Notifications/Backups (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?RnJlZGVyaWMsIFByw6ljb21tYW5kZXogbGVzIHByb2NoYWluZXMgc29ydGllcyBNRUlBTiA6IEJvY2NoaSB0aGUgUm9jayEsIEhhcmVtIGluIHRoZSBGYW50YXN5IFdvcmxkIER1bmdlb24uLi4=?=" from noreply@anime-store.fr -> Category: Informations/Newsletters (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is down 5.89% to $33.73 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvel avis" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 3.94% to $263.77 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?8J+SjSBUb3V0IHBvdXIgdm90cmUgbWFyaQ==?=
+ =?utf-8?B?YWdlIGRlIHLDqnZlIOKAkyBtYWludGVuYQ==?=
+ =?utf-8?B?bnQgYXZlYyAyMCUgZGUgcsOpZHVjdGk=?=
+ =?utf-8?B?b24gc3VyIFRPVVMgbGVzIHByb2R1aQ==?=
+ =?utf-8?B?dHMgcGhvdG8q?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "L'horloge tourne : les 50 % de rabais sur Peakto terminent dans 4 jours" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is down 2.11% to $210.72 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 2.09% to $270.17 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?MjAlIGRlIHJhYmFpcyBkw6hzIDIgcHI=?=
+ =?utf-8?B?b2R1aXRzIGF1IGNob2l4Kg==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?4o+wIERlcm5pZXIgcmFwcGVsIDogNDggaCByZXN0YW50ZXMgcG91?=
+	=?utf-8?B?ciBvYnRlbmlyIDUwICUgc3VyIFBlYWt0bw==?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is up 2.34% to $275.65 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?T25seSA3IGRheXMgbGVmdCB0byBlYXJuIDcwwqDigqzwn5Kw?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Tm91dmVhdXTDqXMgZGUganVpbiA6IHRvdXRlcyBsZXMgZGVybmk=?=
+	=?utf-8?B?w6hyZXMgaW5mb3Mgc3VyIEx1bWluYXIg8J+TuA==?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Broadcom Inc is down 3.96% to $264.74 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?UTF-8?B?Vm9zIGRvY3VtZW50cyDCq8KgQmFucXVlLCBBc3N1cmFuY2XCoMK7?=
+	=?UTF-8?B?IMOgIGRpc3Bvc2l0aW9u?=" from contact@ca-centreloire.fr -> Category: Finances/CA (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Vm9pY2kgdm90cmUgcsOpY2FwaXR1bGF0aWYgUmV2UG9pbnRzIG1l?=
+	=?utf-8?B?bnN1ZWw=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Schlumberger NV is up 2.02% to $35.91 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "1 new job offer found" from jobmail@jobs.ch -> Category: News/Jobs (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?TW9kaWZpY2F0aW9ucyBkZXMgY29uZGl0aW9ucyBnw6luw6lyYWxl?=
+	=?utf-8?B?cyBkZXMgUmV2UG9pbnRzwqDwn5Oj?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Tm91cyBtZXR0b25zIMOgIGpvdXIgbm9zIGNvbmRpdGlvbnMgZ8Op?=
+	=?utf-8?B?bsOpcmFsZXPCoPCfk6M=?=" from no-reply@revolut.com -> Category: Finances/Revolut (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Oracle Corp is up 3.19% to $237.32 today" from noreply@news.bloomberg.com -> Category: Finances/Bloomberg (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?Tm91cyB2aWJyb25zIGF2ZWMgdm91cw==?=
+ =?utf-8?B?IOKAkyBldCBub3VzIHZvdXMgb2Zmcm9u?=
+ =?utf-8?B?cyB1biBjb2RlIHByb21vIOKavQ==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?NHRoIG9mIEp1bHkgU2FsZTogU3BhcmsgWW91ciBFZGl0cyB3aXRo?=
+	=?utf-8?B?IDgwJSBPRkYg8J+HuvCfh7I=?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "Nouvelle facture" from noreply@ebill.ch -> Category: Finances/eBill (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?UHJlbmRyZSBkZXMgcGhvdG9zIGNvbQ==?=
+ =?utf-8?B?bWUgbGVzIHByb3Mg8J+TuA==?=" from news@news.ifolor.ch -> Category: Achats/ifolor (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:50 - Email "=?utf-8?B?4o+zIDI0IGhvdXJzIHRvIHNhdmUgODAlIG9uIHRoaXMgVVMtaW5z?=
+	=?utf-8?B?cGlyZWQgYnVuZGxl?=" from team@mail.skylum.com -> Category: Services/Skylum (Pass 1)
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:63 - Pass 1 complete. 203 emails moved.
+2025-07-06 22:23:51 | INFO     | __main__:run_classification:66 - Starting Pass 2: AI classification...
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65091: 'utf-8' codec can't decode byte 0xe9 in position 948: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65277: 'utf-8' codec can't decode byte 0xe9 in position 2759: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65312: 'utf-8' codec can't decode byte 0xe9 in position 59: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65360: 'utf-8' codec can't decode byte 0xe9 in position 779: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65363: 'utf-8' codec can't decode byte 0xe9 in position 1: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65387: 'utf-8' codec can't decode byte 0xe9 in position 1580: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65416: 'utf-8' codec can't decode byte 0xe0 in position 2826: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65428: 'utf-8' codec can't decode byte 0xe0 in position 15: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65532: 'utf-8' codec can't decode byte 0xe9 in position 4: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65559: 'utf-8' codec can't decode byte 0xe9 in position 1646: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65593: 'utf-8' codec can't decode byte 0xe9 in position 36: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65662: 'utf-8' codec can't decode byte 0xe9 in position 784: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65718: 'utf-8' codec can't decode byte 0xe2 in position 819: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65731: 'utf-8' codec can't decode byte 0xe2 in position 814: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65789: 'utf-8' codec can't decode byte 0xea in position 1484: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65838: 'utf-8' codec can't decode byte 0xe9 in position 70: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65841: 'utf-8' codec can't decode byte 0xe9 in position 789: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65869: 'utf-8' codec can't decode byte 0xe9 in position 1000: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65899: 'utf-8' codec can't decode byte 0xe2 in position 27: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65949: 'utf-8' codec can't decode byte 0xe8 in position 5: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65982: 'utf-8' codec can't decode byte 0xe9 in position 943: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 65992: 'utf-8' codec can't decode byte 0xe0 in position 814: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66004: 'utf-8' codec can't decode byte 0xe9 in position 1955: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66020: 'utf-8' codec can't decode byte 0xe9 in position 15: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66052: 'utf-8' codec can't decode byte 0xe9 in position 810: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66069: 'utf-8' codec can't decode byte 0xe9 in position 779: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66090: 'utf-8' codec can't decode byte 0xe9 in position 1: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66198: 'utf-8' codec can't decode byte 0xf4 in position 9: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66241: 'utf-8' codec can't decode byte 0xe9 in position 781: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66365: 'utf-8' codec can't decode byte 0xe9 in position 837: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66401: 'utf-8' codec can't decode byte 0xe0 in position 964: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66420: 'utf-8' codec can't decode byte 0xe9 in position 41: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66520: 'utf-8' codec can't decode byte 0xea in position 14: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66615: 'utf-8' codec can't decode byte 0xe9 in position 1353: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66699: 'utf-8' codec can't decode byte 0xe9 in position 18: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66735: 'utf-8' codec can't decode byte 0xe9 in position 1011: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66765: 'utf-8' codec can't decode byte 0xe0 in position 2763: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66793: 'utf-8' codec can't decode byte 0xe9 in position 1: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66820: 'utf-8' codec can't decode byte 0xe9 in position 912: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66875: 'utf-8' codec can't decode byte 0xe9 in position 2209: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 66942: 'utf-8' codec can't decode byte 0xe9 in position 914: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67058: 'utf-8' codec can't decode byte 0xe9 in position 24: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67059: 'utf-8' codec can't decode byte 0xe9 in position 912: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67096: 'utf-8' codec can't decode byte 0xfb in position 997: invalid start byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67167: 'utf-8' codec can't decode byte 0xe8 in position 26: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67209: 'utf-8' codec can't decode byte 0xe9 in position 6: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67260: 'utf-8' codec can't decode byte 0xe0 in position 6: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67286: 'utf-8' codec can't decode byte 0xe9 in position 139: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67289: 'utf-8' codec can't decode byte 0xe9 in position 3105: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67290: 'utf-8' codec can't decode byte 0xb0 in position 673: invalid start byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67299: 'utf-8' codec can't decode byte 0xe9 in position 908: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67403: 'utf-8' codec can't decode byte 0xe0 in position 36: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67454: 'utf-8' codec can't decode byte 0xe0 in position 985: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67520: 'utf-8' codec can't decode byte 0xe9 in position 20: invalid continuation byte
+2025-07-06 22:24:04 | ERROR    | mailtag.imap_service:get_full_emails:134 - Could not decode email 67530: 'utf-8' codec can't decode byte 0xe0 in position 1748: invalid continuation byte
+2025-07-06 22:24:17 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Personnel/Patricia
+2025-07-06 22:24:17 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Se_reconvertir_apr=C3=A8s_50_ans:_Nos_dix_conseils_pour?=
+ =?UTF-8?Q?_y_parvenir?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:24:20 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:24:20 | INFO     | __main__:run_classification:72 - Email "Amethyst awaits." from edwardw@roadid.com -> Category: Finances/CA
+2025-07-06 22:24:23 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:24:23 | INFO     | __main__:run_classification:72 - Email "Your invoice from Apple." from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:24:28 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:24:28 | INFO     | __main__:run_classification:72 - Email "Thibaut just messaged you" from messaging-digest-noreply@linkedin.com -> Category: Finances/Bloomberg
+2025-07-06 22:24:38 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Skylum
+2025-07-06 22:24:38 | INFO     | __main__:run_classification:72 - Email "New jobs similar to IT Infrastructure Engineer at SICPA" from jobs-noreply@linkedin.com -> Category: Services/Skylum
+2025-07-06 22:24:40 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/eBill
+2025-07-06 22:24:40 | INFO     | __main__:run_classification:72 - Email "Your receipt from Feedly" from help@paddle.com -> Category: Finances/eBill
+2025-07-06 22:24:40 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/eBill
+2025-07-06 22:24:40 | INFO     | __main__:run_classification:72 - Email "Your subscription for Feedly will be canceled" from help@paddle.com -> Category: Finances/eBill
+2025-07-06 22:24:50 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:24:50 | INFO     | __main__:run_classification:72 - Email "[Complimentary Copy] The CISO Playbook for Cloud Security" from info@global.fortinet.com -> Category: Finances/Bloomberg
+2025-07-06 22:24:57 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:24:57 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Mise_=C3=A0_jour_des_d=C3=A9tails_de_votre_compte_Avis_?=
+ =?UTF-8?Q?Preferred?=" from news_fr-CH@avis-comms.international -> Category: Informations/Newsletters
+2025-07-06 22:24:59 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Personnel/Patricia
+2025-07-06 22:24:59 | INFO     | __main__:run_classification:72 - Email "Changements pour Tobias Jacquet =?utf-8?Q?=C3=A0?= la
+ =?utf-8?Q?rentr=C3=A9e?=" from flo@ljf.ch -> Category: Personnel/Patricia
+2025-07-06 22:25:07 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:25:07 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Acquisition_d=E2=80=99Akuo__par_Ardian?=" from info@bonjour.lendosphere.com -> Category: Finances/CA
+2025-07-06 22:25:10 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Personnel/Patricia
+2025-07-06 22:25:10 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?UkU6IENoYW5nZW1lbnRzIHBvdXIgVG9iaWFzIEphY3F1ZXQgw6AgbGEgcmVu?=
+ =?utf-8?B?dHLDqWU=?=" from accueil.familial@montreux.ch -> Category: Personnel/Patricia
+2025-07-06 22:25:14 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:25:14 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?=F0=9F=8E=89_60_ans_d=E2=80=99Interhome_=E2=80=93_?=
+ =?UTF-8?Q?CHF_60.-_de_r=C3=A9duction_=F0=9F=8E=89?=" from newsletter@mail.interhome.ch -> Category: Informations/Newsletters
+2025-07-06 22:25:25 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Skylum
+2025-07-06 22:25:25 | INFO     | __main__:run_classification:72 - Email "You have 3 new invitations" from notifications-noreply@linkedin.com -> Category: Services/Skylum
+2025-07-06 22:25:26 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Apple
+2025-07-06 22:25:26 | INFO     | __main__:run_classification:72 - Email "Welcome to Supabase" from welcome@supabase.com -> Category: Services/Apple
+2025-07-06 22:25:37 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:25:37 | INFO     | __main__:run_classification:72 - Email "From Broadcom: Changes to How You Download VMware Software Binaries" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:25:37 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:25:37 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?5_strat=C3=A9gies_efficaces_pour_g=C3=A9rer_les_interru?=
+ =?UTF-8?Q?ptions_au_travail_comme_un=C2=B7e_pro?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:25:37 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:25:37 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Unlock_AI_Innovation_with_VMware_Privat?=
+ =?utf-8?Q?e_AI_Foundation_&_NVIDIA_=E2=80=93_Live_Webcast!?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:25:43 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:25:43 | INFO     | __main__:run_classification:72 - Email "=?utf-8?q?En_avril,_un_fil_de_solidarit=C3=A9_plus_que_jamais_essentiel_?= =?utf-8?q?=F0=9F=90=9F?=" from newsletter@infos.restosducoeur.org -> Category: Informations/Newsletters
+2025-07-06 22:25:53 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:25:53 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?=C3=89conomise_jusqu=E2=80=99=C3=A0_30%_sur_les_?=
+ =?UTF-8?Q?lits,_lits_Boxspring_et_matelas?=" from news@news.pfister.ch -> Category: Informations/Newsletters
+2025-07-06 22:25:55 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:25:55 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20OpenAI=20API=20account=20has=20been=20funded?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:25:58 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:25:58 | INFO     | __main__:run_classification:72 - Email "Fin de saison & Merci Yann !" from looksport@netplus.ch -> Category: Informations/Newsletters
+2025-07-06 22:26:01 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Radisson Blu
+2025-07-06 22:26:01 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Votre=20r=C3=A9servation=20au=20Radisson=20Blu=20Hotel,=20Paris=20Boulogne=2012=20avril=202025?=" from info@oakyapp.com -> Category: Voyages/Radisson Blu
+2025-07-06 22:26:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:26:01 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:26:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:01 | INFO     | __main__:run_classification:72 - Email "Weekly VMUG portal Digest for Advantage VMUG" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:05 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:26:05 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?=C2=A33=20Million=20Fine=20for=20a=20Victim=20of=20LockBit=20Ransomware?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:05 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:05 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Unlock_AI_Innovation_with_VMware_Private_AI_?=
+ =?utf-8?Q?Foundation_&_NVIDIA_=E2=80=93_Live_Webcast_Tomorrow!?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:07 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Apple
+2025-07-06 22:26:07 | INFO     | __main__:run_classification:72 - Email "Security alert for fred.jacquet@gmail.com" from no-reply@accounts.google.com -> Category: Services/Apple
+2025-07-06 22:26:09 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/eBill
+2025-07-06 22:26:09 | INFO     | __main__:run_classification:72 - Email "Ta facture eBill Wingo" from bounce@wingo.ch -> Category: Finances/eBill
+2025-07-06 22:26:09 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Skylum
+2025-07-06 22:26:09 | INFO     | __main__:run_classification:72 - Email "You have 5 new messages" from notifications-noreply@linkedin.com -> Category: Services/Skylum
+2025-07-06 22:26:19 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Apple
+2025-07-06 22:26:19 | INFO     | __main__:run_classification:72 - Email "Hello Developer: April 2025" from developer@insideapple.apple.com -> Category: Services/Apple
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/swissborg
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "Your Supabase Project fred@ljf.ch's Project has been paused." from ant@supabase.com -> Category: Finances/swissborg
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20ChatGPT=20code=20is=20858517?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20ChatGPT=20code=20is=20858517?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20ChatGPT=20code=20is=20994220?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "Your VMUG Voice: April Edition" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:26:21 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Junior,_confirm=C3=A9=C2=B7e_et_senior=C2=B7e_:_7_conse?=
+ =?UTF-8?Q?ils_pour_r=C3=A9ussir_chaque_=C3=A9tape_de_carri=C3=A8re?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:26:25 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/swissborg
+2025-07-06 22:26:25 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?QIM_INFO_-_Expert_Stockage_-_60%_=C3=A0_Gen=C3=A8ve?=" from inmail-hit-reply@linkedin.com -> Category: Finances/swissborg
+2025-07-06 22:26:25 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:26:25 | INFO     | __main__:run_classification:72 - Email "Security alert for fred.jacquet@gmail.com" from no-reply@accounts.google.com -> Category: Services/Apple
+2025-07-06 22:26:28 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:26:28 | INFO     | __main__:run_classification:72 - Email "=?utf-8?q?Encore_une_journ=C3=A9e_parfaite_pour_les_mocassins_!_?=" from shop@news.aeschbach-chaussures.ch -> Category: Informations/Newsletters
+2025-07-06 22:26:28 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:26:28 | INFO     | __main__:run_classification:72 - Email "Re: message" from flo@ljf.ch -> Category: Personnel/Patricia
+2025-07-06 22:26:28 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:26:28 | INFO     | __main__:run_classification:72 - Email "Souci pour Tobias" from flo@ljf.ch -> Category: Personnel/Patricia
+2025-07-06 22:26:33 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Selma
+2025-07-06 22:26:33 | INFO     | __main__:run_classification:72 - Email "Mise =?UTF-8?Q?=C3=A0_jour_concernant_les_derni=C3=A8res?=
+ transactions de ton portefeuille" from hello@selma.com -> Category: Finances/Selma
+2025-07-06 22:26:37 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:26:37 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Message_replied:_QIM_INFO_-_E?=
+ =?UTF-8?Q?xpert_Stockage_-_60%_=C3=A0_Gen=C3=A8ve?=" from hit-reply@linkedin.com -> Category: Finances/CA
+2025-07-06 22:26:37 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:37 | INFO     | __main__:run_classification:72 - Email "Pandia just messaged you" from messaging-digest-noreply@linkedin.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:40 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Achats/FNAC
+2025-07-06 22:26:40 | INFO     | __main__:run_classification:72 - Email "The Long Lens Hauler. One Line, Three Solutions." from info@guragear.com -> Category: Achats/FNAC
+2025-07-06 22:26:40 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Informations/Newsletters
+2025-07-06 22:26:40 | INFO     | __main__:run_classification:72 - Email "=?utf-8?q?En_avril,_le_fil_solidaire_continue_=F0=9F=A7=B5?=" from newsletter@infos.restosducoeur.org -> Category: Informations/Newsletters
+2025-07-06 22:26:40 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Informations/Newsletters
+2025-07-06 22:26:40 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Seulement_jusqu=E2=80=99=C3=A0_lu?=
+ =?UTF-8?Q?ndi:_jusqu=E2=80=99=C3=A0_30%_sur?=
+ =?UTF-8?Q?_les_meubles_de_cuisine_et_salle_=C3=A0_manger?=" from news@news.pfister.ch -> Category: Informations/Newsletters
+2025-07-06 22:26:43 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:26:43 | INFO     | __main__:run_classification:72 - Email "What are you waiting for? Pointed is live." from subscriptions@message.bloomberg.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:43 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:43 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?=C2=A33=20Million=20Fine=20for=20a=20Victim=20of=20LockBit=20Ransomware?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Radisson Blu
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?FACTURE_AFM5A06543_de_la_r=C3=A9servation_2LT6TNGN?=" from <reception.boulogne@radissonblu.com> -> Category: Voyages/Radisson Blu
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20ChatGPT=20code=20is=20217803?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20ChatGPT=20code=20is=20217803?=" from noreply@tm.openai.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "Re: Fwd: SNCF =?utf-8?Q?r=C3=A9pond_=C3=A0?= votre demande" from flo@ljf.ch -> Category: Personnel/Patricia
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Your=20private=20data=20was=20released=20to=20an=20untrusted=20environment?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Login=20attempt=20on=20a=20new=20device?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:26:46 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:26:46 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Lacunes_de_qualification:_comment_les_identifier_et_les?=
+ =?UTF-8?Q?_combler_de_mani=C3=A8re_efficace=3F?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:26:49 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:26:49 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?D=C3=A9clarez_en_ligne_vos_revenus_2024?=" from ne-pas-repondre@dgfip.finances.gouv.fr -> Category: Finances/Bloomberg
+2025-07-06 22:26:54 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:26:54 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?Tm91cyB2b3VzIGF2b25zIHLDqXBvbmR1LCBkb25uZXotbm91cyB2b3RyZSBhdmlzICE=?=" from noreply@enquete.sncf-voyageurs.com -> Category: Informations/Newsletters
+2025-07-06 22:27:00 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:27:00 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Mise_en_ligne_-_10_centrales_sur_toiture_d?=
+ =?UTF-8?Q?ans_les_Landes_et_les_Pyr=C3=A9n=C3=A9es-Atlantiques?=" from contact@bonjour.lendosphere.com -> Category: Finances/CA
+2025-07-06 22:27:10 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Kuoni
+2025-07-06 22:27:10 | INFO     | __main__:run_classification:72 - Email "Avec =?utf-8?b?bMOpZ8OocmV0w6k=?= vers le printemps" from newsletter@mail.kuoni-reisen.ch -> Category: Voyages/Kuoni
+2025-07-06 22:27:13 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:27:13 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Nos=20prochains=20=C3=A9v=C3=A9nements=20=F0=9F=8D=B7?=" from marketing@provins.ch -> Category: Informations/Newsletters
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/HashiCorp
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?The_HashiDays_London_agenda_is_here_=F0=9F=91=87?=" from hashidays@reply.hashicorp.com -> Category: Informations/HashiCorp
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?RG9u4oCZdCBXYWl04oCUU3ByaW5n?= Gear is in Full Bloom" from edwardw@roadid.com -> Category: Finances/CA
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Confirmation_d=E2=80=99abonnement?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "Confirmation de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Victim=20Count=20of=20=E2=80=98Landmark=20Admin=E2=80=99=20Data=20Breach=20Rises=20to=201.6=20Million,=20Double=20the=20Initial=20Estimate?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Informations/Newsletters
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Canap=C3=A9,_table_basse,_etc.:_d?=
+ =?UTF-8?Q?=C3=A9couvre_nos_meilleures_offres?=" from news@news.pfister.ch -> Category: Informations/Newsletters
+2025-07-06 22:27:18 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:27:18 | INFO     | __main__:run_classification:72 - Email "Security alert for fred.jacquet@gmail.com" from no-reply@accounts.google.com -> Category: Services/Apple
+2025-07-06 22:27:23 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Kraken
+2025-07-06 22:27:23 | INFO     | __main__:run_classification:72 - Email "Action Required: Complete Verification to Avoid Futures Trading Restrictions" from no-reply@email.kraken.com -> Category: Finances/Kraken
+2025-07-06 22:27:23 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:23 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Frederic=E2=80=93_Join_the_VMUG_Town_Hall:_May_1st?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:27:26 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Transports/CFF
+2025-07-06 22:27:26 | INFO     | __main__:run_classification:72 - Email "Re: Chambre : Magnolia" from josette.miniot@gmail.com -> Category: Transports/CFF
+2025-07-06 22:27:26 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Transports/CFF
+2025-07-06 22:27:26 | INFO     | __main__:run_classification:72 - Email "Re: Chambre : Magnolia" from josette.miniot@gmail.com -> Category: Transports/CFF
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Kuoni
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Votre_r=C3=A9servation_Avis:_24975962FR4?=" from digitalcheckin@avis-comms.international -> Category: Voyages/Kuoni
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Comment_d=C3=A9crocher_le_job_de_vos_r=C3=AAves_avec_un?=
+ =?UTF-8?Q?e_candidature_spontan=C3=A9e_=3F?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Victim=20Count=20of=20=E2=80=98Landmark=20Admin=E2=80=99=20Data=20Breach=20Rises=20to=201.6=20Million,=20Double=20the=20Initial=20Estimate?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Skylum
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "You have 1 new invitation" from notifications-noreply@linkedin.com -> Category: Services/Skylum
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:27:34 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?D=C3=A9crypter_et_interpr=C3=A9ter_correctement_les_fou?=
+ =?UTF-8?Q?rchettes_salariales_dans_les_offres_d'emploi?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:27:44 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:27:44 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?L=E2=80=99=C3=89cosse_s=E2=80=99invite_?=
+ =?UTF-8?Q?chez_vous_=3A_offrez-vous_une_parenth=C3=A8se_?=
+ =?UTF-8?Q?highlander_=F0=9F=92=99?=" from newsletter@comptoir-irlandais.com -> Category: Informations/Newsletters
+2025-07-06 22:27:44 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:44 | INFO     | __main__:run_classification:72 - Email "Harness the Power of Kubernetes with VMware Cloud Foundation" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:27:54 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Reka
+2025-07-06 22:27:54 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?4piA77iPIFZvdXMgY2hlcmNoZXogbGUgZnJhaXMgcG91ciBsZXMg?=
+ =?UTF-8?B?dmFjYW5jZXMgZOKAmcOpdMOp4oCvPyBNb250YWduZSBvdSBiYWlnbmFkZS4g?=
+ =?UTF-8?B?8J+Npw==?=" from reply@email.reka.ch -> Category: Voyages/Reka
+2025-07-06 22:27:54 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:54 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Frederic=E2=80=93_Connect_with_your_VMUG_Community!?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:27:54 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:27:54 | INFO     | __main__:run_classification:72 - Email "=?ISO-8859-1?Q?Votre_abonnement_arrive_=E0_=E9ch=E9ance?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:27:54 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:27:54 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Victim=20Count=20of=20=E2=80=98Landmark=20Admin=E2=80=99=20Data=20Breach=20Rises=20to=201.6=20Million,=20Double=20the=20Initial=20Estimate?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:04 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/eBill
+2025-07-06 22:28:04 | INFO     | __main__:run_classification:72 - Email "Lead with AI: Master the Synergy of Tech and Human Skills" from imprints@e.informit.net -> Category: Finances/eBill
+2025-07-06 22:28:14 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:28:14 | INFO     | __main__:run_classification:72 - Email "Frederic, prends-tu bien soin de ta veste hardshell ?" from mammut@news.mammut.com -> Category: Finances/CA
+2025-07-06 22:28:24 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Apple
+2025-07-06 22:28:24 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?R=C3=A9coltez_des_points_avec_vos_achats_et_gagnez_un_b?=
+ =?UTF-8?Q?on_d'achat_!?=" from noreply-ch@email.decathlon.com -> Category: Services/Apple
+2025-07-06 22:28:24 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Achats/FNAC
+2025-07-06 22:28:24 | INFO     | __main__:run_classification:72 - Email "Built to Move, Now 20% Off" from info@guragear.com -> Category: Achats/FNAC
+2025-07-06 22:28:34 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:28:34 | INFO     | __main__:run_classification:72 - Email "=?windows-1252?Q?Le_mois_de_mai_arrive_avec_de_nouveaux_avantage?=
+ =?windows-1252?Q?s=2C_=E0_d=E9couvrir_ici?=" from ubs_switzerland@mailing.ubs.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:34 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:28:34 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?D=C3=A9crypter_le_code_ATS?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:28:38 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:28:38 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Mises_=C3=A0_jour_du_contrat_relatif_au_compte_Nintendo?=
+ =?UTF-8?Q?_et_de_la_politique_de_confidentialit=C3=A9?=" from nintendo@mail.nintendo-europe.com -> Category: Informations/Newsletters
+2025-07-06 22:28:38 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:38 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Weaponizing=20Facebook=20Ads:=20Inside=20the=20Multi-Stage=20Malware=20Campaign=20Exploiting=20Cryptocurrency=20Brands?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:38 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:38 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:28:42 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:28:42 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?=F0=9F=8E=80=20-=33=30=25=20sur=20TOUT=20Barbie=20Mattel=20!?=" from parents-conseils@news.lagranderecre.fr -> Category: Informations/Newsletters
+2025-07-06 22:28:42 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:42 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Extend_VCF_to_Azure_VMware_So?=
+ =?utf-8?Q?lution_=E2=80=93_Learn_How_on_May_20!?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:42 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:42 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?=E2=9A=A0=EF=B8=8F_New_Threats_to_VMware:_W?=
+ =?utf-8?Q?hat_ATT&CK_v17_Means_for_You?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:42 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:28:42 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?7_fa=C3=A7ons_d'utiliser_l'IA_pour_faire_passer_votre_C?=
+ =?UTF-8?Q?V_au_niveau_sup=C3=A9rieur?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Cartes=20cadeau=20Zalando=20=3A=20les=20gagnants=20sont=20l=C3=A0?=" from aurelie@edigroup.ch -> Category: Finances/CA
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?=E2=9A=A0=EF=B8=8F_New_Threats_to_VMware:_W?=
+ =?utf-8?Q?hat_ATT&CK_v17_Means_for_You?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Weaponizing=20Facebook=20Ads:=20Inside=20the=20Multi-Stage=20Malware=20Campaign=20Exploiting=20Cryptocurrency=20Brands?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?ISO-8859-1?Q?Votre_pr=E9commande_(Google_Noteb?=
+ =?ISO-8859-1?Q?ookLM)_est_d=E9sormais_disponible?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?Um91Z2lyIGxvcnMgZOKAmXVuZSBwcsOpc2VudGF0aW9uIGF1IHRy?=
+ =?UTF-8?B?YXZhaWwgOiBwZXV0LW9uIHPigJllbiBlbXDDqmNoZXIgPw==?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "The Next VMUG Virtual Event is Coming Soon!" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:50 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:50 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Confirmation_d=E2=80=99abonnement?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:28:56 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Achats/Interflora
+2025-07-06 22:28:56 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?F=C3=AAte=20des=20M=C3=A8res=20=3A=20votre=20bouquet=20d=C3=A8s?=
+ =?UTF-8?Q?=20=32=39=2C=39=35=E2=82=AC=20livr=C3=A9=20aujourd=27hui=20!?=" from hello@mails.interflora.fr -> Category: Achats/Interflora
+2025-07-06 22:28:56 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:28:56 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Weaponizing=20Facebook=20Ads:=20Inside=20the=20Multi-Stage=20Malware=20Campaign=20Exploiting=20Cryptocurrency=20Brands?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:28:56 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:56 | INFO     | __main__:run_classification:72 - Email "Confirmation de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:28:56 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:56 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:28:56 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:28:56 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Kuoni
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Des_tarifs_sp=C3=A9ciaux_juste_=C3=A0_temps_pour_vos_pr?=
+ =?UTF-8?Q?ochaines_vacances?=" from emirates@e.emirates.email -> Category: Voyages/Kuoni
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "[Latest Report] =?utf-8?b?V2hhdOKAmXMgRHJpdmluZyAyMDI14oCZcw==?=
+ Biggest Shifts in Web Security?" from info@global.fortinet.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Achats/FNAC
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "Gear Up: 20% Off Ends Soon" from info@guragear.com -> Category: Achats/FNAC
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "Confirmation de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "=?ISO-8859-1?Q?Une_demande_de_remboursement_a_=E9t=E9_re=E7ue?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:06 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Selma
+2025-07-06 22:29:06 | INFO     | __main__:run_classification:72 - Email "Ton argent est =?UTF-8?B?YXJyaXbDqQ==?= sur ton compte" from hello@selma.com -> Category: Finances/Selma
+2025-07-06 22:29:16 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Le Temps
+2025-07-06 22:29:16 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?=E2=9C=A8=20Newsletter=20Privil=C3=A8ges=20=2D=20mai=202025?=" from marketing@letemps.ch -> Category: Informations/Le Temps
+2025-07-06 22:29:21 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Snyk
+2025-07-06 22:29:21 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Don=E2=80=99t_miss_conversations_in_IT_Specialist_Network?=" from groups-noreply@linkedin.com -> Category: Services/Snyk
+2025-07-06 22:29:31 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:29:31 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Nouvelles_en_un_coup_d=E2=80=99=C5=93il?=" from noreply@publibike.ch -> Category: Informations/Newsletters
+2025-07-06 22:29:31 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:31 | INFO     | __main__:run_classification:72 - Email "=?ISO-8859-1?Q?D=E9cision_concernant_la_demande_de_remboursement?=" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:31 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:31 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Paypal
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?PDxKZSBzYXZhaXMgcXVlIGrigJlhdmFpcyBiZXNvaW4gZOKAmXVu?=
+	=?utf-8?B?IHRvdXJuYW50IGRhbnMgbW9uIHN0eWxlIGRlIHZpZS4+Pg==?=" from hello@email.myfitnesspal.com -> Category: Finances/Paypal
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "Renouvellement de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "Confirmation de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Fake=20Antivirus=20Pop-Ups=20vs.=20Real=20Security=20Alerts:=20How=20to=20Tell=20the=20Difference?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:41 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:41 | INFO     | __main__:run_classification:72 - Email "Unlock the Latest VMUG News!" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:43 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Demande_de_rendez-vous_envoy=C3=A9e_:_Cabinet?=
+ =?UTF-8?Q?_th=C3=A9rapeutique_Neolys_-_Lundi_23_juin_=C3=A0_13:00?=" from no-reply@my-cockpit.localsearch.ch -> Category: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Rendez-vous_annul=C3=A9_:_Cabinet_th=C3=A9rapeutique?=
+ =?UTF-8?Q?_Neolys_-_Lundi_23_juin_=C3=A0_13:00?=" from no-reply@my-cockpit.localsearch.ch -> Category: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Demande_de_rendez-vous_envoy=C3=A9e_:_Cabinet?=
+ =?UTF-8?Q?_th=C3=A9rapeutique_Neolys_-_Mercredi_25_juin_=C3=A0_15:30?=" from no-reply@my-cockpit.localsearch.ch -> Category: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Administratif/Medecins
+2025-07-06 22:29:43 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Rendez-vous_accept=C3=A9_:_Cabinet_th=C3=A9rapeutique?=
+ =?UTF-8?Q?_Neolys_-_Mercredi_25_juin_=C3=A0_15:30?=" from no-reply@my-cockpit.localsearch.ch -> Category: Administratif/Medecins
+2025-07-06 22:29:49 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/CA
+2025-07-06 22:29:49 | INFO     | __main__:run_classification:72 - Email "Merci pour ta commande IKEA 1523129426" from do-not-reply@ikea.com -> Category: Finances/CA
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/swissborg
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?UmXDp3UgVFZBIHBvdXIgbGEgY29tbWFuZGUgSUtFQSAgMTUyMzEy?=
+	=?utf-8?B?OTQyNg==?=" from information@cm.order.email.ikea.com -> Category: Finances/swissborg
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Frederic=E2=80=93_Help_VMUG_Grow?=" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?D=C3=A9crypter_le_code_ATS?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Fake=20Antivirus=20Pop-Ups=20vs.=20Real=20Security=20Alerts:=20How=20to=20Tell=20the=20Difference?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "Save Now on VMware Explore 2025 in Las Vegas" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:29:59 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/eBill
+2025-07-06 22:29:59 | INFO     | __main__:run_classification:72 - Email "Ta facture eBill Wingo" from bounce@wingo.ch -> Category: Finances/eBill
+2025-07-06 22:30:01 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Transports/Mobility
+2025-07-06 22:30:01 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?PubliBike_service_clients_-_?=
+ =?utf-8?Q?Ticket_T-2025/06-186166_cr=C3=A9=C3=A9?=" from noreply@publibike-service.ch -> Category: Transports/Mobility
+2025-07-06 22:30:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:30:01 | INFO     | __main__:run_classification:72 - Email "Comment poursuivre son ascension professionnelle en tant que personne introvertie ?" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:30:03 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Voyages/Kuoni
+2025-07-06 22:30:03 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Guide_pratique_pour_bien_pr=C3=A9parer_ses_vacance?=
+ =?utf-8?Q?s,_Qu'y_a-t-il_dans_votre_glace_vanille=3F,_...?=" from newsletter@news.bonasavoir.ch -> Category: Voyages/Kuoni
+2025-07-06 22:30:03 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:30:03 | INFO     | __main__:run_classification:72 - Email "WWDC25: The new design has arrived." from developer@insideapple.apple.com -> Category: Services/Apple
+2025-07-06 22:30:14 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:30:14 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?WW91ciB1cGRhdGVkIHdlaWdodCBsb3NzIHNjb3JlOiA2LjQvMTAg?=
+	=?utf-8?B?4oCUIHlvdXIgcGxhbiB3aWxsIGJlIGRlbGV0ZWQgaW4gMiBkYXlzIOKPsyAg?=" from hello@my.simple.life -> Category: Finances/Bloomberg
+2025-07-06 22:30:14 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:30:14 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:30:19 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?IT_disasters_are_inevitable_?=
+ =?UTF-8?Q?=E2=80=94_downtime_doesn=E2=80=99t_have_to_be?=" from donotreply@unitrends.com -> Category: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?8J+TnSBZb3VyIHBlcnNvbmFsaXplZCBCb2R5IFR5cGUgcGxhbiBp?=
+	=?utf-8?B?cyByZWFkeSDinJTvuI8gIA==?=" from hello@my.simple.life -> Category: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Kraken
+2025-07-06 22:30:19 | INFO     | __main__:run_classification:72 - Email "Votre avis compte ! Que pensez-vous de Kraken ?" from no-reply@email.kraken.com -> Category: Finances/Kraken
+2025-07-06 22:30:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Dutch=20police=20identify=20users=20as=20young=20as=2011-year-old=20on=20Cracked.io=20hacking=20forum?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:30:19 | INFO     | __main__:run_classification:72 - Email "Last Chance to Register for the Fortinet SecOps Summit" from info@global.fortinet.com -> Category: Finances/Bloomberg
+2025-07-06 22:30:21 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Personnel/Patricia
+2025-07-06 22:30:21 | INFO     | __main__:run_classification:72 - Email "FW: mes coordonnes..." from Frederic.Jacquet@Dell.com -> Category: Personnel/Patricia
+2025-07-06 22:30:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:30:21 | INFO     | __main__:run_classification:72 - Email "Breaking News: VCF 9 is Live!" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:30:21 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:30:21 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Des_selfies_de_CV_g=C3=A9n=C3=A9r=C3=A9s_par_l'IA_:_pra?=
+ =?UTF-8?Q?tique_utile_ou_fausse_bonne_id=C3=A9e_=3F?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:30:25 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Transports/Mobility
+2025-07-06 22:30:25 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?UkU6IE1vYmlsaXTDqSBkb3VjZSDDoCBNb250cmV1eA==?=" from Mobilite@montreux.ch -> Category: Transports/Mobility
+2025-07-06 22:30:25 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Kraken
+2025-07-06 22:30:25 | INFO     | __main__:run_classification:72 - Email "Votre avis compte ! Que pensez-vous de Kraken ?" from no-reply@email.kraken.com -> Category: Finances/Kraken
+2025-07-06 22:30:29 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:30:29 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Rdv_en_LIVE_=F0=9F=91=80_Sigma_Zoom_1.8_=F0=9F=A4=AF?=" from damien@leblogphoto.net -> Category: Informations/Newsletters
+2025-07-06 22:30:36 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:30:36 | INFO     | __main__:run_classification:72 - Email "I want to connect" from invitations@linkedin.com -> Category: Finances/Bloomberg
+2025-07-06 22:30:39 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:30:39 | INFO     | __main__:run_classification:72 - Email "Complete Solo Academy Course - Get Started with Envoy Proxy" from academy@solo.io -> Category: Informations/Newsletters
+2025-07-06 22:30:39 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Informations/Newsletters
+2025-07-06 22:30:39 | INFO     | __main__:run_classification:72 - Email "Complete Solo Academy Course - Get Started with Istio" from academy@solo.io -> Category: Informations/Newsletters
+2025-07-06 22:30:39 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Informations/Newsletters
+2025-07-06 22:30:39 | INFO     | __main__:run_classification:72 - Email "Complete Solo Academy Course - Deploy Istio for Production" from academy@solo.io -> Category: Informations/Newsletters
+2025-07-06 22:30:42 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Transports/CFF
+2025-07-06 22:30:42 | INFO     | __main__:run_classification:72 - Email "En cours d'acheminement: Ordre de Brack" from notifications@post.ch -> Category: Transports/CFF
+2025-07-06 22:30:52 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Cookomix
+2025-07-06 22:30:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Les_recettes_Thermomix_de_la_semaine_=F0=9F=8D=92?=" from mail@cookomix.com -> Category: Informations/Cookomix
+2025-07-06 22:30:53 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Bloomberg
+2025-07-06 22:30:53 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?WW91ciBNb25leVdpeiBhY2NvdW50IGlzIGluYWN0aXZl?=" from hello@wiz.money -> Category: Finances/Bloomberg
+2025-07-06 22:30:53 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:30:53 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?WW91ciBNb25leVdpeiBhY2NvdW50IGlzIGluYWN0aXZl?=" from hello@wiz.money -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Cookomix
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Your Workout Results, ready for Download!" from noreply@mywellness.com -> Category: Informations/Cookomix
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Security alert for fred.jacquet@gmail.com" from no-reply@accounts.google.com -> Category: Services/Apple
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Transports/CFF
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Distribution_effectu=C3=A9e:_Ordre_de_Brack?=" from notifications@post.ch -> Category: Transports/CFF
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?WW91ciBNb25leVdpeiBhY2NvdW50IGlzIGluYWN0aXZl?=" from hello@wiz.money -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Gear up for summer with these Limited Edition IDs." from edwardw@roadid.com -> Category: Finances/CA
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Weekly VMUG portal Digest for Advantage VMUG" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Dutch=20police=20identify=20users=20as=20young=20as=2011-year-old=20on=20Cracked.io=20hacking=20forum?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Selma
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?8J+TiiBEZXJuacOocmVz?= nouvelles de ton portefeuille
+ d'investissement" from hello@selma.com -> Category: Finances/Selma
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Last Chance: Tell Us What You Think + Enter to Win a VMware Explore
+ Pass!" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Smarter VMware Cloud Starts with Pure Storage" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:04 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:31:04 | INFO     | __main__:run_classification:72 - Email "Votre facture Apple" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:31:14 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Licences
+2025-07-06 22:31:14 | INFO     | __main__:run_classification:72 - Email "Exclusive for VMUG Advantage Members: FREE ANS Licenses - New!" from advantage@vmug.com -> Category: Services/Licences
+2025-07-06 22:31:14 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:31:14 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Extraverti_et_efficace_:_comment_optimiser_son_=C3=A9ne?=
+ =?UTF-8?Q?rgie_au_travail?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:31:14 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:31:14 | INFO     | __main__:run_classification:72 - Email "Re: Avenants de Tobias JACQUET chez Mmes Antunes Nunes De Oliveira
+ et Schwaller, non =?utf-8?Q?valid=C3=A9s?= - Relance" from flo@ljf.ch -> Category: Personnel/Patricia
+2025-07-06 22:31:14 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:31:14 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?UkU6IEF2ZW5hbnRzIGRlIFRvYmlhcyBKQUNRVUVUIGNoZXogTW1lcyBBbnR1?=
+ =?utf-8?B?bmVzIE51bmVzIERlIE9saXZlaXJhIGV0IFNjaHdhbGxlciwgbm9uIHZhbGlk?=
+ =?utf-8?B?w6lzIC0gUmVsYW5jZQ==?=" from accueil.familial@montreux.ch -> Category: Personnel/Patricia
+2025-07-06 22:31:16 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Administratif/Officiel
+2025-07-06 22:31:16 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?BLOCTEL_-_Renouvellement_de_votr?=
+ =?UTF-8?Q?e_num=C3=A9ro_de_t=C3=A9l=C3=A9phone_sur_Bloctel?=" from noreply@bloctel.gouv.fr -> Category: Administratif/Officiel
+2025-07-06 22:31:16 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:16 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Login=20attempt=20on=20a=20new=20device?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:16 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:31:16 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Spotify=20Scams:=20How=20to=20Spot=20Them=20and=20Avoid=20Getting=20Played?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:31:27 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/eBill
+2025-07-06 22:31:27 | INFO     | __main__:run_classification:72 - Email "King Property - Booking confirmation: 29058GZJGH91" from info@kingpropertyrooms.com -> Category: Finances/eBill
+2025-07-06 22:31:27 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Transports/CFF
+2025-07-06 22:31:27 | INFO     | __main__:run_classification:72 - Email "Distribution aujourd'hui: Colis de RS Switzerland SA" from notifications@post.ch -> Category: Transports/CFF
+2025-07-06 22:31:37 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Selma
+2025-07-06 22:31:37 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?4pyF?= Confirmation du rendez-vous pris sur Salonkee: mar.
+ 1 juil. 2025 13:30" from no-reply@salonkee.com -> Category: Finances/Selma
+2025-07-06 22:31:47 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:31:47 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?L'affaire=20est=20dans=20le=20sac!=20-=20LEGEND=20of=20PANAMA=20Chapeaux=20-=20Collection=20exclusive=20SAINT-BARTH?=" from contact@qoqa.ch -> Category: Informations/Newsletters
+2025-07-06 22:31:50 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Informations/Newsletters
+2025-07-06 22:31:50 | INFO     | __main__:run_classification:72 - Email "=?utf-8?B?Um9tYWluIEpPTkNPVVIgdm91cyBhIGVudm95w6kgdW4ga3Vkb3Mg?=
+	=?utf-8?B?IQ==?=" from mail@update.strava.com -> Category: Informations/Newsletters
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "Confirmez votre adresse e-mail" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Votre_demande_pour_la_v=C3=A9rification_d'identit=C3=A9?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Votre_demande_pour_la_v=C3=A9rification_d'identit=C3=A9?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Login_=C3=A0_partir_de_Chrome_sur_Mac_OS_d=C3=A9tect=C3=A9?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Bienvenue_dans_SwissID_-_Votre_ac?=
+ =?UTF-8?Q?c=C3=A8s_s=C3=A9curis=C3=A9_aux_services_en_ligne?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Authentification_=C3=A0_deux_facteurs_par_SMS_activ=C3=A9e?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Transports/CFF
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "Inscription - PickPost et My Post 24" from notifications@post.ch -> Category: Transports/CFF
+2025-07-06 22:31:52 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Transports/CFF
+2025-07-06 22:31:52 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Distribution_effectu=C3=A9e:_Colis_de_RS_Switzerland_SA?=" from notifications@post.ch -> Category: Transports/CFF
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Services/Todoist
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?8J+nqg==?= Experimental update: From voice to task with
+ Ramble" from no-reply@todoist.com -> Category: Services/Todoist
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Todoist
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?VMOiY2hlcw==?= de Frederic pour le juil. 1 2025
+ =?UTF-8?B?4oaS?= 21 dues, 1 en retard" from no-reply@todoist.com -> Category: Services/Todoist
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Votre_demande_pour_la_v=C3=A9rificati?=
+ =?UTF-8?Q?on_d'identit=C3=A9_avec_la_SwissID_App?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Apple
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?Login_=C3=A0_partir_de_Chrome_sur_Windows_d=C3=A9tect=C3=A9?=" from no-reply@swissid.ch -> Category: Services/Apple
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "Save the Date - Fortinet auf der it-sa 2025 - Sichern Sie sich Ihr
+ kostenfreies Ticket" from info@global.fortinet.com -> Category: Finances/Bloomberg
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Users=20Discover=20200+=20Services=20in=20Their=20Digital=20Footprint?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:32:01 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/CA
+2025-07-06 22:32:01 | INFO     | __main__:run_classification:72 - Email "Renouvellement de votre abonnement" from no_reply@email.apple.com -> Category: Finances/CA
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Revolut
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "Your code - 399094. Complete verification in the app  " from hello@email.simple.life -> Category: Finances/Revolut
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Todoist
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?VMOiY2hlcw==?= de Frederic pour le juil. 3 2025
+ =?UTF-8?B?4oaS?= 15 dues, 9 en retard" from no-reply@todoist.com -> Category: Services/Todoist
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "Your VMUG Voice: July Edition" from memberservices@vmug.com -> Category: Finances/Bloomberg
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Patricia
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?Q?6_conseils_tr=C3=A8s_utiles_pour_soutenir_un=C2=B7e_col?=
+ =?UTF-8?Q?l=C3=A8gue_en_deuil?=" from candidat@my.jobup.ch -> Category: Personnel/Patricia
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Todoist
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?VMOiY2hlcw==?= de Frederic pour le juil. 4 2025
+ =?UTF-8?B?4oaS?= 22 dues, 4 en retard" from no-reply@todoist.com -> Category: Services/Todoist
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Login=20attempt=20on=20a=20new=20device?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:32:07 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Services/Todoist
+2025-07-06 22:32:07 | INFO     | __main__:run_classification:72 - Email "=?UTF-8?B?VMOiY2hlcw==?= de Frederic pour le juil. 5 2025
+ =?UTF-8?B?4oaS?= 10 dues, 3 en retard" from no-reply@todoist.com -> Category: Services/Todoist
+2025-07-06 22:32:17 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Finances/Coinbase
+2025-07-06 22:32:17 | INFO     | __main__:run_classification:72 - Email "Sign into ClickUp: 7099" from help+2694608@clickup.com -> Category: Finances/Coinbase
+2025-07-06 22:32:19 | INFO     | mailtag.classifier:classify_email:161 - Classified via AI Model: Personnel/Sécurité
+2025-07-06 22:32:19 | INFO     | __main__:run_classification:72 - Email "New login to your ClickUp account" from alerts@help.clickup.com -> Category: Personnel/Sécurité
+2025-07-06 22:32:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Personnel/Sécurité
+2025-07-06 22:32:19 | INFO     | __main__:run_classification:72 - Email "New login to your ClickUp account" from alerts@help.clickup.com -> Category: Personnel/Sécurité
+2025-07-06 22:32:19 | INFO     | mailtag.classifier:classify_email:141 - Classified via Validated DB: Finances/Bloomberg
+2025-07-06 22:32:19 | INFO     | __main__:run_classification:72 - Email "=?utf-8?Q?Spotify=20Scams:=20How=20to=20Spot=20Them=20and=20Avoid=20Getting=20Played?=" from no-reply@info.bitdefender.com -> Category: Finances/Bloomberg
+2025-07-06 22:32:19 | INFO     | __main__:run_classification:80 - Pass 2 complete.
+2025-07-06 22:32:19 | INFO     | __main__:run_classification:102 - Analysis complete.
+2025-07-06 22:32:19 | INFO     | mailtag.imap_service:connect:48 - Disconnected from IMAP server.
