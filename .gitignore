@@ -144,3 +144,4 @@ dmypy.json
 .pyre/
 
 logs/*.log*.env
+credentials.json
