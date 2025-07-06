@@ -1,38 +1,56 @@
-from unittest.mock import patch, MagicMock
 import pytest
-from mailtag.gmail_service import GmailService
+from pytest_mock import MockerFixture
+
 from mailtag.config import GmailConfig
+from mailtag.gmail_service import GmailService
 from mailtag.models import Email
+
 
 @pytest.fixture
 def gmail_config() -> GmailConfig:
     """Returns a default GmailConfig for testing."""
     return GmailConfig(credentials_file="creds.json", token_file="token.json")
 
+
 @pytest.fixture
 def gmail_service(gmail_config: GmailConfig) -> GmailService:
     """Returns a GmailService instance."""
     return GmailService(config=gmail_config)
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_connect_success(mock_get_service, gmail_service: GmailService):
+
+def test_connect_success(gmail_service: GmailService, mocker: MockerFixture):
     """Tests a successful connection to the Gmail API."""
+    mock_get_service = mocker.patch("mailtag.gmail_service.get_gmail_service")
     gmail_service.connect()
     mock_get_service.assert_called_once_with("creds.json", "token.json")
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_get_emails(mock_get_service, gmail_service: GmailService):
+
+def test_get_emails(gmail_service: GmailService, mocker: MockerFixture):
     """Tests fetching emails from the Gmail API."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
-    mock_service.users().messages().list().execute.return_value = {
-        "messages": [{"id": "1"}, {"id": "2"}]
-    }
+    mock_service.users().messages().list().execute.return_value = {"messages": [{"id": "1"}, {"id": "2"}]}
     mock_service.users().messages().get.return_value.execute.side_effect = [
-        {"id": "1", "payload": {"headers": [{"name": "Subject", "value": "Test 1"}, {"name": "From", "value": "sender1@test.com"}]}},
-        {"id": "2", "payload": {"headers": [{"name": "Subject", "value": "Test 2"}, {"name": "From", "value": "sender2@test.com"}]}},
+        {
+            "id": "1",
+            "payload": {
+                "headers": [
+                    {"name": "Subject", "value": "Test 1"},
+                    {"name": "From", "value": "sender1@test.com"},
+                ]
+            },
+        },
+        {
+            "id": "2",
+            "payload": {
+                "headers": [
+                    {"name": "Subject", "value": "Test 2"},
+                    {"name": "From", "value": "sender2@test.com"},
+                ]
+            },
+        },
     ]
 
     emails = gmail_service.get_emails()
@@ -40,25 +58,49 @@ def test_get_emails(mock_get_service, gmail_service: GmailService):
     assert emails[0].subject == "Test 1"
     assert emails[1].sender_address == "sender2@test.com"
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_get_emails_pagination(mock_get_service, gmail_service: GmailService):
+
+def test_get_emails_pagination(gmail_service: GmailService, mocker: MockerFixture):
     """Tests fetching emails with pagination."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
     mock_service.users().messages().list.side_effect = [
-        MagicMock(execute=MagicMock(return_value={
-            "messages": [{"id": "1"}],
-            "nextPageToken": "token2",
-        })),
-        MagicMock(execute=MagicMock(return_value={
-            "messages": [{"id": "2"}],
-        })),
+        mocker.MagicMock(
+            execute=mocker.MagicMock(
+                return_value={
+                    "messages": [{"id": "1"}],
+                    "nextPageToken": "token2",
+                }
+            )
+        ),
+        mocker.MagicMock(
+            execute=mocker.MagicMock(
+                return_value={
+                    "messages": [{"id": "2"}],
+                }
+            )
+        ),
     ]
     mock_service.users().messages().get.return_value.execute.side_effect = [
-        {"id": "1", "payload": {"headers": [{"name": "Subject", "value": "Test 1"}, {"name": "From", "value": "sender1@test.com"}]}},
-        {"id": "2", "payload": {"headers": [{"name": "Subject", "value": "Test 2"}, {"name": "From", "value": "sender2@test.com"}]}},
+        {
+            "id": "1",
+            "payload": {
+                "headers": [
+                    {"name": "Subject", "value": "Test 1"},
+                    {"name": "From", "value": "sender1@test.com"},
+                ]
+            },
+        },
+        {
+            "id": "2",
+            "payload": {
+                "headers": [
+                    {"name": "Subject", "value": "Test 2"},
+                    {"name": "From", "value": "sender2@test.com"},
+                ]
+            },
+        },
     ]
 
     emails = gmail_service.get_emails()
@@ -66,25 +108,25 @@ def test_get_emails_pagination(mock_get_service, gmail_service: GmailService):
     assert emails[0].subject == "Test 1"
     assert emails[1].sender_address == "sender2@test.com"
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_get_email_body(mock_get_service, gmail_service: GmailService):
+
+def test_get_email_body(gmail_service: GmailService, mocker: MockerFixture):
     """Tests fetching the body of an email."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
     email_model = Email(msg_id="1", subject="", sender_address="", sender_name="")
     mock_service.users().messages().get.return_value.execute.return_value = {
-        "payload": {"body": {"data": "VGhpcyBpcyB0aGUgYm9keS4="}} # "This is the body."
+        "payload": {"body": {"data": "VGhpcyBpcyB0aGUgYm9keS4="}}  # "This is the body."
     }
     body = gmail_service.get_email_body(email_model)
     assert "This is the body." in body
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_get_emails_with_filters(mock_get_service, gmail_service: GmailService):
+
+def test_get_emails_with_filters(gmail_service: GmailService, mocker: MockerFixture):
     """Tests fetching emails with various filters."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
     gmail_service.get_emails(subject="Test", sender="sender@test.com", status="UNSEEN")
@@ -94,11 +136,11 @@ def test_get_emails_with_filters(mock_get_service, gmail_service: GmailService):
         pageToken=None,
     )
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_get_label_id_not_found(mock_get_service, gmail_service: GmailService):
+
+def test_get_label_id_not_found(gmail_service: GmailService, mocker: MockerFixture):
     """Tests that None is returned when a label is not found."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
     mock_service.users().labels().list().execute.return_value = {
@@ -107,11 +149,11 @@ def test_get_label_id_not_found(mock_get_service, gmail_service: GmailService):
     label_id = gmail_service._get_label_id_by_name("NonExistentLabel")
     assert label_id is None
 
-@patch("mailtag.gmail_service.get_gmail_service")
-def test_move_email_label_not_found(mock_get_service, gmail_service: GmailService):
+
+def test_move_email_label_not_found(gmail_service: GmailService, mocker: MockerFixture):
     """Tests that an email is not moved if the destination label is not found."""
-    mock_service = MagicMock()
-    mock_get_service.return_value = mock_service
+    mock_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_service.get_gmail_service", return_value=mock_service)
     gmail_service.connect()
 
     mock_service.users().labels().list().execute.return_value = {"labels": []}

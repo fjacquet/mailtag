@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
 
 from mailtag.config import (
     AppConfig,

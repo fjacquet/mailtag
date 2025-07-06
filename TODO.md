@@ -40,3 +40,15 @@ This file outlines the remaining tasks to complete the implementation of the Ema
 - [x] **Documentation - `README.md`:**
   - Add a new section to `README.md` explaining how to configure and use the new service.
   - Include instructions for enabling IMAP and generating Gmail API credentials.
+
+## **Phase 4: Advanced Features**
+
+- [x] **Provider Selection at Startup:**
+  - Implement a `--provider` command-line argument in `main.py`.
+  - The argument should accept `imap`, `gmail`, or `all` (as a default).
+  - The application logic should conditionally run the services based on this argument.
+
+## **Phase 5: Refinements & Optimizations**
+
+- [ ] **Improve Test Performance:**
+  - Review existing tests and ensure all external services (IMAP, Gmail) are properly mocked to reduce test execution time.

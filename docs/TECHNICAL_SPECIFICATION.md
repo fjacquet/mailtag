@@ -27,3 +27,13 @@ The implementation will be modular, with distinct functions for each core task:
 | **Search Messages** | `mail.select(mailbox)` then `mail.search(None, criteria)` | `service.users().messages().list(userId='me', q=query).execute()` |
 | **Fetch Message** | `mail.fetch(uid, '(RFC822)')` | `service.users().messages().get(userId='me', id=msg_id).execute()` |
 | **Move/Organize** | `mail.copy(uid, target)` followed by `mail.store(uid, '+FLAGS', '\Deleted')` and `mail.expunge()` | `service.users().messages().modify(userId='me', id=msg_id, body=body).execute()` |
+
+## **4.4. Provider Selection**
+
+The application will support running against the IMAP provider, the Gmail provider, or both. The selection will be made at runtime via a command-line argument.
+
+*   **`--provider`**: A command-line argument to specify which email provider(s) to use.
+    *   `--provider imap`: Runs the service only for the configured IMAP account.
+    *   `--provider gmail`: Runs the service only for the configured Gmail account.
+    *   `--provider all`: Runs the service for both IMAP and Gmail accounts.
+    *   If the argument is not provided, it will default to `all`.

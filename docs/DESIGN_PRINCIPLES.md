@@ -12,6 +12,7 @@ This document outlines the best practices for Python coding and `uv` usage in th
 - **Keep Functions Small:** Functions should be small and do one thing.
 - **Use Virtual Environments:** Use `uv` to create and manage virtual environments.
 - **Use `loguru` for Logging:** Use the `loguru` library for all logging purposes.
+- **Flexible CLI:** Design command-line interfaces to be flexible, allowing users to control the application's behavior, such as selecting specific providers or modes of operation.
 - **Quality Checks**: Run `uv run yamlfix src ; uv run ruff check --fix` to ensure code quality
 
 ## `uv` Best Practices

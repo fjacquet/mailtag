@@ -43,8 +43,8 @@ class ImapService(EmailProvider):
             raise ConnectionError("Not connected to IMAP server.")
 
         try:
-            status, _ = self.mail.select("inbox")
-            if status != "OK":
+            select_status, _ = self.mail.select("inbox")
+            if select_status != "OK":
                 logger.error("Failed to select inbox.")
                 return []
         except imaplib.IMAP4.error as e:

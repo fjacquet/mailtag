@@ -720,6 +720,7 @@ dependencies = [
     { name = "loguru" },
     { name = "ollama" },
     { name = "pytest" },
+    { name = "pytest-mock" },
     { name = "python-dotenv" },
     { name = "streamlit" },
 ]
@@ -752,6 +753,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "pytest-mock", specifier = ">=3.14.1" },
     { name = "pytest-mock", marker = "extra == 'dev'" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "ruff", marker = "extra == 'dev'" },
