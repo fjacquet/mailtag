@@ -19,7 +19,9 @@ def mock_output_path(mocker: MockerFixture) -> MockerFixture:
     return mocker.MagicMock(spec=Path)
 
 
-def test_generate_filters(mock_db_path: MockerFixture, mock_output_path: MockerFixture, mocker: MockerFixture):
+def test_generate_filters(
+    mock_db_path: MockerFixture, mock_output_path: MockerFixture, mocker: MockerFixture
+):
     """Tests the filter generation logic."""
     db_content = {
         "sender1@example.com": {"Finances/Bloomberg": 5, "À Classer": 1},
@@ -45,7 +47,9 @@ def test_generate_filters(mock_db_path: MockerFixture, mock_output_path: MockerF
     assert "sender3@example.com" not in written_content
 
 
-def test_generate_filters_empty_db(mock_db_path: MockerFixture, mock_output_path: MockerFixture, mocker: MockerFixture):
+def test_generate_filters_empty_db(
+    mock_db_path: MockerFixture, mock_output_path: MockerFixture, mocker: MockerFixture
+):
     """Tests filter generation with an empty database."""
     mock_db_path.exists.return_value = False
     generator = FilterGenerator(db_path=mock_db_path, output_path=mock_output_path)
