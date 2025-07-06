@@ -86,9 +86,13 @@ class ImapService(EmailProvider):
                 logger.error("Failed to search for emails.")
                 return []
 
+            fetch_command = "(BODY.PEEK[])"
+            if self.config.use_gmail_extensions:
+                fetch_command += " X-GM-LABELS"
+
             for num in messages[0].split():
                 try:
-                    typ, data = self.mail.fetch(num, "(BODY.PEEK[] X-GM-LABELS)")
+                    typ, data = self.mail.fetch(num, fetch_command)
                     if typ != "OK":
                         logger.warning(f"Failed to fetch email with UID: {num}")
                         continue

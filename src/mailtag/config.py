@@ -32,6 +32,7 @@ class ImapConfig:
     host: str
     user: str
     password: str
+    use_gmail_extensions: bool = False
 
 
 @dataclass
@@ -85,6 +86,7 @@ def load_config(path: Path) -> AppConfig:
                     host=data["imap"]["host"],
                     user=imap_user,
                     password=imap_password,
+                    use_gmail_extensions=data["imap"].get("use_gmail_extensions", False),
                 ),
                 gmail=GmailConfig(
                     credentials_file=data["gmail"]["credentials_file"],
@@ -116,6 +118,7 @@ except RuntimeError as e:
             host="imap.example.com",
             user="user@example.com",
             password="",
+            use_gmail_extensions=False,
         ),
         gmail=GmailConfig(
             credentials_file="credentials.json",
