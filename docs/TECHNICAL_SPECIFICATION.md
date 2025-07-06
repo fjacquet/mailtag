@@ -42,5 +42,20 @@ The core of the new engine is the AMSC strategy, which follows a prioritized seq
     - If no validated classification or server-side label is found, the system queries the `sender_classification_db.json` database.
     - A classification is accepted if the confidence level exceeds `historical_confidence_threshold` and the sender has appeared at least `min_count` times.
 
-4.  **AI Model Fallback:**
-    - If all other signals fail, the system falls back to the AI model. The suggestion is then stored in `sender_classification_db.json`.
+## 5. **Database Structure**
+
+The classification databases (`sender_classification_db.json` and `validated_classification_db.json`) use a `senders -> folders` structure:
+
+```json
+{
+  "sender@example.com": {
+    "Category/A": 10,
+    "Category/B": 2
+  }
+}
+```
+
+This structure is optimized for the primary use case of the application: given a sender, what is its most likely classification? This allows for a direct and efficient O(1) lookup to retrieve the classification data for a given sender.
+
+An alternative `folders -> senders` structure was considered, but it would require iterating through all folders to find the classification for a given sender, which is significantly less efficient for the core classification workflow.
+
