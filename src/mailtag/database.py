@@ -16,7 +16,7 @@ class ClassificationDatabase:
 
     def _load(self, db_path: Path) -> defaultdict:
         """Loads a database from a JSON file."""
-        if not db_path.exists():
+        if not db_path.exists() or db_path.stat().st_size == 0:
             return defaultdict(lambda: defaultdict(int))
         try:
             with db_path.open("r", encoding="utf-8") as f:

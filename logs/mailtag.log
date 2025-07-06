@@ -1,0 +1,8 @@
+2025-07-06 21:48:23 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2025-07-06 21:48:23 | ERROR    | mailtag.database:_load:29 - Could not read or parse db file at db/sender_classification_db.json
+2025-07-06 21:48:23 | ERROR    | mailtag.database:_load:29 - Could not read or parse db file at db/validated_classification_db.json
+2025-07-06 21:48:23 | INFO     | __main__:run:161 - Running classification for provider: ImapService
+2025-07-06 21:48:24 | INFO     | mailtag.imap_service:connect:39 - Successfully connected to IMAP server: mail.infomaniak.com
+2025-07-06 21:48:24 | INFO     | __main__:run_classification:34 - Starting Fast Parse classification for IMAP...
+2025-07-06 21:48:25 | INFO     | __main__:run_classification:58 - Pass 1 complete. 0 emails moved.
+2025-07-06 21:48:25 | INFO     | __main__:run_classification:61 - Starting Pass 2: AI classification...

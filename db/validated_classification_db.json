@@ -1,0 +1,189 @@
+{
+    "newsletter@bloomberg.com": {
+        "Finances/Bloomberg": 1
+    },
+    "noreply@creditagricole.fr": {
+        "Finances/CA": 1
+    },
+    "noreply@coinbase.com": {
+        "Finances/Coinbase": 1
+    },
+    "noreply@ebill.ch": {
+        "Finances/eBill": 1
+    },
+    "noreply@kraken.com": {
+        "Finances/Kraken": 1
+    },
+    "noreply@linxo.com": {
+        "Finances/Linxo": 1
+    },
+    "noreply@paypal.com": {
+        "Finances/Paypal": 1
+    },
+    "notifications@revolut.com": {
+        "Finances/Revolut": 1
+    },
+    "support@revolut.com": {
+        "Finances/Revolut": 1
+    },
+    "noreply@selma.ch": {
+        "Finances/Selma": 1
+    },
+    "noreply@swissborg.com": {
+        "Finances/swissborg": 1
+    },
+    "noreply@digiposte.fr": {
+        "Administratif/Digiposte": 1
+    },
+    "noreply@reme.ch": {
+        "Administratif/REME": 1
+    },
+    "contact@ufe.ch": {
+        "Administratif/UFE": 1
+    },
+    "noreply@vaudoise.ch": {
+        "Administratif/Vaudoise": 1
+    },
+    "noreply@email.apple.com": {
+        "Services/Apple": 1
+    },
+    "support@apple.com": {
+        "Services/Apple": 1
+    },
+    "icloud@apple.com": {
+        "Services/Apple": 1
+    },
+    "noreply@bitdefender.com": {
+        "Services/Bitdefender": 1
+    },
+    "support@bitdefender.com": {
+        "Services/Bitdefender": 1
+    },
+    "noreply@godaddy.com": {
+        "Services/GoDaddy": 1
+    },
+    "info@mailer.netflix.com": {
+        "Services/Netflix": 1
+    },
+    "no-reply@netflix.com": {
+        "Services/Netflix": 1
+    },
+    "newsletter@skylum.com": {
+        "Services/Skylum": 1
+    },
+    "noreply@snyk.io": {
+        "Services/Snyk": 1
+    },
+    "noreply@synology.com": {
+        "Services/Synology": 1
+    },
+    "hello@todoist.com": {
+        "Services/Todoist": 1
+    },
+    "noreply@cumulus.ch": {
+        "Achats/Cumulus": 1
+    },
+    "info@fnac.com": {
+        "Achats/FNAC": 1
+    },
+    "info@ifolor.ch": {
+        "Achats/ifolor": 1
+    },
+    "noreply@interflora.fr": {
+        "Achats/Interflora": 1
+    },
+    "promos@interflora.fr": {
+        "Achats/Interflora": 1
+    },
+    "newsletter@manor.ch": {
+        "Achats/Manor": 1
+    },
+    "noreply@payot.ch": {
+        "Achats/Payot": 1
+    },
+    "facture@sbb.ch": {
+        "Transports/CFF": 1
+    },
+    "info@cff.ch": {
+        "Transports/CFF": 1
+    },
+    "notification@sbb.ch": {
+        "Transports/CFF": 1
+    },
+    "noreply@easypark.com": {
+        "Transports/EasyPark": 1
+    },
+    "newsletter@mobility.ch": {
+        "Transports/Mobility": 1
+    },
+    "info@gites-de-france.com": {
+        "Voyages/Gites de France": 1
+    },
+    "newsletter@kuoni.ch": {
+        "Voyages/Kuoni": 1
+    },
+    "noreply@leukerbad.ch": {
+        "Voyages/Leukerbad": 1
+    },
+    "noreply@radissonblu.com": {
+        "Voyages/Radisson Blu": 1
+    },
+    "noreply@reka.ch": {
+        "Voyages/Reka": 1
+    },
+    "booking@airlines.com": {
+        "Voyages/R\u00e9servations": 1
+    },
+    "confirmation@hotel.com": {
+        "Voyages/R\u00e9servations": 1
+    },
+    "newsletter@24heures.ch": {
+        "Informations/24 heures": 1
+    },
+    "newsletter@bonasavoir.ch": {
+        "Informations/BonASavoir": 1
+    },
+    "newsletter@cookomix.com": {
+        "Informations/Cookomix": 1
+    },
+    "newsletter@hashicorp.com": {
+        "Informations/HashiCorp": 1
+    },
+    "newsletter@letemps.ch": {
+        "Informations/Le Temps": 1
+    },
+    "abo@letemps.ch": {
+        "Informations/Le Temps": 1
+    },
+    "newsletter@lenouvelliste.ch": {
+        "Informations/Nouvelliste": 1
+    },
+    "noreply@vmug.com": {
+        "Informations/VMUG": 1
+    },
+    "noreply@immoscout24.ch": {
+        "Carri\u00e8re et Immobilier/ImmoScout24": 1
+    },
+    "newsletter@immoscout24.ch": {
+        "Carri\u00e8re et Immobilier/ImmoScout24": 1
+    },
+    "contact@filae.com": {
+        "Personnel/Filae": 1
+    },
+    "support@myheritage.com": {
+        "Personnel/MyHeritage": 1
+    },
+    "newsletter@myheritage.com": {
+        "Personnel/MyHeritage": 1
+    },
+    "news@myheritage.com": {
+        "Personnel/MyHeritage": 1
+    },
+    "patricia@example.com": {
+        "Personnel/Patricia": 1
+    },
+    "fred.jacquet@gmail.com": {
+        "System Notifications/Backups": 2,
+        "Technology Reports": 1
+    }
+}

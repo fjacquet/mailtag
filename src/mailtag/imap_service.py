@@ -97,23 +97,26 @@ class ImapService(EmailProvider):
         response = self.client.fetch(uids, fetch_command)
         emails = []
         for msg_id, data in response.items():
-            msg = email.message_from_bytes(data[b"BODY[]"])
-            sender_header = msg["From"]
-            subject_header = msg["Subject"]
-            sender_name, sender_address = self._parse_sender(sender_header)
-            body = self._get_body_from_msg(msg)
-            labels = [label.decode() for label in data.get(b"X-GM-LABELS", [])]
+            try:
+                msg = email.message_from_bytes(data[b"BODY[]"])
+                sender_header = msg["From"]
+                subject_header = msg["Subject"]
+                sender_name, sender_address = self._parse_sender(sender_header)
+                body = self._get_body_from_msg(msg)
+                labels = [label.decode() for label in data.get(b"X-GM-LABELS", [])]
 
-            emails.append(
-                Email(
-                    msg_id=str(msg_id),
-                    subject=str(subject_header),
-                    sender_address=sender_address,
-                    sender_name=sender_name,
-                    body=body,
-                    labels=labels,
+                emails.append(
+                    Email(
+                        msg_id=str(msg_id),
+                        subject=str(subject_header),
+                        sender_address=sender_address,
+                        sender_name=sender_name,
+                        body=body,
+                        labels=labels,
+                    )
                 )
-            )
+            except UnicodeDecodeError as e:
+                logger.error(f"Could not decode email {msg_id}: {e}")
         return emails
 
     def get_emails(
