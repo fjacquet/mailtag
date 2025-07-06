@@ -29,6 +29,8 @@ def run_classification(provider_instance, database, validate):
         classifier = Classifier(CONFIG, database)
 
         with provider_instance.connect() as provider:
+            if isinstance(provider, ImapService):
+                provider.get_folder_hierarchy()
             # Fast Parse Implementation for IMAP
             if isinstance(provider, ImapService):
                 logger.info("Starting Fast Parse classification for IMAP...")
