@@ -8,3 +8,5 @@ class Email(BaseModel):
     subject: str
     sender_address: str
     sender_name: str
+    body: str = ""
+    labels: list[str] = []

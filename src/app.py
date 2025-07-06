@@ -49,16 +49,10 @@ def run_classification(args, provider):
 
     for email in emails:
         try:
-            body = provider.get_email_body(email)
-            category = classifier.classify_email(email, body)
-            logger.info(
-                'Email "%s" from %s -> Category: %s',
-                email.subject,
-                email.sender_address,
-                category,
-            )
-            if category != "Unclassified":
-                provider.move_email(email, args.destination)
+            category = classifier.classify_email(email)
+            logger.info(f'Email "{email.subject}" from {email.sender_address} -> Category: {category}')
+            if not args.validate and category not in ["Unclassified", "À Classer"]:
+                provider.move_email(email, category)
         except Exception as e:
             logger.error(f"Could not process email {email.msg_id}: {e}")
 
@@ -111,6 +105,11 @@ def main():
         action="store_true",
         help="Generate the mailfilter.xml file from the database.",
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Run in validation mode (read-only) to populate the database without moving emails.",
+    )
     args = parser.parse_args()
 
     if args.generate_filters:
@@ -133,9 +132,7 @@ def main():
                 providers_to_run.append(provider_class(CONFIG.gmail))
 
         if not providers_to_run:
-            logger.warning(
-                "No providers configured or selected. Check your config.toml."
-            )
+            logger.warning("No providers configured or selected. Check your config.toml.")
             return
 
         for provider in providers_to_run:

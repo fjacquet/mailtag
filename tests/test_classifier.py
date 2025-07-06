@@ -8,11 +8,11 @@ from pytest_mock import MockerFixture
 from mailtag.classifier import Classifier
 from mailtag.config import (
     AppConfig,
+    ClassifierConfig,
     GeneralConfig,
     GmailConfig,
     ImapConfig,
     LoggingConfig,
-    PreclassificationConfig,
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
@@ -35,7 +35,11 @@ def config() -> AppConfig:
             api_base="http://localhost:11434",
         ),
         logging=LoggingConfig(level="DEBUG", file=""),
-        preclassification=PreclassificationConfig(enabled=True, min_count=3, confidence_threshold=0.8),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.7,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+        ),
         imap=ImapConfig(host="", user="", password=""),
         gmail=GmailConfig(credentials_file="", token_file=""),
     )
@@ -48,120 +52,147 @@ def classifier(config: AppConfig, mock_db: MockerFixture, mocker: MockerFixture)
     - name: Finances
       sublabels:
         - name: Bloomberg
+    - name: Services
+      sublabels:
+        - name: Skylum
     - name: À Classer
     """
+    # Mock Path object to control file operations
     mock_path_constructor = mocker.patch("pathlib.Path")
     mock_path_instance = mock_path_constructor.return_value
     mock_path_instance.exists.return_value = True
-    mock_path_instance.open.return_value = mocker.mock_open(read_data=schema_content).return_value
+    # Create a mock file object for the context manager
+    mock_file = mocker.mock_open(read_data=schema_content)
+    mock_path_instance.open.return_value = mock_file.return_value
 
+    # Mock yaml.safe_load to return the parsed schema
     mocker.patch("yaml.safe_load", return_value=yaml.safe_load(schema_content))
+
+    # Initialize the classifier
     classifier_instance = Classifier(config=config, database=mock_db)
+    # Mock the proposal file to prevent actual file writes
     classifier_instance.proposal_file = mocker.MagicMock(spec=Path)
-    yield classifier_instance
+    return classifier_instance
 
 
-def test_preclassification_success(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
-    """Tests that pre-classification is used when confidence is high."""
-    sender = "confident@example.com"
-    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 4, "À Classer": 1})
+# --- AMSC Strategy Tests ---
 
-    email = Email(msg_id="1", subject="Confident", sender_address=sender, sender_name="")
-    body = "This should be pre-classified."
 
-    mock_completion = mocker.patch("litellm.completion")
-    category = classifier.classify_email(email, body)
+def test_signal_1_server_label_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+    """
+    Tests that if an email has a server-side label matching a category,
+    it is used for classification immediately.
+    """
+    email = Email(
+        msg_id="1",
+        subject="Test",
+        sender_address="test@example.com",
+        sender_name="Test",
+        body="Test body",
+        labels=["Services/Skylum", "Inbox"],
+    )
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai")
+
+    category = classifier.classify_email(email)
+
+    assert category == "Services/Skylum"
+    mock_db.update.assert_called_once_with("test@example.com", "Services/Skylum")
+    mock_ai.assert_not_called()
+
+
+def test_signal_2_historical_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+    """
+    Tests that if no server label matches, but a high-confidence historical
+    category exists, it is used.
+    """
+    sender = "history@example.com"
+    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 10, "À Classer": 1})
+    email = Email(
+        msg_id="1",
+        subject="History Test",
+        sender_address=sender,
+        sender_name="History",
+        body="Test body",
+        labels=["Inbox"],  # No matching server label
+    )
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai")
+
+    category = classifier.classify_email(email)
+
     assert category == "Finances/Bloomberg"
-    mock_completion.assert_not_called()
+    mock_db.update.assert_not_called()  # DB is not updated when using historical data
+    mock_ai.assert_not_called()
 
 
-def test_preclassification_failure_low_confidence(
-    classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture
-):
-    """Tests that LLM is called when pre-classification confidence is low."""
-    sender = "unsure@example.com"
-    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 2, "À Classer": 2})
+def test_signal_3_ai_fallback(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+    """
+    Tests that if no other signals match, the AI model is used as a fallback.
+    """
+    sender = "ai@example.com"
+    email = Email(
+        msg_id="1",
+        subject="AI Test",
+        sender_address=sender,
+        sender_name="AI",
+        body="Test body",
+        labels=["Inbox"],  # No matching server label
+    )
+    # No historical data for this sender
 
-    email = Email(msg_id="1", subject="Unsure", sender_address=sender, sender_name="")
-    body = "This should not be pre-classified."
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="Finances/Bloomberg")
 
-    mock_completion = mocker.patch("litellm.completion")
-    mock_choice = mocker.MagicMock()
-    mock_choice.message.content = "Finances/Bloomberg"
-    mock_response = mocker.MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_completion.return_value = mock_response
+    category = classifier.classify_email(email)
 
-    category = classifier.classify_email(email, body)
     assert category == "Finances/Bloomberg"
-    mock_completion.assert_called_once()
+    mock_ai.assert_called_once_with(email)
     mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
 
 
-def test_preclassification_failure_min_count(
+def test_no_signals_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+    """
+    Tests that if no signals match and the AI returns 'À Classer',
+    the database is not updated.
+    """
+    sender = "unclassified@example.com"
+    email = Email(
+        msg_id="1",
+        subject="Unclassified Test",
+        sender_address=sender,
+        sender_name="Unclassified",
+        body="Test body",
+        labels=["Inbox"],
+    )
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="À Classer")
+
+    category = classifier.classify_email(email)
+
+    assert category == "À Classer"
+    mock_ai.assert_called_once_with(email)
+    mock_db.update.assert_not_called()
+
+
+def test_historical_match_below_threshold(
     classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture
 ):
-    """Tests that LLM is called when the sender has too few classifications."""
-    sender = "new@example.com"
-    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 1})
+    """
+    Tests that the AI is used if historical data exists but is below the
+    confidence threshold.
+    """
+    sender = "low-confidence@example.com"
+    # Confidence is 2/3 = 0.66, which is below the 0.9 threshold
+    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 2, "Services/Skylum": 1})
+    email = Email(
+        msg_id="1",
+        subject="Low Confidence",
+        sender_address=sender,
+        sender_name="LowCo",
+        body="Test body",
+        labels=["Inbox"],
+    )
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="Services/Skylum")
 
-    email = Email(msg_id="1", subject="New", sender_address=sender, sender_name="")
-    body = "This should not be pre-classified."
+    category = classifier.classify_email(email)
 
-    mock_completion = mocker.patch("litellm.completion")
-    mock_choice = mocker.MagicMock()
-    mock_choice.message.content = "Finances/Bloomberg"
-    mock_response = mocker.MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_completion.return_value = mock_response
-
-    category = classifier.classify_email(email, body)
-    assert category == "Finances/Bloomberg"
-    mock_completion.assert_called_once()
-    mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
-
-
-def test_uncertain_classification(classifier: Classifier, mocker: MockerFixture):
-    """Tests that 'À Classer' is returned for uncertain classifications."""
-    email = Email(msg_id="1", subject="Uncertain", sender_address="test@example.com", sender_name="")
-    body = "This is an uncertain email."
-
-    mock_completion = mocker.patch("litellm.completion")
-    mock_choice = mocker.MagicMock()
-    mock_choice.message.content = "UNCERTAIN: New Category"
-    mock_response = mocker.MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_completion.return_value = mock_response
-
-    category = classifier.classify_email(email, body)
-    assert category == "À Classer"
-    classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
-
-
-def test_new_category_proposal(classifier: Classifier, mocker: MockerFixture):
-    """Tests that 'À Classer' is returned when a new category is proposed."""
-    email = Email(msg_id="1", subject="New Cat", sender_address="test@example.com", sender_name="")
-    body = "This email suggests a new category."
-
-    mock_completion = mocker.patch("litellm.completion")
-    mock_choice = mocker.MagicMock()
-    mock_choice.message.content = "New/Category"
-    mock_response = mocker.MagicMock()
-    mock_response.choices = [mock_choice]
-    mock_completion.return_value = mock_response
-
-    category = classifier.classify_email(email, body)
-    assert category == "À Classer"
-    classifier.proposal_file.open.assert_called_once_with("a", encoding="utf-8")
-
-
-def test_model_error(classifier: Classifier, mocker: MockerFixture):
-    """Tests that '(Model Error)' is returned when the LLM call fails."""
-    email = Email(msg_id="1", subject="Error", sender_address="test@example.com", sender_name="")
-    body = "This email will cause an error."
-
-    mock_completion = mocker.patch("litellm.completion")
-    mock_completion.side_effect = Exception("Test error")
-
-    category = classifier.classify_email(email, body)
-    assert category == "(Model Error)"
+    assert category == "Services/Skylum"
+    mock_ai.assert_called_once_with(email)
+    mock_db.update.assert_called_once_with(sender, "Services/Skylum")

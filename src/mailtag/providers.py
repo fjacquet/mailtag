@@ -20,9 +20,5 @@ class EmailProvider(ABC):
         """Fetches emails from the server."""
 
     @abstractmethod
-    def get_email_body(self, email: Email) -> str:
-        """Reads the body of a specific email."""
-
-    @abstractmethod
     def move_email(self, email: Email, destination: str):
         """Moves an email to a new destination."""

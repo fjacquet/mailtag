@@ -10,7 +10,10 @@ from .models import Email
 
 
 class Classifier:
-    """Classifies emails using an AI model."""
+    """
+    Classifies emails using a multi-signal strategy, prioritizing server-side
+    labels, then historical data, and finally an AI model.
+    """
 
     def __init__(self, config: AppConfig, database: ClassificationDatabase):
         self.config = config
@@ -36,50 +39,52 @@ class Classifier:
                 categories.append(category["name"])
         return categories
 
-    def _get_preclassified_category(self, sender_address: str) -> str | None:
+    def _get_category_from_labels(self, email: Email) -> str | None:
         """
-        Returns a pre-classified category for a sender if the confidence
-        threshold is met.
+        Signal 1: Check for an existing server-side label that matches a known category.
         """
-        if not self.config.preclassification.enabled:
-            return None
+        for label in email.labels:
+            if label in self.categories:
+                logger.debug(f"Found matching server-side label: {label}")
+                return label
+        return None
 
-        sender_classifications = self.database.sender_db.get(sender_address)
+    def _get_category_from_history(self, email: Email) -> str | None:
+        """
+        Signal 2: Check for a high-confidence classification from the sender's history.
+        """
+        sender_classifications = self.database.sender_db.get(email.sender_address)
         if not sender_classifications:
             return None
 
         total_count = sum(sender_classifications.values())
-        if total_count < self.config.preclassification.min_count:
+        if total_count < self.config.classifier.min_count:
             return None
 
         most_common_category = max(sender_classifications, key=sender_classifications.get)
         confidence = sender_classifications[most_common_category] / total_count
 
-        if confidence >= self.config.preclassification.confidence_threshold:
+        if confidence >= self.config.classifier.historical_confidence_threshold:
             logger.info(
-                f"Pre-classifying sender {sender_address} as "
-                f"{most_common_category} with {confidence:.2f} confidence."
+                f"Found high-confidence historical category for {email.sender_address}: "
+                f"{most_common_category} ({confidence:.2f} confidence)."
             )
             return most_common_category
         return None
 
-    def classify_email(self, email: Email, body: str) -> str:
-        """Classifies an email using litellm."""
-        # Try to get a pre-classified category first
-        preclassified_category = self._get_preclassified_category(email.sender_address)
-        if preclassified_category:
-            return preclassified_category
-
+    def _get_category_from_ai(self, email: Email) -> str:
+        """
+        Signal 3: Fallback to the AI model for classification.
+        """
         sender = (
             f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
         )
-
         category_list = "\n".join([f"- {cat}" for cat in self.categories])
 
         prompt = (
             f"Sujet : {email.subject}\n"
             f"De : {sender}\n"
-            f"Corps : {body}\n\n"
+            f"Corps : {email.body}\n\n"
             "Classe cet e-mail dans l'une des catégories suivantes:\n"
             f"{category_list}\n\n"
             "Réponds uniquement avec le nom complet de la catégorie "
@@ -93,26 +98,62 @@ class Classifier:
                 model=self.config.general.ollama_model,
                 messages=[{"role": "user", "content": prompt}],
                 api_base=self.config.general.api_base,
+                # It's good practice to include confidence if the model supports it
+                extra_body={"options": {"temperature": 0.2, "confidence": True}},
             )
             classification = response.choices[0].message.content.strip()
+            # Note: Confidence score handling might vary by model.
+            # This is a placeholder for how one might access it.
+            # confidence = response.choices[0].get("confidence", 0)
+
+            # if confidence < self.config.classifier.ai_confidence_threshold:
+            #     logger.warning(f"AI confidence ({confidence:.2f}) below threshold for '{classification}'.")
+            #     self._log_proposal(email, classification)
+            #     return "À Classer"
 
             if classification.startswith("UNCERTAIN"):
                 proposal = classification.replace("UNCERTAIN:", "").strip()
-                self._log_proposal(email, body, proposal)
+                self._log_proposal(email, proposal)
                 return "À Classer"
 
             if classification not in self.categories:
-                self._log_proposal(email, body, classification)
+                self._log_proposal(email, classification)
                 return "À Classer"
 
-            # Update database on successful classification
-            self.database.update(email.sender_address, classification)
             return classification
         except Exception as e:
             logger.error(f"Error calling litellm: {e}")
             return "(Model Error)"
 
-    def _log_proposal(self, email: Email, body: str, proposal: str):
+    def classify_email(self, email: Email) -> str:
+        """
+        Classifies an email using the Adaptive Multi-Signal Classification (AMSC) strategy.
+        """
+        # Signal 1: Server-Side Label
+        category = self._get_category_from_labels(email)
+        if category:
+            logger.info(f"Classified via Server Label: {category}")
+            self.database.update(email.sender_address, category)
+            return category
+
+        # Signal 2: Historical Database
+        category = self._get_category_from_history(email)
+        if category:
+            logger.info(f"Classified via History: {category}")
+            # No need to update DB, it's already the most confident one
+            return category
+
+        # Signal 3: AI Model (Fallback)
+        logger.debug("No high-confidence signals found, falling back to AI model.")
+        category = self._get_category_from_ai(email)
+        logger.info(f"Classified via AI Model: {category}")
+
+        if category not in ["À Classer", "(Model Error)"]:
+            self.database.update(email.sender_address, category)
+
+        return category
+
+    def _log_proposal(self, email: Email, proposal: str):
         """Logs a classification proposal to a file."""
         sender = (
             f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
@@ -122,4 +163,4 @@ class Classifier:
             f.write(f"From: {sender}\n")
             f.write(f"Subject: {email.subject}\n")
             f.write(f"Proposed Category: {proposal}\n")
-            f.write(f"Body:\n{body}\n\n")
+            f.write(f"Body:\n{email.body}\n\n")

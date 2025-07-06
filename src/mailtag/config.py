@@ -1,8 +1,8 @@
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-import tomllib
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,10 +21,10 @@ class GeneralConfig:
 
 
 @dataclass
-class PreclassificationConfig:
-    enabled: bool
+class ClassifierConfig:
+    ai_confidence_threshold: float
+    historical_confidence_threshold: float
     min_count: int
-    confidence_threshold: float
 
 
 @dataclass
@@ -44,7 +44,7 @@ class GmailConfig:
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
-    preclassification: PreclassificationConfig
+    classifier: ClassifierConfig
     imap: ImapConfig
     gmail: GmailConfig
 
@@ -62,7 +62,7 @@ def load_config(path: Path) -> AppConfig:
             imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
             if not imap_user:
                 raise ValueError("IMAP_USER not found in environment or config file.")
-            
+
             imap_password = os.getenv("IMAP_PASSWORD", data["imap"].get("password"))
             if not imap_password:
                 raise ValueError("IMAP_PASSWORD not found in environment or config file.")
@@ -76,10 +76,10 @@ def load_config(path: Path) -> AppConfig:
                     level=data["logging"]["level"],
                     file=data["logging"]["file"],
                 ),
-                preclassification=PreclassificationConfig(
-                    enabled=data["preclassification"]["enabled"],
-                    min_count=data["preclassification"]["min_count"],
-                    confidence_threshold=data["preclassification"]["confidence_threshold"],
+                classifier=ClassifierConfig(
+                    ai_confidence_threshold=data["classifier"]["ai_confidence_threshold"],
+                    historical_confidence_threshold=data["classifier"]["historical_confidence_threshold"],
+                    min_count=data["classifier"]["min_count"],
                 ),
                 imap=ImapConfig(
                     host=data["imap"]["host"],
@@ -107,7 +107,11 @@ except RuntimeError as e:
             api_base="http://localhost:11434",
         ),
         logging=LoggingConfig(level="INFO", file="mailtag.log"),
-        preclassification=PreclassificationConfig(enabled=True, min_count=3, confidence_threshold=0.8),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.7,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+        ),
         imap=ImapConfig(
             host="imap.example.com",
             user="user@example.com",

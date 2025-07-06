@@ -1,4 +1,5 @@
 import base64
+from email import utils as email_utils
 
 from loguru import logger
 
@@ -14,11 +15,23 @@ class GmailService(EmailProvider):
     def __init__(self, config: GmailConfig):
         self.config = config
         self.service = None
+        self._label_cache = {}
 
     def connect(self):
-        """Connects to the Gmail API."""
+        """Connects to the Gmail API and caches labels."""
         self.service = get_gmail_service(self.config.credentials_file, self.config.token_file)
-        logger.info("Successfully connected to Gmail API.")
+        if self.service:
+            logger.info("Successfully connected to Gmail API.")
+            self._cache_labels()
+
+    def _cache_labels(self):
+        """Caches all available user labels for quick lookup."""
+        if not self.service:
+            return
+        results = self.service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+        self._label_cache = {label["id"]: label["name"] for label in labels}
+        logger.info(f"Cached {len(self._label_cache)} Gmail labels.")
 
     def get_emails(
         self,
@@ -26,7 +39,7 @@ class GmailService(EmailProvider):
         sender: str | None = None,
         status: str | None = None,
     ) -> list[Email]:
-        """Fetches emails from the Inbox."""
+        """Fetches emails from the Inbox, including their body and labels."""
         if not self.service:
             raise ConnectionError("Not connected to Gmail API.")
 
@@ -48,26 +61,34 @@ class GmailService(EmailProvider):
         page_token = None
         while True:
             results = (
-                self.service.users()
-                .messages()
-                .list(userId="me", q=query, pageToken=page_token)
-                .execute()
+                self.service.users().messages().list(userId="me", q=query, pageToken=page_token).execute()
             )
             messages = results.get("messages", [])
 
             for message in messages:
-                msg = self.service.users().messages().get(userId="me", id=message["id"]).execute()
+                # Use format='full' to get all necessary details in one API call
+                msg = (
+                    self.service.users()
+                    .messages()
+                    .get(userId="me", id=message["id"], format="full")
+                    .execute()
+                )
                 headers = msg["payload"]["headers"]
-                subject = next((i["value"] for i in headers if i["name"] == "Subject"), None)
-                sender = next((i["value"] for i in headers if i["name"] == "From"), None)
-                sender_name, sender_address = self._parse_sender(sender)
+                subject_header = next((i["value"] for i in headers if i["name"] == "Subject"), "")
+                sender_header = next((i["value"] for i in headers if i["name"] == "From"), "")
+                sender_name, sender_address = self._parse_sender(sender_header)
+
+                body = self._get_body_from_payload(msg["payload"])
+                labels = [self._label_cache.get(lid, lid) for lid in msg.get("labelIds", [])]
 
                 emails.append(
                     Email(
                         msg_id=message["id"],
-                        subject=subject,
+                        subject=subject_header,
                         sender_address=sender_address,
                         sender_name=sender_name,
+                        body=body,
+                        labels=labels,
                     )
                 )
 
@@ -76,35 +97,24 @@ class GmailService(EmailProvider):
                 break
         return emails
 
-    def get_email_body(self, email_model: Email) -> str:
-        """Reads the body of a specific email."""
-        if not self.service:
-            raise ConnectionError("Not connected to Gmail API.")
-
-        msg = self.service.users().messages().get(userId="me", id=email_model.msg_id).execute()
-        payload = msg["payload"]
+    def _get_body_from_payload(self, payload) -> str:
+        """Extracts the text/plain body from the message payload."""
+        body = ""
         if "parts" in payload:
             for part in payload["parts"]:
-                if part["mimeType"] == "text/plain":
-                    data = part["body"]["data"]
-                    return base64.urlsafe_b64decode(data).decode("utf-8")
-        else:
-            data = payload["body"]["data"]
-            return base64.urlsafe_b64decode(data).decode("utf-8")
-        return ""
+                if part["mimeType"] == "text/plain" and "data" in part["body"]:
+                    body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
+                    break  # Found plain text, no need to look further
+        elif "data" in payload["body"]:
+            body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8")
+        return body
 
     def _get_label_id_by_name(self, label_name: str) -> str | None:
-        """Gets the ID of a label by its name."""
-        if not self.service:
-            raise ConnectionError("Not connected to Gmail API.")
-
-        results = self.service.users().labels().list(userId="me").execute()
-        labels = results.get("labels", [])
-
-        for label in labels:
-            if label["name"].lower() == label_name.lower():
-                return label["id"]
-        logger.warning(f"Label '{label_name}' not found.")
+        """Gets the ID of a label by its name from the cache."""
+        for label_id, name in self._label_cache.items():
+            if name.lower() == label_name.lower():
+                return label_id
+        logger.warning(f"Label '{label_name}' not found in cache.")
         return None
 
     def move_email(self, email_model: Email, destination: str):
@@ -112,17 +122,33 @@ class GmailService(EmailProvider):
         if not self.service:
             raise ConnectionError("Not connected to Gmail API.")
 
-        label_id = self._get_label_id_by_name(destination)
-        if not label_id:
-            return
+        label_id_to_add = self._get_label_id_by_name(destination)
+        if not label_id_to_add:
+            # As a fallback, try to create the label
+            logger.info(f"Label '{destination}' not found, attempting to create it.")
+            try:
+                label = (
+                    self.service.users()
+                    .labels()
+                    .create(userId="me", body={"name": destination, "labelListVisibility": "labelShow"})
+                    .execute()
+                )
+                label_id_to_add = label["id"]
+                self._label_cache[label_id_to_add] = destination  # Update cache
+            except Exception as e:
+                logger.error(f"Could not create label '{destination}': {e}")
+                return
 
-        body = {"removeLabelIds": ["INBOX"], "addLabelIds": [label_id]}
-        self.service.users().messages().modify(userId="me", id=email_model.msg_id, body=body).execute()
-        logger.info(f"Moved email {email_model.msg_id} to {destination}")
+        body = {"removeLabelIds": ["INBOX"], "addLabelIds": [label_id_to_add]}
+        try:
+            self.service.users().messages().modify(userId="me", id=email_model.msg_id, body=body).execute()
+            logger.info(f"Moved email {email_model.msg_id} to {destination}")
+        except Exception as e:
+            logger.error(f"Failed to move email {email_model.msg_id}: {e}")
 
-    def _parse_sender(self, raw_sender: str) -> (str, str):
+    def _parse_sender(self, raw_sender: str) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""
-        if "<" in raw_sender and ">" in raw_sender:
-            name, address = raw_sender.split("<")
-            return name.strip(), address.replace(">", "").strip()
-        return "", raw_sender
+        if not raw_sender:
+            return "", ""
+        name, address = email_utils.parseaddr(raw_sender)
+        return name, address
