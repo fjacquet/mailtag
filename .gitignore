@@ -145,3 +145,5 @@ dmypy.json
 
 logs/*.log*.env
 credentials.json
+db/
+token.json
