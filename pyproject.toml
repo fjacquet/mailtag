@@ -46,6 +46,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "--cov=mailtag --cov-report=term-missing"
 testpaths = ["tests"]
+pythonpath = [".", "src"]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

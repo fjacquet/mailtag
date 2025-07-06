@@ -31,3 +31,11 @@ password = "${IMAP_PASSWORD}"
 [gmail]
 credentials_file = "credentials.json"
 token_file = "token.json"
+
+[fast_parse]
+# The number of emails to fetch in the first pass.
+batch_size = 500
+# The time-to-live for the folder hierarchy cache in hours.
+folder_cache_ttl_hours = 24
+# The designated folder for emails the AI cannot confidently classify.
+unclassified_folder_name = "Unclassified"

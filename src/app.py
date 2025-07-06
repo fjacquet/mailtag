@@ -31,28 +31,77 @@ def run_classification(args, provider_instance):
         classifier = Classifier(CONFIG, database)
 
         with provider_instance.connect() as provider:
-            emails = provider.get_emails(
-                subject=args.subject,
-                sender=args.sender,
-                status=args.status,
-            )
+            # Fast Parse Implementation for IMAP
+            if isinstance(provider, ImapService):
+                # Pass 1: Fast classification based on known senders
+                logger.info("Starting Pass 1: Fast classification...")
+                provider.mail.select("inbox")
+                all_uids = provider.mail.uid('search', None, "ALL")[1][0].split()
+                
+                uids_to_process_pass2 = []
+                
+                for i in range(0, len(all_uids), CONFIG.fast_parse.batch_size):
+                    batch_uids = all_uids[i:i+CONFIG.fast_parse.batch_size]
+                    senders = provider.get_email_senders([uid.decode() for uid in batch_uids])
+                    
+                    emails_to_move = {}
+                    for uid, sender_address in senders.items():
+                        classification = database.get_dominant_classification(sender_address)
+                        if classification:
+                            if classification not in emails_to_move:
+                                emails_to_move[classification] = []
+                            emails_to_move[classification].append(uid)
+                        else:
+                            uids_to_process_pass2.append(uid)
+                    
+                    for classification, uids in emails_to_move.items():
+                        if not args.validate:
+                            provider.batch_move_emails(uids, classification)
 
-            if not emails:
-                logger.info("No emails found matching the criteria.")
-                return
+                logger.info(f"Pass 1 complete. {len(all_uids) - len(uids_to_process_pass2)} emails moved.")
+                
+                # Pass 2: AI classification for remaining emails
+                logger.info("Starting Pass 2: AI classification...")
+                if uids_to_process_pass2:
+                    full_emails = provider.get_full_emails(uids_to_process_pass2)
+                    for email in full_emails:
+                        try:
+                            category = classifier.classify_email(email)
+                            logger.info(
+                                f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
+                            )
+                            if not args.validate:
+                                if category not in ["Unclassified", "À Classer"]:
+                                    provider.move_email(email, category)
+                                else:
+                                    provider.move_email(email, CONFIG.fast_parse.unclassified_folder_name)
+                        except Exception as e:
+                            logger.error(f"Could not process email {email.msg_id}: {e}")
+                logger.info("Pass 2 complete.")
 
-            logger.info(f"Found {len(emails)} emails. Starting analysis...")
+            else: # Original logic for Gmail or other providers
+                emails = provider.get_emails(
+                    subject=args.subject,
+                    sender=args.sender,
+                    status=args.status,
+                )
 
-            for email in emails:
-                try:
-                    category = classifier.classify_email(email)
-                    logger.info(
-                        f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
-                    )
-                    if not args.validate and category not in ["Unclassified", "À Classer"]:
-                        provider.move_email(email, category)
-                except Exception as e:
-                    logger.error(f"Could not process email {email.msg_id}: {e}")
+                if not emails:
+                    logger.info("No emails found matching the criteria.")
+                    return
+
+                logger.info(f"Found {len(emails)} emails. Starting analysis...")
+
+                for email in emails:
+                    try:
+                        category = classifier.classify_email(email)
+                        logger.info(
+                            f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
+                        )
+                        if not args.validate and category not in ["Unclassified", "À Classer"]:
+                            provider.move_email(email, category)
+                    except Exception as e:
+                        logger.error(f"Could not process email {email.msg_id}: {e}")
 
             logger.info("Analysis complete.")
 

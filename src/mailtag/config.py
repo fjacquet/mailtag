@@ -42,12 +42,20 @@ class GmailConfig:
 
 
 @dataclass
+class FastParseConfig:
+    batch_size: int
+    folder_cache_ttl_hours: int
+    unclassified_folder_name: str
+
+
+@dataclass
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
     classifier: ClassifierConfig
     imap: ImapConfig
     gmail: GmailConfig
+    fast_parse: FastParseConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -67,6 +75,13 @@ def load_config(path: Path) -> AppConfig:
             imap_password = os.getenv("IMAP_PASSWORD", data["imap"].get("password"))
             if not imap_password:
                 raise ValueError("IMAP_PASSWORD not found in environment or config file.")
+
+            fast_parse_data = data.get("fast_parse", {})
+            fast_parse_config = FastParseConfig(
+                batch_size=fast_parse_data.get("batch_size", 500),
+                folder_cache_ttl_hours=fast_parse_data.get("folder_cache_ttl_hours", 24),
+                unclassified_folder_name=fast_parse_data.get("unclassified_folder_name", "Unclassified"),
+            )
 
             return AppConfig(
                 general=GeneralConfig(
@@ -92,6 +107,7 @@ def load_config(path: Path) -> AppConfig:
                     credentials_file=data["gmail"]["credentials_file"],
                     token_file=data["gmail"]["token_file"],
                 ),
+                fast_parse=fast_parse_config,
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
@@ -123,5 +139,10 @@ except RuntimeError as e:
         gmail=GmailConfig(
             credentials_file="credentials.json",
             token_file="token.json",
+        ),
+        fast_parse=FastParseConfig(
+            batch_size=500,
+            folder_cache_ttl_hours=24,
+            unclassified_folder_name="Unclassified",
         ),
     )

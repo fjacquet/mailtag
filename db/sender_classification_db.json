@@ -6,7 +6,7 @@
     "Finances/Bloomberg": 3
   },
   "candidat@my.jobup.ch": {
-    "News/Jobs": 10,
+    "News/Jobs": 10
   },
   "noreply@news.bloomberg.com": {
     "Finances/Bloomberg": 3
@@ -18,7 +18,7 @@
     "Informations/Nouvelliste": 3
   },
   "newsletters-noreply@linkedin.com": {
-    "Informations/Newsletters": 3
+    "News/linkedin": 1
   },
   "contact@ca-centreloire.fr": {
     "Finances/CA": 3
@@ -27,7 +27,7 @@
     "Achats/ifolor": 3
   },
   "newsletter@email.unicef.ch": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "noreply@email.radissonhotels.com": {
     "Voyages/Radisson Blu": 3
@@ -45,22 +45,22 @@
     "Voyages/Radisson Blu": 1
   },
   "insideradvocates@cisco.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "veeam_team@veeam.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "messaging-digest-noreply@linkedin.com": {
-    "Informations/Newsletters": 1
+    "News/linkedin": 1
   },
   "team@mail.skylum.com": {
     "Services/Skylum": 3
   },
   "noreply@anime-store.fr": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "jobs-noreply@linkedin.com": {
-    "Services/Skylum": 1
+    "News/linkedin": 1
   },
   "pro@feedly.com": {
     "Services/Feedly": 1
@@ -69,7 +69,7 @@
     "Services/n8n": 1
   },
   "info@global.fortinet.com": {
-    "Informations/Newsletters": 1,
+    "News/Newsletters": 1,
   },
   "news_fr-CH@avis-comms.international": {
     "Facture/Avis": 1
@@ -84,13 +84,13 @@
     "Administratif/REME": 2
   },
   "newsletter@mail.interhome.ch": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "notifications-noreply@linkedin.com": {
-    "Informations/Newsletters": 1
+    "News/linkedin": 1
   },
   "welcome@supabase.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "memberservices@vmug.com": {
     "Informations/VMUG": 9
@@ -99,23 +99,22 @@
     "News/restosducoeur": 2
   },
   "news@news.pfister.ch": {
-    "Informations/Newsletters": 3
+    "News/Newsletters": 3
   },
   "noreply@tm.openai.com": {
-    "Factures/OpenAI": 1,
+    "Factures/OpenAI": 1
   },
   "looksport@netplus.ch": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "info@oakyapp.com": {
     "Voyages/Radisson Blu": 1
   },
   "no-reply@info.bitdefender.com": {
-    "Finances/Bloomberg": 2,
     "Services/Bitdefender": 14
   },
   "no-reply@accounts.google.com": {
-    "Services/Apple": 3
+    "Services/Google": 3
   },
   "bounce@wingo.ch": {
     "Finances/eBill": 2
@@ -127,23 +126,22 @@
     "Services/Apple": 2
   },
   "ant@supabase.com": {
-    "Finances/swissborg": 1
+    "News/Newsletters": 1
   },
   "inmail-hit-reply@linkedin.com": {
-    "Finances/swissborg": 1
+    "News/linkedin": 1
   },
   "shop@news.aeschbach-chaussures.ch": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "hello@selma.com": {
     "Finances/Selma": 3
   },
   "hit-reply@linkedin.com": {
-    "Finances/CA": 1
+    "News/linkedin": 1
   },
   "info@guragear.com": {
-    "Achats/FNAC": 2,
-    "Voyages/Gites de France": 1
+    "News/Newsletters": 1
   },
   "subscriptions@message.bloomberg.com": {
     "Finances/Bloomberg": 1
@@ -152,10 +150,10 @@
     "Voyages/Radisson Blu": 1
   },
   "ne-pas-repondre@dgfip.finances.gouv.fr": {
-    "Finances/Bloomberg": 1
+    "Finances/Impots": 1
   },
   "noreply@enquete.sncf-voyageurs.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "contact@bonjour.lendosphere.com": {
     "Finances/CA": 1
@@ -164,7 +162,7 @@
     "Voyages/Kuoni": 1
   },
   "marketing@provins.ch": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "hashidays@reply.hashicorp.com": {
     "Informations/HashiCorp": 1
@@ -173,14 +171,13 @@
     "Finances/Kraken": 3
   },
   "josette.miniot@gmail.com": {
-    "Transports/CFF": 1,
-    "Personnel/Patricia": 1
+    "Voyages/Locations": 1
   },
   "digitalcheckin@avis-comms.international": {
     "Voyages/Kuoni": 1
   },
   "newsletter@comptoir-irlandais.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "reply@email.reka.ch": {
     "Voyages/Reka": 1
@@ -189,47 +186,46 @@
     "Finances/eBill": 1
   },
   "mammut@news.mammut.com": {
-    "Finances/CA": 1
+    "News/Newsletters": 1
   },
   "noreply-ch@email.decathlon.com": {
-    "Services/Apple": 1
+    "News/Newsletters": 1
   },
   "ubs_switzerland@mailing.ubs.com": {
-    "Finances/Bloomberg": 1
+    "News/Newsletters": 1
   },
   "nintendo@mail.nintendo-europe.com": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "parents-conseils@news.lagranderecre.fr": {
-    "Informations/Newsletters": 1
+    "News/Newsletters": 1
   },
   "aurelie@edigroup.ch": {
-    "Finances/CA": 1
+    "News/Newsletters": 1
   },
   "hello@mails.interflora.fr": {
     "Achats/Interflora": 1
   },
   "emirates@e.emirates.email": {
-    "Voyages/Kuoni": 1
+    "News/Newsletters": 1
   },
   "marketing@letemps.ch": {
     "Informations/Le Temps": 1
   },
   "groups-noreply@linkedin.com": {
-    "Services/Snyk": 1
+    "News/linkedin": 1
   },
   "noreply@publibike.ch": {
-    "Informations/Newsletters": 1
+    "Services/Publibike": 1
   },
   "hello@email.myfitnesspal.com": {
-    "Finances/Paypal": 1
+    "News/Newsletters": 2
   },
   "noreply@kraken.com": {
     "Finances/Kraken": 3
   },
   "no-reply@my-cockpit.localsearch.ch": {
-    "Administratif/Medecins": 3,
-    "Services/Apple": 1
+    "News/Newsletters": 2
   },
   "do-not-reply@ikea.com": {
     "Finances/CA": 1
@@ -241,51 +237,50 @@
     "Administratif/Officiel": 1
   },
   "noreply@publibike-service.ch": {
-    "Transports/Mobility": 1
+    "Services/Publibike": 1
   },
   "newsletter@news.bonasavoir.ch": {
-    "Voyages/Kuoni": 1
+    "News/Newsletters": 2
   },
   "hello@my.simple.life": {
-    "Finances/Bloomberg": 2
+    "News/Newsletters": 2
   },
   "donotreply@unitrends.com": {
-    "Finances/Bloomberg": 1
+    "News/Newsletters": 2
   },
   "Frederic.Jacquet@Dell.com": {
-    "Personnel/Patricia": 1,
-    "Finances/Bloomberg": 1
+    "Famille/Moi":1
   },
   "Mobilite@montreux.ch": {
-    "Transports/Mobility": 1
+    "Services/Mobility": 1
   },
   "damien@leblogphoto.net": {
-    "Informations/Newsletters": 1
+    "News/Photo": 1
   },
   "invitations@linkedin.com": {
-    "Finances/Bloomberg": 1
+    "News/linkedin": 1
   },
   "academy@solo.io": {
-    "Informations/Newsletters": 2,
-    "Services/Snyk": 1
+    "News/Newsletters": 2
   },
   "notifications@post.ch": {
-    "Transports/CFF": 3
+    "News/LaPoste": 3
   },
   "mail@cookomix.com": {
     "Informations/Cookomix": 1
   },
   "hello@wiz.money": {
-    "Finances/Bloomberg": 3
+      "News/Newsletters": 3
   },
   "noreply@mywellness.com": {
-    "Informations/Cookomix": 1
+    "News/Strava": 1
   },
   "advantage@vmug.com": {
     "Informations/VMUG": 1
   },
   "media-markt-refurbished@recommerce.com": {
-    "Finances/Revolut": 1
+{
+  "Finances/eBill": 1
   },
   "no-reply@recommerce.com": {
     "Finances/eBill": 1
@@ -294,21 +289,19 @@
     "Administratif/Officiel": 1
   },
   "info@kingpropertyrooms.com": {
-    "Finances/eBill": 1
+    "Voyages/Locations": 1
   },
   "no-reply@salonkee.com": {
     "Finances/Selma": 1
   },
   "contact@qoqa.ch": {
-    "Informations/Newsletters": 1
+    "News/Qoqa": 1
   },
   "mail@update.strava.com": {
-    "Informations/Newsletters": 1
+    "News/Strava": 1
   },
   "no-reply@swissid.ch": {
-    "Services/Apple": 2,
-    "Administratif/Officiel": 1,
-    "Finances/swissborg": 2
+    "Services/SwissID": 1
   },
   "no-reply@todoist.com": {
     "Services/Todoist": 1

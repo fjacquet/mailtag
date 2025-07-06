@@ -40,3 +40,11 @@ class ClassificationDatabase:
     def get_classification_count(self, sender_address: str, category: str) -> int:
         """Gets the classification count for a sender-category pair."""
         return self.sender_db[sender_address][category]
+
+    def get_dominant_classification(self, sender_address: str) -> str | None:
+        """Gets the category with the highest count for a given sender."""
+        if sender_address in self.sender_db:
+            classifications = self.sender_db[sender_address]
+            if classifications:
+                return max(classifications, key=classifications.get)
+        return None

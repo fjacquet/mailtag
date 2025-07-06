@@ -9,6 +9,7 @@ from mailtag.classifier import Classifier
 from mailtag.config import (
     AppConfig,
     ClassifierConfig,
+    FastParseConfig,
     GeneralConfig,
     GmailConfig,
     ImapConfig,
@@ -42,6 +43,11 @@ def config() -> AppConfig:
         ),
         imap=ImapConfig(host="", user="", password=""),
         gmail=GmailConfig(credentials_file="", token_file=""),
+        fast_parse=FastParseConfig(
+            batch_size=10,
+            folder_cache_ttl_hours=24,
+            unclassified_folder_name="Unclassified",
+        ),
     )
 
 
