@@ -26,7 +26,11 @@ def mock_db(mocker: MockerFixture) -> MockerFixture:
     db.suggestion_db = defaultdict(lambda: defaultdict(int))
     db.validated_db = defaultdict(lambda: defaultdict(int))
     # Mock the get_dominant_classification to check the validated_db
-    db.get_dominant_classification.side_effect = lambda sender: list(db.validated_db.get(sender, {}).keys())[0] if sender in db.validated_db else None
+    db.get_dominant_classification.side_effect = (
+        lambda sender: list(db.validated_db.get(sender, {}).keys())[0]
+        if sender in db.validated_db
+        else None
+    )
     return db
 
 

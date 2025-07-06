@@ -20,7 +20,9 @@ def mock_validated_db_path(mocker: MockerFixture) -> MockerFixture:
     return mocker.MagicMock(spec=Path)
 
 
-def test_load_db_file_not_found(mock_suggestion_db_path: MockerFixture, mock_validated_db_path: MockerFixture):
+def test_load_db_file_not_found(
+    mock_suggestion_db_path: MockerFixture, mock_validated_db_path: MockerFixture
+):
     """Tests that an empty db is created when the file doesn't exist."""
     mock_suggestion_db_path.exists.return_value = False
     mock_validated_db_path.exists.return_value = False
@@ -56,7 +58,11 @@ def test_load_db_with_content(
     assert db.get_dominant_classification("validated@sender.com") == "Validated/Category"
 
 
-def test_update_suggestion_db(mock_suggestion_db_path: MockerFixture, mock_validated_db_path: MockerFixture, mocker: MockerFixture):
+def test_update_suggestion_db(
+    mock_suggestion_db_path: MockerFixture,
+    mock_validated_db_path: MockerFixture,
+    mocker: MockerFixture,
+):
     """Tests updating the suggestion database."""
     mock_suggestion_db_path.exists.return_value = False
     mock_validated_db_path.exists.return_value = False
