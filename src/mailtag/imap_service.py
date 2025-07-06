@@ -1,12 +1,15 @@
 import email
+import json
 import re
 from contextlib import contextmanager
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from bs4 import BeautifulSoup
 from imapclient import IMAPClient
 from loguru import logger
 
-from .config import ImapConfig
+from .config import FastParseConfig, ImapConfig
 from .models import Email
 from .providers import EmailProvider
 
@@ -14,9 +17,11 @@ from .providers import EmailProvider
 class ImapService(EmailProvider):
     """Handles interactions with an IMAP email server using IMAPClient."""
 
-    def __init__(self, config: ImapConfig):
+    def __init__(self, config: ImapConfig, fast_parse_config: FastParseConfig):
         self.config = config
+        self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
+        self.folder_cache_path = Path("data/imap_folders.json")
 
     def is_connected(self) -> bool:
         """Checks if the mail client is connected."""
@@ -42,37 +47,54 @@ class ImapService(EmailProvider):
                 self.client.logout()
                 logger.info("Disconnected from IMAP server.")
 
-    def get_emails(
-        self,
-        subject: str | None = None,
-        sender: str | None = None,
-        status: str | None = None,
-    ) -> list[Email]:
+    def get_folder_hierarchy(self) -> list[str]:
         """
-        Fetches emails from the Inbox, including their body and labels,
-        without marking them as read.
+        Fetches the folder hierarchy from the IMAP server and caches it.
+        """
+        if self.folder_cache_path.exists():
+            cache_mod_time = datetime.fromtimestamp(self.folder_cache_path.stat().st_mtime)
+            if datetime.now() - cache_mod_time < timedelta(
+                hours=self.fast_parse_config.folder_cache_ttl_hours
+            ):
+                with self.folder_cache_path.open("r", encoding="utf-8") as f:
+                    return json.load(f)
+
+        if not self.client:
+            raise ConnectionError("Not connected to IMAP server.")
+
+        folders = [folder[2] for folder in self.client.list_folders()]
+        with self.folder_cache_path.open("w", encoding="utf-8") as f:
+            json.dump(folders, f, indent=2)
+        return folders
+
+    def get_email_senders(self, uids: list[str | int]) -> dict[str, str]:
+        """
+        Fetches only the 'From' header for a given batch of email UIDs.
         """
         if not self.client:
             raise ConnectionError("Not connected to IMAP server.")
 
-        self.client.select_folder("INBOX", readonly=True)
-        search_criteria = ["ALL"]
-        if subject:
-            search_criteria.append(f'SUBJECT "{subject}"')
-        if sender:
-            search_criteria.append(f'FROM "{sender}"')
-        if status:
-            search_criteria.append(status)
+        response = self.client.fetch(uids, ["BODY[HEADER.FIELDS (FROM)]"])
+        senders = {}
+        for msg_id, data in response.items():
+            msg = email.message_from_bytes(data[b"BODY[HEADER.FIELDS (FROM)]"])
+            sender_header = msg["From"]
+            _, sender_address = self._parse_sender(sender_header)
+            senders[str(msg_id)] = sender_address
+        return senders
 
-        messages = self.client.search(search_criteria)
-        if not messages:
-            return []
+    def get_full_emails(self, uids: list[str | int]) -> list[Email]:
+        """
+        Fetches the full content for the remaining emails for Pass 2.
+        """
+        if not self.client:
+            raise ConnectionError("Not connected to IMAP server.")
 
         fetch_command = [b"BODY.PEEK[]"]
         if self.config.use_gmail_extensions:
             fetch_command.append(b"X-GM-LABELS")
 
-        response = self.client.fetch(messages, fetch_command)
+        response = self.client.fetch(uids, fetch_command)
         emails = []
         for msg_id, data in response.items():
             msg = email.message_from_bytes(data[b"BODY[]"])
@@ -94,16 +116,29 @@ class ImapService(EmailProvider):
             )
         return emails
 
-    def move_email(self, email_model: Email, destination: str):
-        """Moves an email to a new destination."""
+    def get_emails(
+        self,
+        subject: str | None = None,
+        sender: str | None = None,
+        status: str | None = None,
+    ) -> list[Email]:
+        """This method is deprecated for IMAP and will not be implemented."""
+        raise NotImplementedError("get_emails is not supported for IMAP with Fast Parse.")
+
+    def batch_move_emails(self, uids: list[str], destination: str):
+        """Moves a batch of emails to a new destination."""
         if not self.client:
             raise ConnectionError("Not connected to IMAP server.")
 
         if not self.client.folder_exists(destination):
             self.client.create_folder(destination)
 
-        self.client.move(email_model.msg_id, destination)
-        logger.info(f"Moved email {email_model.msg_id} to {destination}")
+        self.client.move(uids, destination)
+        logger.info(f"Moved {len(uids)} emails to {destination}")
+
+    def move_email(self, email_model: Email, destination: str):
+        """Moves an email to a new destination."""
+        self.batch_move_emails([email_model.msg_id], destination)
 
     def _parse_sender(self, raw_sender: str) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""
@@ -133,7 +168,7 @@ class ImapService(EmailProvider):
 
         if plain_text_body:
             return plain_text_body
-        elif html_body:
+        if html_body:
             soup = BeautifulSoup(html_body, "html.parser")
             return soup.get_text()
         return ""

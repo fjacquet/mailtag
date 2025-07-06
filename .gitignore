@@ -147,5 +147,4 @@ logs/*.log*.env
 credentials.json
 # db
 token.json
-tests/mock_*.py
 db/sender_classification_db copy.json

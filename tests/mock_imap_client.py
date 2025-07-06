@@ -15,6 +15,7 @@ class MockImapClient:
         self.mailboxes: dict[str, dict[int, dict[bytes, Any]]] = {
             "INBOX": {
                 1: {
+                    b"BODY[HEADER.FIELDS (FROM)]": b"From: Test <test@example.com>\r\n",
                     b"BODY[]": email.message_from_string(
                         "From: test@example.com\nSubject: Test\n\nTest body"
                     ).as_bytes(),
@@ -40,17 +41,41 @@ class MockImapClient:
             raise Exception("Folder not found")
         self.selected_folder = folder
 
-    def search(self, criteria: list[str]) -> list[int]:
+    def search(self, criteria: list[str] | None = None) -> list[int]:
         return list(self.mailboxes.get(self.selected_folder, {}).keys())
 
-    def fetch(self, messages: list[int], data: list[bytes]) -> dict[int, dict[bytes, Any]]:
+    def fetch(self, messages: list[str | int], data: list[str | bytes]) -> dict[int, dict[bytes, Any]]:
         if not self.selected_folder:
             return {}
-        
+
         response = {}
-        for msg_id in messages:
+        for msg_id_raw in messages:
+            # Handle both string and int message IDs
+            if isinstance(msg_id_raw, str):
+                try:
+                    msg_id = int(msg_id_raw)
+                except (ValueError, TypeError):
+                    continue
+            else:
+                msg_id = msg_id_raw
+
             if msg_id in self.mailboxes[self.selected_folder]:
-                response[msg_id] = self.mailboxes[self.selected_folder][msg_id]
+                response[msg_id] = {}
+                for field in data:
+                    # Convert string fields to bytes if needed
+                    byte_field = field.encode("utf-8") if isinstance(field, str) else field
+
+                    # Special handling for BODY.PEEK[] which should map to BODY[] in response
+                    if (
+                        byte_field == b"BODY.PEEK[]"
+                        and b"BODY[]" in self.mailboxes[self.selected_folder][msg_id]
+                    ):
+                        response[msg_id][b"BODY[]"] = self.mailboxes[self.selected_folder][msg_id][b"BODY[]"]
+                    # Look for the field in the mailbox
+                    elif byte_field in self.mailboxes[self.selected_folder][msg_id]:
+                        response[msg_id][byte_field] = self.mailboxes[self.selected_folder][msg_id][
+                            byte_field
+                        ]
         return response
 
     def folder_exists(self, folder: str) -> bool:
@@ -67,3 +92,6 @@ class MockImapClient:
         for msg_id in messages:
             if msg_id in self.mailboxes[self.selected_folder]:
                 self.mailboxes[destination][msg_id] = self.mailboxes[self.selected_folder].pop(msg_id)
+
+    def list_folders(self) -> list[tuple[tuple[bytes, ...], bytes, str]]:
+        return [((b"\\HasNoChildren",), b"/", name) for name in self.mailboxes.keys()]

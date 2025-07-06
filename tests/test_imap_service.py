@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
-from mailtag.config import ImapConfig
+from mailtag.config import FastParseConfig, ImapConfig
 from mailtag.imap_service import ImapService
 from tests.mock_imap_client import MockImapClient
 
@@ -13,9 +15,19 @@ def imap_config() -> ImapConfig:
 
 
 @pytest.fixture
-def imap_service(imap_config: ImapConfig) -> ImapService:
+def fast_parse_config() -> FastParseConfig:
+    """Returns a default FastParseConfig for testing."""
+    return FastParseConfig(
+        batch_size=10,
+        folder_cache_ttl_hours=24,
+        unclassified_folder_name="Unclassified",
+    )
+
+
+@pytest.fixture
+def imap_service(imap_config: ImapConfig, fast_parse_config: FastParseConfig) -> ImapService:
     """Returns an ImapService instance."""
-    return ImapService(config=imap_config)
+    return ImapService(config=imap_config, fast_parse_config=fast_parse_config)
 
 
 @pytest.fixture
@@ -48,23 +60,41 @@ def test_connect_failure_raises_connection_error(
             pass
 
 
-def test_get_emails_integration(imap_service: ImapService, mock_imap_client: MockImapClient):
-    """
-    Tests the get_emails method's integration with the readonly context manager.
-    """
+def test_get_folder_hierarchy(
+    imap_service: ImapService, mock_imap_client: MockImapClient, mocker: MockerFixture
+):
+    """Tests that the folder hierarchy is fetched and cached."""
     imap_service.client = mock_imap_client
-    emails = imap_service.get_emails()
+    mocker.patch.object(Path, "exists", return_value=False)
+    mock_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
+    folders = imap_service.get_folder_hierarchy()
+    assert "INBOX" in folders
+    mock_open.assert_called_once_with("w", encoding="utf-8")
+
+
+def test_get_email_senders(imap_service: ImapService, mock_imap_client: MockImapClient):
+    """Tests that email senders are fetched correctly."""
+    imap_service.client = mock_imap_client
+    imap_service.client.select_folder("INBOX")
+    senders = imap_service.get_email_senders([1])
+    assert senders["1"] == "test@example.com"
+
+
+def test_get_full_emails(imap_service: ImapService, mock_imap_client: MockImapClient):
+    """Tests that full emails are fetched correctly."""
+    imap_service.client = mock_imap_client
+    imap_service.client.select_folder("INBOX")
+    emails = imap_service.get_full_emails([1])
     assert len(emails) == 1
     assert emails[0].subject == "Test"
     assert emails[0].sender_address == "test@example.com"
 
 
-def test_move_email(imap_service: ImapService, mock_imap_client: MockImapClient, mocker: MockerFixture):
-    """
-    Tests that the move_email method correctly moves an email.
-    """
+def test_batch_move_emails(
+    imap_service: ImapService, mock_imap_client: MockImapClient, mocker: MockerFixture
+):
+    """Tests that emails are moved in a batch."""
     imap_service.client = mock_imap_client
     mocker.spy(mock_imap_client, "move")
-    email_to_move = imap_service.get_emails()[0]
-    imap_service.move_email(email_to_move, "Archive")
-    mock_imap_client.move.assert_called_once_with(email_to_move.msg_id, "Archive")
+    imap_service.batch_move_emails(["1", "2"], "Archive")
+    mock_imap_client.move.assert_called_once_with(["1", "2"], "Archive")
