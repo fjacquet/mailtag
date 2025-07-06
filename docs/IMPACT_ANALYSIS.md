@@ -1,88 +1,79 @@
-# Impact Analysis: Email Automation Service
+# Impact Analysis: Enhanced Classification Engine
 
-This document outlines the expected impact of implementing the new Email Automation Service feature, which introduces direct IMAP and Gmail API integration.
+This document outlines the impact of implementing the "Enhanced Classification Engine" and associated refactoring.
 
 ## **Executive Summary**
 
-The proposed "Email Automation Service" represents a **fundamental shift** in the project's architecture. The core impact is the replacement of the current `MailService`, which is a **macOS-specific, client-side solution** (using AppleScript to control Mail.app), with a new, **platform-independent, server-side solution** that communicates directly with email servers via the IMAP protocol and the Gmail API.
+The "Enhanced Classification Engine" is a significant architectural evolution, moving from a single-signal (AI model) to a multi-signal classification strategy. This new approach, named Adaptive Multi-Signal Classification (AMSC), prioritizes data from more reliable sources (email server labels, historical data) before falling back to the AI model. This improves accuracy, reduces cost, and increases reliability.
 
-This is a significant but well-contained refactoring. The core business logic (`Classifier`, `Database`) is well-decoupled and will require minimal changes. The primary effort will be concentrated in the email-fetching and configuration layers.
+This refactoring also introduced:
+- A `--validate` flag for read-only operation.
+- A more efficient data-fetching strategy in the email provider services.
+- Robust resource management using `contextlib`.
+
+The impact is concentrated in the classification and data-fetching layers, with significant improvements to testing and configuration.
 
 ---
 
 ### **Detailed Impact Analysis by Component**
 
-#### 1. `src/mailtag/mail_service.py`
+#### 1. `src/mailtag/classifier.py`
 
-- **Current State:** Interacts with the local Apple Mail application using `osascript`. This is the biggest bottleneck to cross-platform, server-side execution.
-- **Impact:** **Major Overhaul / Complete Replacement.**
-- **Required Changes:**
-  - The existing `MailService` class will be deprecated or completely replaced.
-  - A new, more abstract structure is recommended. We should create a base class or interface (e.g., `EmailProvider`) that defines a standard set of methods (`connect`, `get_emails`, `get_body`, `move_email`, etc.).
-  - Two new classes will implement this interface:
-    - `ImapService`: Will use Python's `imaplib` to connect to any standard IMAP server.
-    - `GmailService`: Will use the `google-api-python-client` to interact with the Gmail API.
-  - This approach keeps the rest of the application agnostic to the chosen email provider.
+- **Previous State:** Relied solely on an AI model for classification.
+- **Impact:** **Major Overhaul.**
+- **Changes:**
+  - Implemented the **Adaptive Multi-Signal Classification (AMSC)** strategy, which uses a three-tiered approach:
+    1.  **Server-Side Labels:** Checks for existing labels on the email server.
+    2.  **Historical Database:** Queries the local database for high-confidence classifications based on sender history.
+    3.  **AI Model Fallback:** Uses the AI model only when the other signals are inconclusive.
+  - The `Classifier` class was refactored to orchestrate this new logic.
+  - Configuration was updated to support confidence thresholds for the historical and AI classifiers.
 
-#### 2. `src/main.py`
+#### 2. `src/mailtag/imap_service.py` and `src/mailtag/gmail_service.py`
 
-- **Current State:** Orchestrates the workflow: `MailService` -> `Classifier` -> `Database`.
+- **Previous State:** Fetched email metadata and body in separate, inefficient calls. Lacked robust connection management.
 - **Impact:** **High.**
-- **Required Changes:**
-  - The main execution logic in `run_classification` will need to be updated to instantiate the correct service (`ImapService` or `GmailService`) based on the user's configuration.
-  - Argument parsing (`argparse`) will need to be extended to allow the user to specify which email provider to use (e.g., `--provider=imap` or `--provider=gmail`).
-  - The error handling will need to be updated to catch new, network-related exceptions from `imaplib` or the Google API client.
+- **Changes:**
+  - **Efficient Data Fetching:** Services were refactored to fetch all necessary email data (ID, sender, subject, body, labels) in a single, efficient operation.
+  - **Preservation of `\Seen` Status:** The IMAP service now uses `BODY.PEEK[]` instead of `BODY[]` to fetch the email body without marking it as read, preserving the original unread status.
+  - **`contextlib` for Resource Management:** Both services now use `@contextmanager` to create robust, reusable context managers for handling connections. This ensures that connections are always closed properly, even if errors occur.
 
-#### 3. `src/mailtag/config.py` and `config.toml`
+#### 3. `src/app.py` (formerly `src/main.py`)
 
-- **Current State:** Manages general, logging, and pre-classification settings.
+- **Previous State:** Basic orchestration of the classification workflow.
 - **Impact:** **High.**
-- **Required Changes:**
+- **Changes:**
+  - **`--validate` Flag:** A new command-line argument, `--validate`, was added. When used, the application runs in a read-only mode, performing classification analysis without making any changes to the email server (i.e., not moving emails).
+  - The main execution logic was updated to use the new provider connection context managers.
 
-  - The `AppConfig` dataclass in `config.py` must be expanded to include new configuration sections.
-  - New dataclasses like `ImapConfig` and `GmailConfig` will be needed.
-  - The `config.toml` file will need new sections to store the required credentials:
+#### 4. `src/mailtag/config.py` and `config.toml`
 
-    ```toml
-    [imap]
-    host = "imap.example.com"
-    user = "user@example.com"
-    password = "..." # Loaded from environment variable IMAP_PASSWORD
-
-    [gmail]
-    credentials_file = "credentials.json"
-    token_file = "token.json"
-    ```
-
-  - The `load_config` function will need to be updated to parse these new sections.
-
-#### 4. `src/mailtag/models.py`
-
-- **Current State:** Defines the `Email` model with `msg_id: int`.
+- **Previous State:** Contained a `[preclassification]` section.
 - **Impact:** **Medium.**
-- **Required Changes:**
-  - Both IMAP UIDs and Gmail API message IDs are strings, not integers. The `msg_id` field should be changed from `int` to `str` to accommodate both protocols. This is a simple but important change that will ripple through any code that uses this model.
+- **Changes:**
+  - The `[preclassification]` section in `config.toml` was replaced with a more appropriately named `[classifier]` section.
+  - New configuration options were added to support the AMSC strategy: `ai_confidence_threshold`, `historical_confidence_threshold`, and `min_count`.
 
-#### 5. `src/mailtag/classifier.py`, `src/mailtag/database.py`, `src/mailtag/filter_generator.py`
+#### 5. `src/mailtag/models.py`
 
-- **Current State:** These components handle the core logic of classification, data storage, and filter generation.
-- **Impact:** **Low to None.**
-- **Reasoning:** These modules are well-decoupled. They operate on the `Email` model and the classification database, and are not directly concerned with how the emails are fetched. They should be reusable as-is, with the minor exception of the `msg_id` type change.
+- **Previous State:** The `Email` model was missing fields for body and labels.
+- **Impact:** **Medium.**
+- **Changes:**
+  - The `Email` model was updated to include `body: str` and `labels: list[str]`, allowing all necessary data to be encapsulated in a single object.
 
 #### 6. `tests/`
 
-- **Current State:** Contains tests for the existing components.
+- **Previous State:** Tests were written for the old, single-signal classifier and inefficient data providers.
 - **Impact:** **High.**
-- **Required Changes:**
-  - `tests/test_mail_service.py` will need to be **completely rewritten**. The current mocks for `subprocess.run` and `osascript` will be irrelevant.
-  - New test files will be required:
-    - `test_imap_service.py`: To mock `imaplib` and test the IMAP connection, search, and move logic.
-    - `test_gmail_service.py`: To mock the Google API client and test the label listing, search, and modification logic.
-    - New tests for the updated configuration loading in `test_config.py`.
+- **Changes:**
+  - **Complete Test Overhaul:** All relevant test files (`test_classifier.py`, `test_imap_service.py`, `test_gmail_service.py`, `test_app.py`) were significantly updated to reflect the new AMSC logic, the `--validate` flag, and the `contextlib` refactoring.
+  - **Global Mock for `litellm`:** A global mock for `litellm.completion` was added to `tests/conftest.py` to prevent tests from hanging due to network calls, stabilizing the entire test suite.
 
 ---
 
-### **New Components to be Created**
+### **New Design Principles**
 
-1.  **Gmail Authentication Module:** A new file (e.g., `src/mailtag/gmail_auth.py`) will be needed to handle the OAuth 2.0 flow for the Gmail API. This will manage the creation and refreshing of `token.json`.
-2.  **IMAP and Gmail Service Modules:** The new `ImapService` and `GmailService` classes will likely live in their own files within the `mailtag` package.
+The following principles were added to `docs/DESIGN_PRINCIPLES.md` to reflect the new best practices established during this refactoring:
+
+1.  **Use `contextlib` for Resource Management:** Emphasizes using `contextlib` for clean and reliable handling of resources like network connections.
+2.  **Run Non-Regression Tests:** Mandates running the full test suite before finalizing changes to prevent regressions.

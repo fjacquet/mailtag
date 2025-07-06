@@ -9,7 +9,9 @@ This document outlines the best practices for Python coding and `uv` usage in th
 - **Write Tests:** All new code should be accompanied by tests. Use `pytest`, `pytest-mock`, and `faker` for writing and running tests.
 - **Use `pendulum` for testing**: For precise control over date and time in tests. This is crucial for testing time-sensitive logic, allowing you to "freeze" time or travel to specific points in time.
 - **Use Type Hinting:** Use type hints to improve code clarity and catch errors early.
+- **Prefer High-Level Libraries over Standard Libs**: For complex protocols like IMAP, prefer robust, high-level third-party libraries (e.g., `IMAPClient`) over the low-level standard library equivalent (e.g., `imaplib`). This leads to cleaner, more readable, and less error-prone code.
 - **Use `contextlib` for Resource Management**: For resources that need to be reliably set up and torn down (like network connections), use the `contextlib` module (`@contextmanager` or `suppress`) to create clean, reusable context managers. This ensures resources are properly handled, even in the event of errors.
+- **Run Non-Regression Tests**: Before finalizing any set of changes, run the entire test suite (`uv run pytest`) to ensure that existing functionality has not been broken. This is a critical step to prevent regressions.
 - **Keep Functions Small:** Functions should be small and do one thing.
 - **Use Virtual Environments:** Use `uv` to create and manage virtual environments.
 - **Use `loguru` for Logging:** Use the `loguru` library for all logging purposes.
