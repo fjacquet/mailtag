@@ -1,95 +1,123 @@
 # MailTag
 
-MailTag is a Python script that classifies emails from Apple Mail using a local AI model (via Ollama). It is designed to be extensible, allowing you to define your own classification schema and improve the classification over time.
+MailTag is a Python-based email automation tool that classifies and organizes your emails. It supports both IMAP and Gmail, allowing you to connect to your email account, classify emails using a local AI model (via Ollama), and automatically move them to a specified folder or label.
 
 [![CI Tests and Checks](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml)
 
 ## How It Works
 
-The `src/main.py` script performs the following steps:
+The `src/main.py` script provides a command-line interface to:
 
-1. **Loads Configuration**: It reads the `config.toml` file to get the necessary settings.
-2. **Finds the Mail Database**: It locates the `Envelope Index` SQLite database used by Apple Mail.
-3. **Copies the Database**: To avoid locking issues, it creates a temporary copy of the database.
-4. **Fetches Emails**: It queries the database to get all emails from the inbox.
-5. **Indexes Email Files**: It builds an index of all `.emlx` files to quickly find the content of each email.
-6. **Classifies Emails**: For each email, it:
-    - Finds the corresponding `.emlx` file.
-    - Extracts the body of the email.
-    - Uses the configured Ollama model to classify the email into a category.
-7. **Updates Database**: It updates the `sender_classification_db.json` file with the classification for each sender.
-8. **Logs Proposals**: If the classifier is uncertain about a classification, it logs a proposal to the `proposals.log` file.
-9. **Outputs the Results**: It prints the subject, sender, and predicted category for each email.
+1. **Connect to Your Email**: It can connect to an IMAP server or your Gmail account.
+2. **Fetch Emails**: It fetches emails from your inbox, with optional filters for subject, sender, and status.
+3. **Classify Emails**: For each email, it uses the configured Ollama model to classify it into a category based on your `classification_schema.yml`.
+4. **Move Emails**: It moves classified emails to a specified destination folder (for IMAP) or label (for Gmail).
+5. **Generate Filters**: It can also generate a `mailfilter.xml` file from your classification database, which can be imported into Gmail.
 
 ## Prerequisites
 
-- macOS with Apple Mail
 - Python 3.12+
 - Ollama with the model specified in `config.toml` pulled (e.g., `ollama pull gemma3`)
-- Full Disk Access for the terminal running the script
 
-## Usage
+## Installation
 
-### Command-Line Interface
+1. Clone the repository:
+    ```bash
+    git clone https://github.com/fjacquet/mailtag.git
+    cd mailtag
+    ```
 
-1. Install the dependencies:
-
+2. Install the dependencies:
     ```bash
     uv pip install -e ".[dev]"
-    ```
-
-2. Run the classification script:
-
-    ```bash
-    python src/main.py
-    ```
-
-3. Generate the mail filters:
-
-    ```bash
-    python src/main.py --generate-filters
-    ```
-
-### Web Interface
-
-1. Install the dependencies (if you haven't already):
-
-    ```bash
-    uv pip install -e ".[dev]"
-    ```
-
-2. Run the Streamlit app:
-
-    ```bash
-    streamlit run src/streamlit_app.py
     ```
 
 ## Configuration
 
-The application is configured via the `config.toml` file. The following settings are available:
+The application is configured via the `config.toml` file.
 
-- `general.mail_dir`: The path to the Mail directory.
+### General Configuration
+
 - `general.ollama_model`: The name of the Ollama model to use for classification.
-- `general.temp_db_prefix`: The prefix for the temporary database file.
 - `logging.level`: The logging level (e.g., `INFO`, `DEBUG`).
 - `logging.file`: The path to the log file.
 
-## Data Files
+### IMAP Configuration
 
-The `data` directory contains the following files:
+To use the IMAP provider, add an `[imap]` section to your `config.toml`:
 
-- `classification_schema.yml`: Defines the classification schema used by the classifier. You can edit this file to add, remove, or change the categories.
-- `mailfilter.xml`: A Gmail-compatible XML file that can be generated from the classification schema.
+```toml
+[imap]
+host = "your-imap-server.com"
+user = "your-email@example.com"
+```
 
-## Database
+You also need to set the `IMAP_PASSWORD` environment variable. You can do this by creating a `.env` file in the project root:
 
-The `db` directory contains the following files:
+```
+IMAP_PASSWORD="your-password"
+```
 
-- `sender_classification_db.json`: A JSON file that stores the classification count for each sender. This file is used to track the accuracy of the classifier and can be used to generate mail filters.
+### Gmail Configuration
 
-## Logging
+To use the Gmail provider, you need to enable the Gmail API and get a `credentials.json` file.
 
-The `logs` directory contains the following files:
+1. **Enable the Gmail API**:
+   - Go to the [Google Cloud Console](https://console.cloud.google.com/).
+   - Create a new project or select an existing one.
+   - In the navigation menu, go to **APIs & Services > Library**.
+   - Search for "Gmail API" and enable it.
 
-- `mailtag.log`: The main log file for the application.
-- `proposals.log`: A log file that contains classification proposals from the classifier. You can use this file to identify new categories and improve the classification schema.
+2. **Create OAuth 2.0 Credentials**:
+   - Go to **APIs & Services > Credentials**.
+   - Click **Create Credentials > OAuth client ID**.
+   - Select **Desktop app** as the application type.
+   - Click **Create**.
+   - Download the JSON file and save it as `credentials.json` in the project root.
+
+Once you have your `credentials.json` file, add a `[gmail]` section to your `config.toml`:
+
+```toml
+[gmail]
+credentials_file = "credentials.json"
+token_file = "token.json"
+```
+
+The first time you run the script with the `gmail` provider, you will be prompted to authorize the application. A `token.json` file will be created to store your credentials for future runs.
+
+## Usage
+
+The script is run from the command line.
+
+### Classify and Move Emails
+
+```bash
+python src/main.py --provider <imap|gmail> [options]
+```
+
+**Arguments:**
+
+- `--provider`: The email provider to use (`imap` or `gmail`).
+- `--destination`: The destination folder (for IMAP) or label (for Gmail) to move emails to. Defaults to `Processed`.
+- `--subject`: Filter emails by subject (case-insensitive).
+- `--sender`: Filter emails by sender (case-insensitive).
+- `--status`: Filter emails by status (`SEEN` or `UNSEEN`).
+
+**Example:**
+
+```bash
+python src/main.py --provider gmail --destination "My Label" --subject "Invoice"
+```
+
+### Generate Filters
+
+To generate a `mailfilter.xml` file from your classification database:
+
+```bash
+python src/main.py --generate-filters
+```
+
+## Data and Database
+
+- `data/classification_schema.yml`: Defines the categories for email classification.
+- `db/sender_classification_db.json`: Stores the classification history for each sender.

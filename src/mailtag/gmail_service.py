@@ -20,10 +20,29 @@ class GmailService(EmailProvider):
         self.service = get_gmail_service(self.config.credentials_file, self.config.token_file)
         logger.info("Successfully connected to Gmail API.")
 
-    def get_emails(self) -> list[Email]:
+    def get_emails(
+        self,
+        subject: str | None = None,
+        sender: str | None = None,
+        status: str | None = None,
+    ) -> list[Email]:
         """Fetches emails from the Inbox."""
         if not self.service:
             raise ConnectionError("Not connected to Gmail API.")
+
+        query_parts = ["in:inbox"]
+        if subject:
+            query_parts.append(f"subject:{subject}")
+        if sender:
+            query_parts.append(f"from:{sender}")
+        if status:
+            if status == "UNSEEN":
+                query_parts.append("is:unread")
+            elif status == "SEEN":
+                query_parts.append("is:read")
+
+        query = " ".join(query_parts)
+        logger.debug(f"Using Gmail query: {query}")
 
         emails = []
         page_token = None
@@ -31,7 +50,7 @@ class GmailService(EmailProvider):
             results = (
                 self.service.users()
                 .messages()
-                .list(userId="me", labelIds=["INBOX"], pageToken=page_token)
+                .list(userId="me", q=query, pageToken=page_token)
                 .execute()
             )
             messages = results.get("messages", [])
@@ -74,12 +93,30 @@ class GmailService(EmailProvider):
             return base64.urlsafe_b64decode(data).decode("utf-8")
         return ""
 
+    def _get_label_id_by_name(self, label_name: str) -> str | None:
+        """Gets the ID of a label by its name."""
+        if not self.service:
+            raise ConnectionError("Not connected to Gmail API.")
+
+        results = self.service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+
+        for label in labels:
+            if label["name"].lower() == label_name.lower():
+                return label["id"]
+        logger.warning(f"Label '{label_name}' not found.")
+        return None
+
     def move_email(self, email_model: Email, destination: str):
         """Moves an email to a new destination by changing its labels."""
         if not self.service:
             raise ConnectionError("Not connected to Gmail API.")
 
-        body = {"removeLabelIds": ["INBOX"], "addLabelIds": [destination]}
+        label_id = self._get_label_id_by_name(destination)
+        if not label_id:
+            return
+
+        body = {"removeLabelIds": ["INBOX"], "addLabelIds": [label_id]}
         self.service.users().messages().modify(userId="me", id=email_model.msg_id, body=body).execute()
         logger.info(f"Moved email {email_model.msg_id} to {destination}")
 

@@ -32,7 +32,12 @@ class ImapService(EmailProvider):
             self.mail.logout()
             logger.info("Disconnected from IMAP server.")
 
-    def get_emails(self) -> list[Email]:
+    def get_emails(
+        self,
+        subject: str | None = None,
+        sender: str | None = None,
+        status: str | None = None,
+    ) -> list[Email]:
         """Fetches emails from the Inbox."""
         if not self.mail:
             raise ConnectionError("Not connected to IMAP server.")
@@ -46,7 +51,15 @@ class ImapService(EmailProvider):
             logger.error(f"Failed to select inbox: {e}")
             return []
 
-        status, messages = self.mail.search(None, "ALL")
+        search_criteria = ["ALL"]
+        if subject:
+            search_criteria.append(f'(HEADER Subject "{subject}")')
+        if sender:
+            search_criteria.append(f'(HEADER From "{sender}")')
+        if status:
+            search_criteria.append(status)
+
+        status, messages = self.mail.search(None, *search_criteria)
         if status != "OK":
             logger.error("Failed to search for emails.")
             return []

@@ -11,7 +11,12 @@ class EmailProvider(ABC):
         """Connects to the email server."""
 
     @abstractmethod
-    def get_emails(self) -> list[Email]:
+    def get_emails(
+        self,
+        subject: str | None = None,
+        sender: str | None = None,
+        status: str | None = None,
+    ) -> list[Email]:
         """Fetches emails from the server."""
 
     @abstractmethod

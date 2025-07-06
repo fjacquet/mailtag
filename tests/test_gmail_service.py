@@ -81,12 +81,40 @@ def test_get_email_body(mock_get_service, gmail_service: GmailService):
     assert "This is the body." in body
 
 @patch("mailtag.gmail_service.get_gmail_service")
-def test_move_email(mock_get_service, gmail_service: GmailService):
-    """Tests moving an email to a new destination."""
+def test_get_emails_with_filters(mock_get_service, gmail_service: GmailService):
+    """Tests fetching emails with various filters."""
     mock_service = MagicMock()
     mock_get_service.return_value = mock_service
     gmail_service.connect()
 
+    gmail_service.get_emails(subject="Test", sender="sender@test.com", status="UNSEEN")
+    mock_service.users().messages().list.assert_called_once_with(
+        userId="me",
+        q="in:inbox subject:Test from:sender@test.com is:unread",
+        pageToken=None,
+    )
+
+@patch("mailtag.gmail_service.get_gmail_service")
+def test_get_label_id_not_found(mock_get_service, gmail_service: GmailService):
+    """Tests that None is returned when a label is not found."""
+    mock_service = MagicMock()
+    mock_get_service.return_value = mock_service
+    gmail_service.connect()
+
+    mock_service.users().labels().list().execute.return_value = {
+        "labels": [{"id": "1", "name": "ExistingLabel"}]
+    }
+    label_id = gmail_service._get_label_id_by_name("NonExistentLabel")
+    assert label_id is None
+
+@patch("mailtag.gmail_service.get_gmail_service")
+def test_move_email_label_not_found(mock_get_service, gmail_service: GmailService):
+    """Tests that an email is not moved if the destination label is not found."""
+    mock_service = MagicMock()
+    mock_get_service.return_value = mock_service
+    gmail_service.connect()
+
+    mock_service.users().labels().list().execute.return_value = {"labels": []}
     email_model = Email(msg_id="1", subject="", sender_address="", sender_name="")
-    gmail_service.move_email(email_model, "Label_1")
-    mock_service.users().messages().modify.assert_called_once()
+    gmail_service.move_email(email_model, "NonExistentLabel")
+    mock_service.users().messages().modify.assert_not_called()

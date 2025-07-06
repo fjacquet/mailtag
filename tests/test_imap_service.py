@@ -120,12 +120,46 @@ def test_move_email(imap_service: ImapService):
         imap_service.mail.store.assert_called_once_with(b"1", "+FLAGS", "\\Deleted")
         imap_service.mail.expunge.assert_called_once()
 
-def test_move_email_fails(imap_service: ImapService):
-    """Tests that a failure to move an email is handled gracefully."""
+def test_get_email_body_multipart_with_attachment(imap_service: ImapService):
+    """Tests that attachments are ignored when fetching the email body."""
     with patch("imaplib.IMAP4_SSL"):
         imap_service.connect()
         email_model = Email(msg_id="1", subject="", sender_address="", sender_name="")
-        imap_service.mail.copy.side_effect = imaplib.IMAP4.error("Failed to copy")
-        imap_service.move_email(email_model, "Archive")
-        # No exception should be raised, but an error should be logged.
-        # (We can't easily test the log output here without more setup)
+
+        msg = MIMEMultipart()
+        msg.attach(MIMEText("This is the body.", "plain"))
+        attachment = MIMEText("This is an attachment.", "plain")
+        attachment.add_header("Content-Disposition", "attachment", filename="test.txt")
+        msg.attach(attachment)
+
+        imap_service.mail.fetch.return_value = ("OK", [(b"1 (RFC822)", msg.as_bytes())])
+        body = imap_service.get_email_body(email_model)
+        assert "This is the body." in body
+        assert "This is an attachment." not in body
+
+def test_get_emails_with_filters(imap_service: ImapService):
+    """Tests fetching emails with various filters."""
+    with patch("imaplib.IMAP4_SSL"):
+        imap_service.connect()
+        imap_service.mail.select.return_value = ("OK", [b"1"])
+        imap_service.mail.search.return_value = ("OK", [b"1"])
+        imap_service.mail.fetch.return_value = ("OK", [(b"1 (RFC822)", b"From: sender1@test.com\nSubject: Test 1\n\nBody 1")])
+        
+        imap_service.get_emails(subject="Test", sender="sender1@test.com", status="UNSEEN")
+        imap_service.mail.search.assert_called_once_with(None, 'ALL', '(HEADER Subject "Test")', '(HEADER From "sender1@test.com")', 'UNSEEN')
+
+def test_connect_invalid_credentials(imap_service: ImapService):
+    """Tests that a connection with invalid credentials fails gracefully."""
+    with patch("imaplib.IMAP4_SSL") as mock_imap:
+        instance = mock_imap.return_value
+        instance.login.side_effect = imaplib.IMAP4.error("Invalid credentials")
+        with pytest.raises(imaplib.IMAP4.error):
+            imap_service.connect()
+
+def test_select_mailbox_not_found(imap_service: ImapService):
+    """Tests that a failure to select a mailbox is handled gracefully."""
+    with patch("imaplib.IMAP4_SSL"):
+        imap_service.connect()
+        imap_service.mail.select.side_effect = imaplib.IMAP4.error("Mailbox not found")
+        emails = imap_service.get_emails()
+        assert emails == []
