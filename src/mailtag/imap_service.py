@@ -24,7 +24,6 @@ class ImapService(EmailProvider):
             logger.info(f"Successfully connected to IMAP server: {self.config.host}")
         except imaplib.IMAP4.error as e:
             logger.error(f"Failed to connect to IMAP server: {e}")
-            raise
 
     def disconnect(self):
         """Closes the connection to the IMAP server."""
