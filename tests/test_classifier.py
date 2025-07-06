@@ -27,9 +27,7 @@ def mock_db(mocker: MockerFixture) -> MockerFixture:
     db.validated_db = defaultdict(lambda: defaultdict(int))
     # Mock the get_dominant_classification to check the validated_db
     db.get_dominant_classification.side_effect = (
-        lambda sender: list(db.validated_db.get(sender, {}).keys())[0]
-        if sender in db.validated_db
-        else None
+        lambda sender: list(db.validated_db.get(sender, {}).keys())[0] if sender in db.validated_db else None
     )
     return db
 
@@ -142,7 +140,7 @@ def test_signal_3_historical_match(classifier: Classifier, mock_db: MockerFixtur
     category exists, it is used.
     """
     sender = "history@example.com"
-    mock_db.suggestion_db[sender] = defaultdict(int, {"Finances/Bloomberg": 10, "À Classer": 1})
+    mock_db.suggestion_db[sender] = defaultdict(int, {"Finance/Bloomberg": 10, "À Classer": 1})
     email = Email(
         msg_id="1",
         subject="History Test",
@@ -155,7 +153,7 @@ def test_signal_3_historical_match(classifier: Classifier, mock_db: MockerFixtur
 
     category = classifier.classify_email(email)
 
-    assert category == "Finances/Bloomberg"
+    assert category == "Finance/Bloomberg"
     mock_db.update_suggestion.assert_not_called()
     mock_ai.assert_not_called()
 
@@ -175,10 +173,10 @@ def test_signal_4_ai_fallback(classifier: Classifier, mock_db: MockerFixture, mo
     )
     # No historical data for this sender
 
-    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="Finances/Bloomberg")
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="Finance/Bloomberg")
 
     category = classifier.classify_email(email)
 
-    assert category == "Finances/Bloomberg"
+    assert category == "Finance/Bloomberg"
     mock_ai.assert_called_once_with(email)
-    mock_db.update_suggestion.assert_called_once_with(sender, "Finances/Bloomberg")
+    mock_db.update_suggestion.assert_called_once_with(sender, "Finance/Bloomberg")

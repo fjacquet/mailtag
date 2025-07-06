@@ -116,24 +116,6 @@ def generate_filters(database):
     logger.info(f"Filters generated at {output_path}")
 
 
-@click.group()
-def cli():
-    """MailTag: Email Classification Tool"""
-    setup_logging(CONFIG.logging.level, CONFIG.logging.file)
-
-
-@cli.command()
-@click.option(
-    "--provider",
-    type=click.Choice(["imap", "gmail", "all"]),
-    default="all",
-    help="The email provider to use.",
-)
-@click.option(
-    "--validate",
-    is_flag=True,
-    help="Run in validation mode (read-only) to populate the database without moving emails.",
-)
 def start_classification_run(provider, validate):
     """Sets up and starts the classification run."""
     suggestion_db_path = Path("db/sender_classification_db.json")

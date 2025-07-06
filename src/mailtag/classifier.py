@@ -94,7 +94,7 @@ class Classifier:
             "Classe cet e-mail dans l'une des catégories suivantes:\n"
             f"{category_list}\n\n"
             "Réponds uniquement avec le nom complet de la catégorie "
-            "(ex: Finances/Bloomberg).\n"
+            "(ex: Finance/Bloomberg).\n"
             "Si aucune catégorie ne correspond parfaitement, "
             "réponds avec 'UNCERTAIN' suivi de la catégorie la plus "
             "proche ou d'une nouvelle suggestion de catégorie."

@@ -24,7 +24,7 @@ def test_generate_filters(
 ):
     """Tests the filter generation logic."""
     db_content = {
-        "sender1@example.com": {"Finances/Bloomberg": 5, "À Classer": 1},
+        "sender1@example.com": {"Finance/Bloomberg": 5, "À Classer": 1},
         "sender2@example.com": {"Services/Apple": 10},
         "sender3@example.com": {},
     }
@@ -41,7 +41,7 @@ def test_generate_filters(
 
     # Perform some basic checks on the generated XML
     assert "sender1@example.com" in written_content
-    assert "Finances/Bloomberg" in written_content
+    assert "Finance/Bloomberg" in written_content
     assert "sender2@example.com" in written_content
     assert "Services/Apple" in written_content
     assert "sender3@example.com" not in written_content

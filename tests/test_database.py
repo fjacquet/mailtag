@@ -38,7 +38,7 @@ def test_load_db_with_content(
 ):
     """Tests loading a database with existing content."""
     suggestion_db_content = {
-        "sender@example.com": {"Finances/Bloomberg": 1},
+        "sender@example.com": {"Finance/Bloomberg": 1},
         "another@sender.com": {"À Classer": 5},
     }
     validated_db_content = {"validated@sender.com": {"Validated/Category": 1}}
@@ -53,7 +53,7 @@ def test_load_db_with_content(
     db = ClassificationDatabase(
         suggestion_db_path=mock_suggestion_db_path, validated_db_path=mock_validated_db_path
     )
-    assert db.get_classification_count("sender@example.com", "Finances/Bloomberg") == 1
+    assert db.get_classification_count("sender@example.com", "Finance/Bloomberg") == 1
     assert db.get_classification_count("another@sender.com", "À Classer") == 5
     assert db.get_dominant_classification("validated@sender.com") == "Validated/Category"
 
@@ -71,11 +71,11 @@ def test_update_suggestion_db(
     )
 
     m = mocker.patch.object(mock_suggestion_db_path, "open", mocker.mock_open())
-    db.update_suggestion("sender@example.com", "Finances/Bloomberg")
-    assert db.get_classification_count("sender@example.com", "Finances/Bloomberg") == 1
+    db.update_suggestion("sender@example.com", "Finance/Bloomberg")
+    assert db.get_classification_count("sender@example.com", "Finance/Bloomberg") == 1
 
-    db.update_suggestion("sender@example.com", "Finances/Bloomberg")
-    assert db.get_classification_count("sender@example.com", "Finances/Bloomberg") == 2
+    db.update_suggestion("sender@example.com", "Finance/Bloomberg")
+    assert db.get_classification_count("sender@example.com", "Finance/Bloomberg") == 2
 
     # Check that save was called twice
     assert m.call_count == 2
@@ -85,7 +85,7 @@ def test_promote_to_validated(
     mock_suggestion_db_path: MockerFixture, mock_validated_db_path: MockerFixture, mocker: MockerFixture
 ):
     """Tests promoting a classification to the validated database."""
-    suggestion_db_content = {"sender@example.com": {"Finances/Bloomberg": 1}}
+    suggestion_db_content = {"sender@example.com": {"Finance/Bloomberg": 1}}
     mock_suggestion_db_path.exists.return_value = True
     mock_validated_db_path.exists.return_value = False
     mocker.patch.object(
@@ -98,10 +98,10 @@ def test_promote_to_validated(
     m_suggestion = mocker.patch.object(mock_suggestion_db_path, "open", mocker.mock_open())
     m_validated = mocker.patch.object(mock_validated_db_path, "open", mocker.mock_open())
 
-    db.promote_to_validated("sender@example.com", "Finances/Bloomberg")
+    db.promote_to_validated("sender@example.com", "Finance/Bloomberg")
 
     assert "sender@example.com" not in db.suggestion_db
-    assert db.validated_db["sender@example.com"] == {"Finances/Bloomberg": 1}
+    assert db.validated_db["sender@example.com"] == {"Finance/Bloomberg": 1}
     assert m_suggestion.call_count == 1
     assert m_validated.call_count == 1
 

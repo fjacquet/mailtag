@@ -1,6 +1,27 @@
 {
+    "accueil.familial@montreux.ch": {
+        "Factures/REME": 1
+    },
+    "advantage@vmug.com": {
+        "Informations/Newsletters": 1
+    },
     "<info.lucerne@radissonblu.com>": {
         "Voyages/Radisson Blu": 1
+    },
+  "info@global.fortinet.com": {
+     "Informations/Newsletters": 1
+  },
+    "info@kingpropertyrooms.com": {
+    "Voyages/Location": 1
+  },
+  "looksport@netplus.ch": {
+    "Informations/Newsletters": 1
+  },
+    "ant@supabase.com": {
+        "Services/Supabase": 1
+    },
+    "aurelie@edigroup.ch": {
+        "Informations/Newsletters": 1
     },
     "abo@letemps.ch": {
         "Informations/Le Temps": 1
@@ -12,7 +33,7 @@
         "Voyages/R\u00e9servations": 1
     },
     "contact@ca-centreloire.fr": {
-        "Finances/CA": 1
+        "Finance/CA": 1
     },
     "contact@filae.com": {
         "Personnel/Filae": 1
@@ -52,7 +73,7 @@
         "Informations/Newsletters": 1
     },
     "jobmail@jobs.ch": {
-        "News/Jobs": 1
+        "Informations/Jobs": 1
     },
     "news@myheritage.com": {
         "Personnel/MyHeritage": 1
@@ -64,7 +85,7 @@
         "Informations/24 heures": 1
     },
     "newsletter@bloomberg.com": {
-        "Finances/Bloomberg": 1
+        "Finance/Bloomberg": 1
     },
     "newsletter@bonasavoir.ch": {
         "Informations/BonASavoir": 1
@@ -109,7 +130,7 @@
         "Services/Netflix": 1
     },
     "no-reply@revolut.com": {
-        "Finances/Revolut": 1
+        "Finance/Revolut": 1
     },
     "noreply@anime-store.fr": {
         "Informations/Newsletters": 1
@@ -118,10 +139,10 @@
         "Services/Bitdefender": 1
     },
     "noreply@coinbase.com": {
-        "Finances/Coinbase": 1
+        "Finance/Coinbase": 1
     },
     "noreply@creditagricole.fr": {
-        "Finances/CA": 1
+        "Finance/CA": 1
     },
     "noreply@cumulus.ch": {
         "Achats/Cumulus": 1
@@ -133,7 +154,7 @@
         "Transports/EasyPark": 1
     },
     "noreply@ebill.ch": {
-        "Finances/eBill": 1
+        "Finance/eBill": 1
     },
     "noreply@email.apple.com": {
         "Services/Apple": 1
@@ -151,22 +172,22 @@
         "Achats/Interflora": 1
     },
     "noreply@kraken.com": {
-        "Finances/Kraken": 1
+        "Finance/Kraken": 1
     },
     "noreply@leukerbad.ch": {
         "Voyages/Leukerbad": 1
     },
     "noreply@linxo.com": {
-        "Finances/Linxo": 1
+        "Finance/Linxo": 1
     },
     "noreply@news.bloomberg.com": {
-        "Finances/Bloomberg": 1
+        "Finance/Bloomberg": 1
     },
     "noreply@payot.ch": {
         "Achats/Payot": 1
     },
     "noreply@paypal.com": {
-        "Finances/Paypal": 1
+        "Finance/Paypal": 1
     },
     "noreply@radissonblu.com": {
         "Voyages/Radisson Blu": 1
@@ -178,13 +199,13 @@
         "Administratif/REME": 1
     },
     "noreply@selma.ch": {
-        "Finances/Selma": 1
+        "Finance/Selma": 1
     },
     "noreply@snyk.io": {
         "Services/Snyk": 1
     },
     "noreply@swissborg.com": {
-        "Finances/swissborg": 1
+        "Finance/swissborg": 1
     },
     "noreply@synology.com": {
         "Services/Synology": 1
@@ -199,7 +220,7 @@
         "Transports/CFF": 1
     },
     "notifications@revolut.com": {
-        "Finances/Revolut": 1
+        "Finance/Revolut": 1
     },
     "pro@feedly.com": {
         "Services/Feedly": 1
@@ -217,7 +238,7 @@
         "Personnel/MyHeritage": 1
     },
     "support@revolut.com": {
-        "Finances/Revolut": 1
+        "Finance/Revolut": 1
     },
     "team@mail.skylum.com": {
         "Services/Skylum": 1

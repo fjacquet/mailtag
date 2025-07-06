@@ -10,6 +10,7 @@ This refactoring also introduced:
 - A three-entry-point architecture (CLI, Streamlit, Webhook).
 - A dual-database system for AI suggestions and validated classifications.
 - The use of `click` for a more modern CLI.
+- A two-pass "Fast Parse" system for IMAP to improve performance.
 
 The impact is concentrated in the application's entry points and the classification and data-fetching layers, with significant improvements to testing and configuration.
 
@@ -53,3 +54,11 @@ The impact is concentrated in the application's entry points and the classificat
 - **Changes:**
   - The AMSC strategy now prioritizes the `validated_classification_db.json` over all other signals.
   - The classifier now interacts with both databases.
+
+#### 6. `src/mailtag/imap_service.py`
+
+- **Previous State:** Used a single-pass approach to fetch emails.
+- **Impact:** **High.**
+- **Changes:**
+  - Implemented a two-pass "Fast Parse" system to improve performance.
+  - Added methods to fetch only email headers and to fetch full emails for the second pass.

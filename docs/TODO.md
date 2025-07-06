@@ -24,8 +24,8 @@ This phase focuses on implementing the new dual database system and updating the
   - [x] Update the `classify_email` method to prioritize the validated DB over all other signals.
 - [x] **`main.py` - Update CLI:**
   - [x] Restore the `--validate` flag to its original "dry run" functionality.
-- [ ] **`tests/` - Update Tests:**
-  - [ ] Update all relevant tests to reflect the new architecture and dual-database system.
+- [x] **`tests/` - Update Tests:**
+  - [x] Update all relevant tests to reflect the new architecture and dual-database system.
 
 ## **Phase 3: Fast Parse Implementation**
 
@@ -34,8 +34,8 @@ This phase focuses on implementing the two-pass system to dramatically improve p
 - [x] **`config.py` & `config.toml` - Add Fast Parse Settings:**
 - [x] **`imap_service.py` - Implement Fast Parse Methods:**
 - [x] **`main.py` - Implement Two-Pass Orchestration:**
-- [ ] **Testing - Update and Add Tests:**
-- [ ] **Documentation - Update Project Documentation:**
+- [x] **Testing - Update and Add Tests:**
+- [x] **Documentation - Update Project Documentation:**
 
 ---
 *The original TODO items from previous phases have been completed and are archived.*

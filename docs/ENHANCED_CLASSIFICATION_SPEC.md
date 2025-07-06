@@ -1,7 +1,7 @@
 # Technical Specification: Enhanced Email Classification Engine
 
 **Author:** Senior Solution Architect
-**Version:** 3.0
+**Version:** 4.0
 **Date:** 2025-07-06
 
 ---
@@ -20,6 +20,7 @@ This document outlines the **Enhanced Classification Engine**, a significant arc
     *   `db/sender_classification_db.json`: Stores raw, unverified suggestions from the AI model.
     *   `db/validated_classification_db.json`: Stores classifications that have been manually validated by the user, serving as the primary source of truth.
 3.  **Adaptive Multi-Signal Classification (AMSC) Strategy:** A more sophisticated, prioritized classification logic that synthesizes information from **explicit user validations**, **existing server-side labels**, the **historical sender database**, and the **AI model** to achieve highly accurate and cost-effective classification decisions.
+4.  **Fast Parse Implementation:** A two-pass system for IMAP accounts that dramatically improves performance by quickly handling known senders and deferring more resource-intensive AI analysis.
 
 This initiative transforms the classification system from a simple, automated process into a resilient, adaptive, and continuously learning system with multiple ways to interact with it.
 
@@ -38,6 +39,7 @@ This initiative transforms the classification system from a simple, automated pr
     3.  **High-Confidence Sender History:** A classification from `sender_classification_db.json` that meets configured confidence thresholds.
     4.  **AI Model Inference:** A classification from the AI model as a fallback.
 - **FR5: Dry Run Mode:** The CLI **MUST** include a `--validate` flag that runs the system in a read-only "dry run" mode.
+- **FR6: Fast Parse:** The IMAP provider **MUST** use a two-pass system to improve performance.
 
 ### Non-Functional Requirements (NFR)
 
@@ -64,3 +66,7 @@ This initiative transforms the classification system from a simple, automated pr
 ### 3.3. Enhanced Classifier (`src/mailtag/classifier.py`)
 
 The `Classifier` class implements the AMSC strategy, with the same signal prioritization as defined in the requirements.
+
+### 3.4. Fast Parse (`src/mailtag/imap_service.py`)
+
+The `ImapService` implements a two-pass system for fetching and classifying emails to improve performance.
