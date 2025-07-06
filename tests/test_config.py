@@ -24,6 +24,15 @@ file = "/test/log.file"
 enabled = false
 min_count = 5
 confidence_threshold = 0.9
+
+[imap]
+host = "imap.test.com"
+user = "test@user.com"
+password = "password"
+
+[gmail]
+credentials_file = "creds.json"
+token_file = "token.json"
 """
     config_path = tmp_path / "config.toml"
     config_path.write_text(config_content)
@@ -37,6 +46,8 @@ def test_load_config_success(mock_config_file: Path):
     assert config.general.ollama_model == "test-model"
     assert config.logging.level == "WARNING"
     assert not config.preclassification.enabled
+    assert config.imap.host == "imap.test.com"
+    assert config.gmail.credentials_file == "creds.json"
 
 
 def test_load_config_file_not_found():

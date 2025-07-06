@@ -1,20 +1,94 @@
-I can help you with creating filtering rules based on your last 30 emails and the labels we discussed. Unfortunately, I cannot directly create these rules within Gmail. However, I can provide you with the criteria you would use to set them up manually.
+Of course. As a principal development engineer, here is a feature specification document based on the provided analysis. This document structures the information into a clear plan for developing a new email automation feature.
 
-Here are some suggested filtering rules:
+---
 
-**For the "System Notifications/Backups" label:**
+# **Feature Specification: Email Automation Service**
 
-  * **Rule 1: OpenStack Swift cloud backup success notifications**
-      * **Criteria:** Emails from `ds923fj - Synology DiskStation <fred.jacquet@gmail.com>` AND subject contains "OpenStack Swift cloud backup - OpenStack Swift 1 successful on ds923fj".
-      * **Action:** Apply label "System Notifications/Backups".
-  * **Rule 2: Monthly Drive Health Report**
-      * **Criteria:** Emails from `ds923fj - Synology DiskStation <fred.jacquet@gmail.com>` AND subject contains "Monthly Drive Health Report on ds923fj - Healthy".
-      * **Action:** Apply label "System Notifications/Backups".
+**Version:** 1.0
+**Date:** 2025-07-05
+**Author:** Principal Development Engineer
 
-**For the "Technology Reports" label:**
+## **1. Introduction & Goal**
 
-  * **Rule 1: Eyeglass (Superna) Technology Report**
-      * **Criteria:** Emails from `fred.jacquet@gmail.com` AND subject contains "New on" AND body contains "Eyeglass (Superna) Technology Report".
-      * **Action:** Apply label "Technology Reports".
+This document outlines the specification for a new **Email Automation Service**. The primary goal of this feature is to provide a robust, server-side mechanism for programmatically filtering, reading, and organizing emails.
 
-You can create these filters in your Gmail settings under "See all settings" -\> "Filters and Blocked Addresses" -\> "Create a new filter".
+The service will support two primary methods of interaction to ensure both broad compatibility and deep integration with the most popular email provider:
+
+1.  [cite_start]**Standard IMAP Protocol:** For universal access to most email servers (Outlook, Yahoo, custom domains, etc.). [cite: 6]
+2.  [cite_start]**Google's Gmail API:** For powerful, native manipulation of Gmail accounts, leveraging features like labels and advanced search. [cite: 10, 18]
+
+[cite_start]This dual-pronged approach will allow the project to cater to a wide range of users, from those needing basic email moving capabilities on a standard server to those deeply integrated into the Gmail ecosystem. [cite: 11, 17]
+
+---
+
+## **2. Proposed Git Branch**
+
+To isolate development and ensure a clean merge upon completion, all work for this feature should be done in a new feature branch.
+
+**Proposed Branch Name:**
+`feature/email-automation-service`
+
+---
+
+## **3. Functional Requirements**
+
+The system must provide the following capabilities for both IMAP and Gmail API clients unless otherwise noted.
+
+* **FR-001: Secure Authentication:** The service must securely connect and authenticate with a user-specified email server.
+    * [cite_start]For IMAP, this will use a hostname, username, and password (or App Password). [cite: 23]
+    * [cite_start]For the Gmail API, this will use the OAuth 2.0 protocol. [cite: 60]
+* [cite_start]**FR-002: List Mailboxes/Labels:** The service must be able to retrieve and display a list of all available mailboxes (folders) or labels for the authenticated account. [cite: 30]
+* [cite_start]**FR-003: Search & Fetch Emails:** The service must allow searching for emails within a specified mailbox/label based on criteria. [cite: 24] Supported criteria should include:
+    * [cite_start]Status (e.g., `UNSEEN`, `ALL`). [cite: 24]
+    * [cite_start]Sender, Subject, and Date ranges. [cite: 24]
+    * [cite_start]Gmail's advanced search syntax (for Gmail API only). [cite: 13]
+* [cite_start]**FR-004: Parse Email Content:** The service must parse fetched email data to extract key headers (From, Subject, Date) and the message body. [cite: 26, 33, 34, 35]
+* **FR-005: Organize Emails:**
+    * **IMAP:** The service must be able to move an email from one mailbox to another. [cite_start]This is achieved by copying the message to the target folder and marking the original for deletion. [cite: 27, 41]
+    * [cite_start]**Gmail API:** The service must be able to modify an email's labels, which includes adding labels and removing others (e.g., `INBOX`, `UNREAD`) to effectively categorize or archive messages. [cite: 76, 79]
+
+---
+
+## **4. Technical Specification**
+
+### **4.1. Core Libraries**
+
+* [cite_start]**IMAP Client:** Implementation will use Python's built-in `imaplib` module for all IMAP-related communications. [cite: 20, 21] [cite_start]Secure `IMAP4_SSL` connections are required. [cite: 22]
+* [cite_start]**Gmail API Client:** Implementation will use the official Google Client Libraries for Python: `google-api-python-client`, `google-auth-httplib2`, and `google-auth-oauthlib`. [cite: 68]
+
+### **4.2. Authentication**
+
+* [cite_start]**IMAP:** A configuration mechanism (e.g., environment variables, secure vault) will provide the IMAP hostname, username, and password. [cite: 51] [cite_start]The system should explicitly recommend using an **App Password** for accounts with 2-Factor Authentication (2FA) enabled. [cite: 48]
+* **Gmail API (OAuth 2.0):**
+    * [cite_start]The application will be registered in the Google Cloud Console to obtain `credentials.json`. [cite: 63, 64, 67]
+    * [cite_start]The authentication flow will generate a `token.json` file upon first user consent, which will be used for subsequent API calls. [cite: 70, 71]
+    * [cite_start]The required API scope will be `https://www.googleapis.com/auth/gmail.modify` to allow for reading and modifying messages and labels. [cite: 81]
+
+### **4.3. Key Functions & Logic**
+
+The implementation will be modular, with distinct functions for each core task:
+
+| Function                | IMAP Implementation (`imaplib`)                                                                | Gmail API Implementation (`googleapiclient`)                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Connect & Login** | [cite_start]`imaplib.IMAP4_SSL(hostname)` followed by `mail.login(user, pass)` [cite: 29]                   | [cite_start]Build a `service` object via the `google-auth-oauthlib` flow. [cite: 73]                 |
+| **List Folders/Labels** | [cite_start]`mail.list()` [cite: 30]                                                                       | [cite_start]`service.users().labels().list(userId='me').execute()` [cite: 78]                          |
+| **Search Messages** | [cite_start]`mail.select(mailbox)` then `mail.search(None, criteria)` [cite: 24]                           | [cite_start]`service.users().messages().list(userId='me', q=query).execute()` [cite: 74]               |
+| **Fetch Message** | [cite_start]`mail.fetch(uid, '(RFC822)')` [cite: 33]                                                        | [cite_start]`service.users().messages().get(userId='me', id=msg_id).execute()` [cite: 74]              |
+| **Move/Organize** | [cite_start]`mail.copy(uid, target)` followed by `mail.store(uid, '+FLAGS', '\\Deleted')` and `mail.expunge()` [cite: 27, 41] | [cite_start]`service.users().messages().modify(userId='me', id=msg_id, body=body).execute()` [cite: 79] |
+
+---
+
+## **5. Acceptance Criteria**
+
+The feature will be considered complete when the following criteria are met:
+
+* [ ] **AC-001:** A user can successfully authenticate to a standard IMAP server (e.g., Outlook.com) using credentials.
+* [ ] **AC-002:** A user can successfully authenticate to a Gmail account using the OAuth 2.0 flow.
+* [ ] **AC-003:** The service can list all mailboxes for an authenticated IMAP account.
+* [ ] **AC-004:** The service can list all labels for an authenticated Gmail account.
+* [ ] **AC-005:** The service can search for and read the subject line of unseen emails in the INBOX of an IMAP account.
+* [ ] **AC-006:** The service can search for and read the subject line of unread emails in the INBOX of a Gmail account.
+* [ ] **AC-007:** The service can move an email from the INBOX to a specified folder (`TestArchive`) in an IMAP account.
+* [ ] **AC-008:** The service can apply a custom label (`TestLabel`) to an email and remove it from the INBOX in a Gmail account.
+* [cite_start][ ] **AC-009:** All credentials and secrets are managed securely and are not hardcoded in the source. [cite: 50]
+* [cite_start][ ] **AC-010:** The code is documented, and required setup steps (e.g., enabling IMAP, creating test folders/labels) are clearly outlined. [cite: 47, 49]

@@ -24,3 +24,12 @@ level = "INFO"
 
 # The file to write logs to.
 file = "logs/mailtag.log"
+
+[imap]
+host = "imap.example.com"
+user = "user@example.com"
+password = "${IMAP_PASSWORD}"
+
+[gmail]
+credentials_file = "credentials.json"
+token_file = "token.json"

@@ -14,21 +14,23 @@ from mailtag.config import CONFIG
 from mailtag.database import ClassificationDatabase
 from mailtag.filter_generator import FilterGenerator
 from mailtag.logging_config import setup_logging
-from mailtag.mail_service import MailService
+from mailtag.providers import EmailProvider
+from mailtag.imap_service import ImapService
+from mailtag.gmail_service import GmailService
 
 
-def run_classification():
+def run_classification(provider: EmailProvider):
     """Runs the email classification process."""
     try:
         db_path = Path("db/sender_classification_db.json")
         database = ClassificationDatabase(db_path)
-        mail_service = MailService()
         classifier = Classifier(CONFIG, database)
     except FileNotFoundError as e:
         logger.critical(e)
         return
 
-    emails = mail_service.get_inbox_emails()
+    provider.connect()
+    emails = provider.get_emails()
     if not emails:
         logger.info("No emails found in the inbox.")
         return
@@ -37,7 +39,7 @@ def run_classification():
 
     for email in emails:
         try:
-            body = mail_service.get_email_body(email)
+            body = provider.get_email_body(email)
             category = classifier.classify_email(email, body)
             logger.info(
                 'Email "%s" from %s -> Category: %s',
@@ -66,6 +68,12 @@ def main():
 
     parser = argparse.ArgumentParser(description="MailTag: Email Classification Tool")
     parser.add_argument(
+        "--provider",
+        choices=["imap", "gmail"],
+        default="imap",
+        help="The email provider to use.",
+    )
+    parser.add_argument(
         "--generate-filters",
         action="store_true",
         help="Generate the mailfilter.xml file from the database.",
@@ -75,7 +83,13 @@ def main():
     if args.generate_filters:
         generate_filters()
     else:
-        run_classification()
+        if args.provider == "imap":
+            provider = ImapService(CONFIG.imap)
+        elif args.provider == "gmail":
+            provider = GmailService(CONFIG.gmail)
+        else:
+            raise ValueError(f"Invalid provider: {args.provider}")
+        run_classification(provider)
 
 
 if __name__ == "__main__":

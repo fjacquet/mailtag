@@ -47,7 +47,7 @@ This is a significant but well-contained refactoring. The core business logic (`
     [imap]
     host = "imap.example.com"
     user = "user@example.com"
-    password = "${IMAP_PASSWORD}" # Recommend using env variables
+    password = "..." # Loaded from environment variable IMAP_PASSWORD
 
     [gmail]
     credentials_file = "credentials.json"
