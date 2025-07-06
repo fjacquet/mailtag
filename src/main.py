@@ -132,8 +132,8 @@ def cli():
     is_flag=True,
     help="Run in validation mode (read-only) to populate the database without moving emails.",
 )
-def run(provider, validate):
-    """Run the email classification process."""
+def start_classification_run(provider, validate):
+    """Sets up and starts the classification run."""
     suggestion_db_path = Path("db/sender_classification_db.json")
     validated_db_path = Path("db/validated_classification_db.json")
     database = ClassificationDatabase(suggestion_db_path, validated_db_path)
@@ -161,6 +161,29 @@ def run(provider, validate):
     for p in providers_to_run:
         logger.info(f"Running classification for provider: {type(p).__name__}")
         run_classification(p, database, validate)
+
+
+@click.group()
+def cli():
+    """MailTag: Email Classification Tool"""
+    setup_logging(CONFIG.logging.level, CONFIG.logging.file)
+
+
+@cli.command()
+@click.option(
+    "--provider",
+    type=click.Choice(["imap", "gmail", "all"]),
+    default="all",
+    help="The email provider to use.",
+)
+@click.option(
+    "--validate",
+    is_flag=True,
+    help="Run in validation mode (read-only) to populate the database without moving emails.",
+)
+def run(provider, validate):
+    """Run the email classification process."""
+    start_classification_run(provider, validate)
 
 
 @cli.command()

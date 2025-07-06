@@ -67,21 +67,36 @@ class ImapService(EmailProvider):
             json.dump(folders, f, indent=2)
         return folders
 
-    def get_email_senders(self, uids: list[str | int]) -> dict[str, str]:
+    def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
         """
-        Fetches only the 'From' header for a given batch of email UIDs.
+        Fetches 'From' and 'Subject' headers for a given batch of email UIDs.
         """
         if not self.client:
             raise ConnectionError("Not connected to IMAP server.")
 
-        response = self.client.fetch(uids, ["BODY[HEADER.FIELDS (FROM)]"])
-        senders = {}
+        response = self.client.fetch(uids, [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"])
+        headers = {}
         for msg_id, data in response.items():
-            msg = email.message_from_bytes(data[b"BODY[HEADER.FIELDS (FROM)]"])
-            sender_header = msg["From"]
-            _, sender_address = self._parse_sender(sender_header)
-            senders[str(msg_id)] = sender_address
-        return senders
+            try:
+                msg = email.message_from_bytes(data[b"BODY[HEADER.FIELDS (FROM SUBJECT)]"])
+                sender_header = msg["From"]
+                subject_header = msg["Subject"]
+                _, sender_address = self._parse_sender(sender_header)
+                headers[str(msg_id)] = {
+                    "sender_address": sender_address,
+                    "subject": str(subject_header),
+                }
+            except Exception as e:
+                logger.error(f"Could not parse headers for email {msg_id}: {e}")
+        return headers
+
+    def get_email_senders(self, uids: list[str | int]) -> dict[str, str]:
+        """
+        Fetches only the 'From' header for a given batch of email UIDs.
+        DEPRECATED: Use get_email_headers instead.
+        """
+        email_headers = self.get_email_headers(uids)
+        return {uid: headers["sender_address"] for uid, headers in email_headers.items()}
 
     def get_full_emails(self, uids: list[str | int]) -> list[Email]:
         """
