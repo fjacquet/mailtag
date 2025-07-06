@@ -9,11 +9,11 @@ api_base = "${OLLAMA_API_URL}"
 
 [classifier]
 # The confidence threshold required for the AI model's suggestion to be accepted.
-ai_confidence_threshold = 0.7
+ai_confidence_threshold = 0.98
 # The confidence threshold required for a historical sender-based classification to be used.
 historical_confidence_threshold = 0.9
 # The minimum number of times a sender must be classified before pre-classification is used.
-min_count = 3
+min_count = 10
 
 
 [logging]
