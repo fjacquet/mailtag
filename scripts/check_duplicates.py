@@ -16,7 +16,7 @@ def check_and_fix_duplicates(db_path):
     saves a deduplicated version.
     """
     db_path = Path(db_path)
-    with open(db_path, "r") as f:
+    with open(db_path) as f:
         data = json.load(f)
 
     duplicates_found = False

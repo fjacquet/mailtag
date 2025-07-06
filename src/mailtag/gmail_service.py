@@ -69,6 +69,17 @@ class GmailService(EmailProvider):
             elif status == "SEEN":
                 query_parts.append("is:read")
 
+        query_parts = ["in:inbox"]
+        if subject:
+            query_parts.append(f"subject:{subject}")
+        if sender:
+            query_parts.append(f"from:{sender}")
+        if status:
+            if status == "UNSEEN":
+                query_parts.append("is:unread")
+            elif status == "SEEN":
+                query_parts.append("is:read")
+
         query = " ".join(query_parts)
         logger.debug(f"Using Gmail query: {query}")
 

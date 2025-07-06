@@ -15,7 +15,7 @@ class MockImapClient:
         self.mailboxes: dict[str, dict[int, dict[bytes, Any]]] = {
             "INBOX": {
                 1: {
-                    b"BODY[HEADER.FIELDS (FROM)]": b"From: Test <test@example.com>\r\n",
+                    b"BODY[HEADER.FIELDS (FROM SUBJECT)]": b"From: Test <test@example.com>\r\nSubject: Test\r\n",
                     b"BODY[]": email.message_from_string(
                         "From: test@example.com\nSubject: Test\n\nTest body"
                     ).as_bytes(),
@@ -62,19 +62,11 @@ class MockImapClient:
             if msg_id in self.mailboxes[self.selected_folder]:
                 response[msg_id] = {}
                 for field in data:
-                    # Convert string fields to bytes if needed
                     byte_field = field.encode("utf-8") if isinstance(field, str) else field
-
-                    # Special handling for BODY.PEEK[] which should map to BODY[] in response
-                    if (
-                        byte_field == b"BODY.PEEK[]"
-                        and b"BODY[]" in self.mailboxes[self.selected_folder][msg_id]
-                    ):
-                        response[msg_id][b"BODY[]"] = self.mailboxes[self.selected_folder][msg_id][b"BODY[]"]
-                    # Look for the field in the mailbox
-                    elif byte_field in self.mailboxes[self.selected_folder][msg_id]:
-                        response[msg_id][byte_field] = self.mailboxes[self.selected_folder][msg_id][
-                            byte_field
+                    response_key = byte_field.replace(b".PEEK", b"")
+                    if response_key in self.mailboxes[self.selected_folder][msg_id]:
+                        response[msg_id][response_key] = self.mailboxes[self.selected_folder][msg_id][
+                            response_key
                         ]
         return response
 

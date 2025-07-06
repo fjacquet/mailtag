@@ -53,16 +53,27 @@ class MockGmailService:
         def execute(self):
             return self.data
 
-    def add_message(self, msg_id: str, label_ids: builtins.list[str], subject: str, body: str):
+    def add_message(
+        self, msg_id: str, label_ids: builtins.list[str], subject: str, body: str, sender: str = "test@example.com"
+    ):
         encoded_body = base64.urlsafe_b64encode(body.encode("utf-8")).decode("utf-8")
         self.messages_data[msg_id] = {
             "id": msg_id,
             "labelIds": label_ids,
             "payload": {
-                "headers": [{"name": "Subject", "value": subject}],
+                "headers": [
+                    {"name": "Subject", "value": subject},
+                    {"name": "From", "value": sender},
+                ],
                 "parts": [{"mimeType": "text/plain", "body": {"data": encoded_body}}],
             },
         }
 
     def get_message(self, msg_id: str) -> dict[str, Any] | None:
         return self.messages_data.get(msg_id)
+
+    def modify(self, **kwargs):
+        return self.MockRequest({})
+
+    def create(self, **kwargs):
+        return self.MockRequest({"id": "new_label_id", "name": kwargs["body"]["name"]})
