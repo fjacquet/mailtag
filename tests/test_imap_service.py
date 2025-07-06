@@ -96,5 +96,5 @@ def test_batch_move_emails(
     """Tests that emails are moved in a batch."""
     imap_service.client = mock_imap_client
     mocker.spy(mock_imap_client, "move")
-    imap_service.batch_move_emails(["1", "2"], "Archive")
-    mock_imap_client.move.assert_called_once_with(["1", "2"], "Archive")
+    imap_service.batch_move_emails([1, 2], "Archive")
+    mock_imap_client.move.assert_called_once_with([1, 2], "Archive")
