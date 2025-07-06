@@ -5,7 +5,7 @@
 ollama_model = "ollama_chat/gemma3"
 
 # The base URL for the Ollama API.
-api_base = "http://localhost:11434"
+api_base = "${OLLAMA_API_URL}"
 
 [preclassification]
 # Enable or disable pre-classification based on sender history.
@@ -26,8 +26,8 @@ level = "INFO"
 file = "logs/mailtag.log"
 
 [imap]
-host = "imap.example.com"
-user = "user@example.com"
+host = "imap.gmail.com"
+user = "${IMAP_USER}"
 password = "${IMAP_PASSWORD}"
 
 [gmail]

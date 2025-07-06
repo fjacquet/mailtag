@@ -33,7 +33,8 @@ def get_gmail_service(credentials_file: str, token_file: str):
                     "2. Create a new project or select an existing one.\n"
                     "3. Enable the Gmail API for your project.\n"
                     "4. Create an OAuth 2.0 Client ID for a 'Desktop app'.\n"
-                    "5. Download the JSON file and save it as 'credentials.json' in your project's root directory."
+                    "5. Download the JSON file and save it as 'credentials.json' "
+                    "in your project's root directory."
                 )
                 return None
             flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
