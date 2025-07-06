@@ -42,42 +42,23 @@ class TestMain:
         mock_run = mocker.patch("app.run_classification")
         main()
         mock_run.assert_called_once()
-        args, provider = mock_run.call_args[0]
+        args, provider, database = mock_run.call_args[0]
         assert provider.__class__.__name__ == "GmailService"
 
     def test_main_validate_mode(self, mocker: MockerFixture, mock_app_config):
         """
         Tests that when --validate is passed, the 'validate' argument is True
-        and move_email is not called.
+        and the database's promote_to_validated method is called.
         """
-        from app import run_classification  # Import the real function to test its behavior
+        from app import main
 
-        # Mock components inside run_classification
-        mocker.patch("app.ClassificationDatabase")
-        mock_classifier = mocker.patch("app.Classifier")
-        mock_provider = mocker.MagicMock()
-        mock_provider.connect.return_value.__enter__.return_value = mock_provider
-        mock_provider.get_emails.return_value = [mocker.MagicMock(msg_id="1")]
-        mock_classifier.return_value.classify_email.return_value = "TestCategory"
-
-        # Create a mock for argparse
-        mock_args = mocker.MagicMock()
-        mock_args.validate = True  # Simulate the --validate flag
-        mock_args.subject = None
-        mock_args.sender = None
-        mock_args.status = None
-        mock_args.destination = "Processed"
-
-        # Call the real function with mocked args
-        run_classification(mock_args, mock_provider)
-
-        # Assert that the classification logic ran
-        mock_provider.connect.assert_called_once()
-        mock_provider.get_emails.assert_called_once()
-        mock_classifier.return_value.classify_email.assert_called_once()
-
-        # CRITICAL: Assert that move_email was NOT called in validate mode
-        mock_provider.move_email.assert_not_called()
+        mocker.patch("sys.argv", ["src/main.py", "--validate", "sender@example.com"])
+        mock_db = mocker.patch("app.ClassificationDatabase")
+        mock_db.return_value.get_dominant_classification.return_value = "Suggestion/Category"
+        main()
+        mock_db.return_value.promote_to_validated.assert_called_once_with(
+            "sender@example.com", "Suggestion/Category"
+        )
 
     def test_main_invalid_provider(self, mocker: MockerFixture, mock_app_config):
         """Tests that the program exits with an error for an invalid provider."""

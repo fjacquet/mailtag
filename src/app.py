@@ -23,11 +23,9 @@ PROVIDER_CLASSES = {
 }
 
 
-def run_classification(args, provider_instance):
+def run_classification(args, provider_instance, database):
     """Runs the email classification process using a given provider instance."""
     try:
-        db_path = Path("db/sender_classification_db.json")
-        database = ClassificationDatabase(db_path)
         classifier = Classifier(CONFIG, database)
 
         with provider_instance.connect() as provider:
@@ -55,8 +53,7 @@ def run_classification(args, provider_instance):
                             uids_to_process_pass2.append(uid)
                     
                     for classification, uids in emails_to_move.items():
-                        if not args.validate:
-                            provider.batch_move_emails(uids, classification)
+                        provider.batch_move_emails(uids, classification)
 
                 logger.info(f"Pass 1 complete. {len(all_uids) - len(uids_to_process_pass2)} emails moved.")
                 
@@ -70,11 +67,10 @@ def run_classification(args, provider_instance):
                             logger.info(
                                 f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
                             )
-                            if not args.validate:
-                                if category not in ["Unclassified", "À Classer"]:
-                                    provider.move_email(email, category)
-                                else:
-                                    provider.move_email(email, CONFIG.fast_parse.unclassified_folder_name)
+                            if category not in ["Unclassified", "À Classer"]:
+                                provider.move_email(email, category)
+                            else:
+                                provider.move_email(email, CONFIG.fast_parse.unclassified_folder_name)
                         except Exception as e:
                             logger.error(f"Could not process email {email.msg_id}: {e}")
                 logger.info("Pass 2 complete.")
@@ -98,7 +94,7 @@ def run_classification(args, provider_instance):
                         logger.info(
                             f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
                         )
-                        if not args.validate and category not in ["Unclassified", "À Classer"]:
+                        if category not in ["Unclassified", "À Classer"]:
                             provider.move_email(email, category)
                     except Exception as e:
                         logger.error(f"Could not process email {email.msg_id}: {e}")
@@ -110,11 +106,10 @@ def run_classification(args, provider_instance):
         return
 
 
-def generate_filters():
+def generate_filters(database):
     """Generates the mailfilter.xml file."""
-    db_path = Path("db/sender_classification_db.json")
     output_path = Path("data/mailfilter.xml")
-    generator = FilterGenerator(db_path, output_path)
+    generator = FilterGenerator(database.suggestion_db_path, output_path)
     generator.generate_filters()
     logger.info(f"Filters generated at {output_path}")
 
@@ -158,13 +153,27 @@ def main():
     )
     parser.add_argument(
         "--validate",
-        action="store_true",
-        help="Run in validation mode (read-only) to populate the database without moving emails.",
+        type=str,
+        help="Promote a sender's classification to the validated database. Takes the sender's email address as an argument.",
     )
     args = parser.parse_args()
 
+    suggestion_db_path = Path("db/sender_classification_db.json")
+    validated_db_path = Path("db/validated_classification_db.json")
+    database = ClassificationDatabase(suggestion_db_path, validated_db_path)
+
+    if args.validate:
+        sender_address = args.validate
+        dominant_classification = database.get_dominant_classification(sender_address)
+        if dominant_classification:
+            database.promote_to_validated(sender_address, dominant_classification)
+            logger.info(f"Promoted '{sender_address}' to validated with classification '{dominant_classification}'.")
+        else:
+            logger.error(f"No classification found for '{sender_address}' in the suggestion database.")
+        return
+
     if args.generate_filters:
-        generate_filters()
+        generate_filters(database)
     else:
         providers_to_run = []
         if args.provider == "all":
@@ -188,4 +197,4 @@ def main():
 
         for provider in providers_to_run:
             logger.info(f"Running classification for provider: {type(provider).__name__}")
-            run_classification(args, provider)
+            run_classification(args, provider, database)

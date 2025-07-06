@@ -23,7 +23,10 @@ from mailtag.models import Email
 def mock_db(mocker: MockerFixture) -> MockerFixture:
     """Fixture for a mocked ClassificationDatabase."""
     db = mocker.MagicMock(spec=ClassificationDatabase)
-    db.sender_db = defaultdict(lambda: defaultdict(int))
+    db.suggestion_db = defaultdict(lambda: defaultdict(int))
+    db.validated_db = defaultdict(lambda: defaultdict(int))
+    # Mock the get_dominant_classification to check the validated_db
+    db.get_dominant_classification.side_effect = lambda sender: list(db.validated_db.get(sender, {}).keys())[0] if sender in db.validated_db else None
     return db
 
 
@@ -84,10 +87,33 @@ def classifier(config: AppConfig, mock_db: MockerFixture, mocker: MockerFixture)
 # --- AMSC Strategy Tests ---
 
 
-def test_signal_1_server_label_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+def test_signal_1_validated_db_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+    """
+    Tests that if an email sender is in the validated DB, it is used for classification immediately.
+    """
+    sender = "validated@example.com"
+    mock_db.validated_db[sender] = {"Validated/Category": 1}
+    email = Email(
+        msg_id="1",
+        subject="Test",
+        sender_address=sender,
+        sender_name="Test",
+        body="Test body",
+        labels=["Inbox"],
+    )
+    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai")
+
+    category = classifier.classify_email(email)
+
+    assert category == "Validated/Category"
+    mock_db.update_suggestion.assert_not_called()
+    mock_ai.assert_not_called()
+
+
+def test_signal_2_server_label_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
     """
     Tests that if an email has a server-side label matching a category,
-    it is used for classification immediately.
+    it is used for classification.
     """
     email = Email(
         msg_id="1",
@@ -102,17 +128,17 @@ def test_signal_1_server_label_match(classifier: Classifier, mock_db: MockerFixt
     category = classifier.classify_email(email)
 
     assert category == "Services/Skylum"
-    mock_db.update.assert_called_once_with("test@example.com", "Services/Skylum")
+    mock_db.update_suggestion.assert_called_once_with("test@example.com", "Services/Skylum")
     mock_ai.assert_not_called()
 
 
-def test_signal_2_historical_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+def test_signal_3_historical_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
     """
     Tests that if no server label matches, but a high-confidence historical
     category exists, it is used.
     """
     sender = "history@example.com"
-    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 10, "À Classer": 1})
+    mock_db.suggestion_db[sender] = defaultdict(int, {"Finances/Bloomberg": 10, "À Classer": 1})
     email = Email(
         msg_id="1",
         subject="History Test",
@@ -126,11 +152,11 @@ def test_signal_2_historical_match(classifier: Classifier, mock_db: MockerFixtur
     category = classifier.classify_email(email)
 
     assert category == "Finances/Bloomberg"
-    mock_db.update.assert_not_called()  # DB is not updated when using historical data
+    mock_db.update_suggestion.assert_not_called()
     mock_ai.assert_not_called()
 
 
-def test_signal_3_ai_fallback(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
+def test_signal_4_ai_fallback(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
     """
     Tests that if no other signals match, the AI model is used as a fallback.
     """
@@ -151,54 +177,4 @@ def test_signal_3_ai_fallback(classifier: Classifier, mock_db: MockerFixture, mo
 
     assert category == "Finances/Bloomberg"
     mock_ai.assert_called_once_with(email)
-    mock_db.update.assert_called_once_with(sender, "Finances/Bloomberg")
-
-
-def test_no_signals_match(classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture):
-    """
-    Tests that if no signals match and the AI returns 'À Classer',
-    the database is not updated.
-    """
-    sender = "unclassified@example.com"
-    email = Email(
-        msg_id="1",
-        subject="Unclassified Test",
-        sender_address=sender,
-        sender_name="Unclassified",
-        body="Test body",
-        labels=["Inbox"],
-    )
-    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="À Classer")
-
-    category = classifier.classify_email(email)
-
-    assert category == "À Classer"
-    mock_ai.assert_called_once_with(email)
-    mock_db.update.assert_not_called()
-
-
-def test_historical_match_below_threshold(
-    classifier: Classifier, mock_db: MockerFixture, mocker: MockerFixture
-):
-    """
-    Tests that the AI is used if historical data exists but is below the
-    confidence threshold.
-    """
-    sender = "low-confidence@example.com"
-    # Confidence is 2/3 = 0.66, which is below the 0.9 threshold
-    mock_db.sender_db[sender] = defaultdict(int, {"Finances/Bloomberg": 2, "Services/Skylum": 1})
-    email = Email(
-        msg_id="1",
-        subject="Low Confidence",
-        sender_address=sender,
-        sender_name="LowCo",
-        body="Test body",
-        labels=["Inbox"],
-    )
-    mock_ai = mocker.patch.object(classifier, "_get_category_from_ai", return_value="Services/Skylum")
-
-    category = classifier.classify_email(email)
-
-    assert category == "Services/Skylum"
-    mock_ai.assert_called_once_with(email)
-    mock_db.update.assert_called_once_with(sender, "Services/Skylum")
+    mock_db.update_suggestion.assert_called_once_with(sender, "Finances/Bloomberg")

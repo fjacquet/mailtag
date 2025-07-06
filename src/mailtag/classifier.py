@@ -39,9 +39,15 @@ class Classifier:
                 categories.append(category["name"])
         return categories
 
+    def _get_category_from_validated_db(self, email: Email) -> str | None:
+        """
+        Signal 1: Check for a classification from the validated database.
+        """
+        return self.database.get_dominant_classification(email.sender_address)
+
     def _get_category_from_labels(self, email: Email) -> str | None:
         """
-        Signal 1: Check for an existing server-side label that matches a known category.
+        Signal 2: Check for an existing server-side label that matches a known category.
         """
         for label in email.labels:
             if label in self.categories:
@@ -51,9 +57,9 @@ class Classifier:
 
     def _get_category_from_history(self, email: Email) -> str | None:
         """
-        Signal 2: Check for a high-confidence classification from the sender's history.
+        Signal 3: Check for a high-confidence classification from the sender's history in the suggestion DB.
         """
-        sender_classifications = self.database.sender_db.get(email.sender_address)
+        sender_classifications = self.database.suggestion_db.get(email.sender_address)
         if not sender_classifications:
             return None
 
@@ -74,7 +80,7 @@ class Classifier:
 
     def _get_category_from_ai(self, email: Email) -> str:
         """
-        Signal 3: Fallback to the AI model for classification.
+        Signal 4: Fallback to the AI model for classification.
         """
         sender = (
             f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
@@ -129,27 +135,33 @@ class Classifier:
         """
         Classifies an email using the Adaptive Multi-Signal Classification (AMSC) strategy.
         """
-        # Signal 1: Server-Side Label
+        # Signal 1: Validated Database
+        category = self._get_category_from_validated_db(email)
+        if category:
+            logger.info(f"Classified via Validated DB: {category}")
+            return category
+
+        # Signal 2: Server-Side Label
         category = self._get_category_from_labels(email)
         if category:
             logger.info(f"Classified via Server Label: {category}")
-            self.database.update(email.sender_address, category)
+            self.database.update_suggestion(email.sender_address, category)
             return category
 
-        # Signal 2: Historical Database
+        # Signal 3: Historical Suggestion Database
         category = self._get_category_from_history(email)
         if category:
             logger.info(f"Classified via History: {category}")
             # No need to update DB, it's already the most confident one
             return category
 
-        # Signal 3: AI Model (Fallback)
+        # Signal 4: AI Model (Fallback)
         logger.debug("No high-confidence signals found, falling back to AI model.")
         category = self._get_category_from_ai(email)
         logger.info(f"Classified via AI Model: {category}")
 
         if category not in ["À Classer", "(Model Error)"]:
-            self.database.update(email.sender_address, category)
+            self.database.update_suggestion(email.sender_address, category)
 
         return category
 
