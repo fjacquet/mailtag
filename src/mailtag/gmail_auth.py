@@ -1,4 +1,5 @@
-import os.path
+import json
+import os
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -37,8 +38,23 @@ def get_gmail_service(credentials_file: str, token_file: str):
                     "in your project's root directory."
                 )
                 return None
-            flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
-            creds = flow.run_local_server(port=0)
+            try:
+                flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
+                creds = flow.run_local_server(port=0)
+            except FileNotFoundError:
+                logger.error(f"Credentials file not found at '{credentials_file}'.")
+                logger.info(
+                    "Please follow these steps to get your credentials file:\n"
+                    "1. Go to the Google Cloud Console: https://console.cloud.google.com/\n"
+                    "2. Create a new project or select an existing one.\n"
+                    "3. Enable the Gmail API for your project.\n"
+                    "4. Create an OAuth 2.0 Client ID for a 'Desktop app'.\n"
+                    "5. Download the JSON file and save it as 'credentials.json' in your project's root directory."
+                )
+                return None
+            except json.JSONDecodeError:
+                logger.error(f"Error decoding the credentials file '{credentials_file}'. Make sure it is a valid JSON file.")
+                return None
 
         logger.info(f"Saving new credentials to '{token_file}'.")
         with open(token_file, "w") as token:
