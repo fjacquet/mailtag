@@ -39,12 +39,17 @@ def run_classification(provider_instance, database, validate):
 
                 for i in range(0, len(all_uids), provider.fast_parse_config.batch_size):
                     batch_uids = all_uids[i : i + provider.fast_parse_config.batch_size]
-                    senders = provider.get_email_senders(batch_uids)
+                    headers = provider.get_email_headers(batch_uids)
 
                     emails_to_move = {}
-                    for uid, sender_address in senders.items():
+                    for uid, header_data in headers.items():
+                        sender_address = header_data["sender_address"]
+                        subject = header_data["subject"]
                         classification = database.get_dominant_classification(sender_address)
                         if classification:
+                            logger.info(
+                                f'Email "{subject}" from {sender_address} -> Category: {classification} (Pass 1)'
+                            )
                             if classification not in emails_to_move:
                                 emails_to_move[classification] = []
                             emails_to_move[classification].append(uid)
@@ -68,12 +73,8 @@ def run_classification(provider_instance, database, validate):
                                 f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
                             )
                             if not validate:
-                                if category not in ["Unclassified", "À Classer"]:
+                                if category not in ["Unclassified", "À Classer", "(Model Error)"]:
                                     provider.move_email(email, category)
-                                else:
-                                    provider.move_email(
-                                        email, provider.fast_parse_config.unclassified_folder_name
-                                    )
                         except Exception as e:
                             logger.error(f"Could not process email {email.msg_id}: {e}")
                 logger.info("Pass 2 complete.")
