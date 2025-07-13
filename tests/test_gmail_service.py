@@ -47,7 +47,9 @@ def test_get_emails_integration(gmail_service_instance: GmailService, mock_gmail
         assert "MyLabel" in emails[0].labels
 
 
-def test_move_email(gmail_service_instance: GmailService, mock_gmail_service: MockGmailService, mocker: MockerFixture):
+def test_move_email(
+    gmail_service_instance: GmailService, mock_gmail_service: MockGmailService, mocker: MockerFixture
+):
     """
     Tests that move_email correctly modifies the labels of an email.
     """
@@ -64,31 +66,29 @@ def test_move_email(gmail_service_instance: GmailService, mock_gmail_service: Mo
         service.service.users().messages().modify.assert_called_once()
 
 
-def test_get_emails_with_filters(
-    gmail_service_instance: GmailService, mock_gmail_service: MockGmailService
-):
+def test_get_emails_with_filters(gmail_service_instance: GmailService, mock_gmail_service: MockGmailService):
     """
     Tests that get_emails correctly applies filters.
     """
     mock_gmail_service.add_message(
         msg_id="123",
         label_ids=["INBOX", "IMPORTANT"],
-        subject="Test",
+        subject="A very specific test email",
         body="Test body",
     )
     mock_gmail_service.add_message(
         msg_id="456",
         label_ids=["INBOX"],
-        subject="Another Test",
+        subject="Another thing entirely",
         body="Another Test body",
         sender="another@sender.com",
     )
 
     with gmail_service_instance.connect() as service:
-        emails = service.get_emails(subject="Test")
+        emails = service.get_emails(subject="specific test")
         assert len(emails) == 1
-        assert emails[0].subject == "Test"
+        assert emails[0].msg_id == "123"
 
         emails = service.get_emails(sender="another@sender.com")
         assert len(emails) == 1
-        assert emails[0].sender_address == "another@sender.com"
+        assert emails[0].msg_id == "456"

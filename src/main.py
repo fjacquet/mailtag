@@ -4,6 +4,7 @@
 Main CLI entry point for the mailtag email classification script.
 """
 
+import json
 from pathlib import Path
 
 import click
@@ -23,6 +24,25 @@ PROVIDER_CLASSES = {
 }
 
 
+def refresh_imap_folders(imap_service: ImapService) -> None:
+    """Refresh the IMAP folder structure from the live server."""
+    try:
+        with imap_service.connect():
+            # Get the folder hierarchy from the IMAP server
+            folders = imap_service.get_folder_hierarchy()
+
+            # Save to imap_folders.json
+            folder_path = Path("data/imap_folders.json")
+            with folder_path.open("w", encoding="utf-8") as f:
+                json.dump(folders, f, indent=2)
+
+            logger.info(f"Successfully refreshed IMAP folders: {len(folders)} folders found")
+    except Exception as e:
+        logger.error(f"Failed to refresh IMAP folders: {e}")
+        # If refresh fails, stop processing - critical error
+        raise RuntimeError("Cannot proceed without fresh IMAP folder structure") from e
+
+
 def generate_filters(database):
     """Generates the mailfilter.xml file."""
     output_path = Path("data/mailfilter.xml")
@@ -37,10 +57,17 @@ def start_classification_run(provider, validate):
     validated_db_path = Path("db/validated_classification_db.json")
     database = ClassificationDatabase(suggestion_db_path, validated_db_path)
 
+    # Import json here since we need it for the refresh function
+
     providers_to_run = []
     if provider == "all":
         if CONFIG.imap:
-            providers_to_run.append(ImapService(CONFIG.imap, CONFIG.fast_parse))
+            imap_service = ImapService(CONFIG.imap, CONFIG.fast_parse)
+            # Refresh IMAP folders at startup if configured
+            if CONFIG.general.use_imap_folders_for_classification:
+                logger.info("Refreshing IMAP folders at startup...")
+                refresh_imap_folders(imap_service)
+            providers_to_run.append(imap_service)
         if CONFIG.gmail:
             providers_to_run.append(GmailService(CONFIG.gmail))
     else:
@@ -49,7 +76,12 @@ def start_classification_run(provider, validate):
             raise ValueError(f"Invalid provider: {provider}")
 
         if provider == "imap" and CONFIG.imap:
-            providers_to_run.append(provider_class(CONFIG.imap, CONFIG.fast_parse))
+            imap_service = provider_class(CONFIG.imap, CONFIG.fast_parse)
+            # Refresh IMAP folders at startup if configured
+            if CONFIG.general.use_imap_folders_for_classification:
+                logger.info("Refreshing IMAP folders at startup...")
+                refresh_imap_folders(imap_service)
+            providers_to_run.append(imap_service)
         elif provider == "gmail" and CONFIG.gmail:
             providers_to_run.append(provider_class(CONFIG.gmail))
 

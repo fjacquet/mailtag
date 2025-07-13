@@ -52,6 +52,7 @@ def config() -> AppConfig:
             batch_size=10,
             folder_cache_ttl_hours=24,
             unclassified_folder_name="Unclassified",
+            junk_folder_name="Junk",
         ),
     )
 

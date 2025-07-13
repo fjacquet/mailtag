@@ -18,6 +18,7 @@ class LoggingConfig:
 class GeneralConfig:
     ollama_model: str
     api_base: str
+    use_imap_folders_for_classification: bool = True
 
 
 @dataclass
@@ -46,6 +47,14 @@ class FastParseConfig:
     batch_size: int
     folder_cache_ttl_hours: int
     unclassified_folder_name: str
+    junk_folder_name: str
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    retry_backoff: float = 2.0
+    retry_jitter: float = 0.1
+    metrics_enabled: bool = True
+    metrics_log_level: str = "DEBUG"
+    metrics_log_interval_minutes: int = 10
 
 
 @dataclass
@@ -81,12 +90,23 @@ def load_config(path: Path) -> AppConfig:
                 batch_size=fast_parse_data.get("batch_size", 500),
                 folder_cache_ttl_hours=fast_parse_data.get("folder_cache_ttl_hours", 24),
                 unclassified_folder_name=fast_parse_data.get("unclassified_folder_name", "Unclassified"),
+                junk_folder_name=fast_parse_data.get("junk_folder_name", "Junk"),
+                max_retries=fast_parse_data.get("max_retries", 3),
+                retry_delay=fast_parse_data.get("retry_delay", 1.0),
+                retry_backoff=fast_parse_data.get("retry_backoff", 2.0),
+                retry_jitter=fast_parse_data.get("retry_jitter", 0.1),
+                metrics_enabled=fast_parse_data.get("metrics_enabled", True),
+                metrics_log_level=fast_parse_data.get("metrics_log_level", "DEBUG"),
+                metrics_log_interval_minutes=fast_parse_data.get("metrics_log_interval_minutes", 10),
             )
 
             return AppConfig(
                 general=GeneralConfig(
                     ollama_model=data["general"]["ollama_model"],
                     api_base=ollama_api_url,
+                    use_imap_folders_for_classification=data["general"].get(
+                        "use_imap_folders_for_classification", True
+                    ),
                 ),
                 logging=LoggingConfig(
                     level=data["logging"]["level"],
@@ -123,6 +143,7 @@ except RuntimeError as e:
         general=GeneralConfig(
             ollama_model="gemma3",
             api_base="http://localhost:11434",
+            use_imap_folders_for_classification=True,
         ),
         logging=LoggingConfig(level="INFO", file="mailtag.log"),
         classifier=ClassifierConfig(
@@ -144,5 +165,6 @@ except RuntimeError as e:
             batch_size=500,
             folder_cache_ttl_hours=24,
             unclassified_folder_name="Unclassified",
+            junk_folder_name="Junk",
         ),
     )

@@ -2,7 +2,7 @@
 
 [general]
 # The name of the Ollama model to use for classification.
-ollama_model = "ollama_chat/gemma3"
+ollama_model = "ollama_chat/gemma3n"
 
 # The base URL for the Ollama API.
 api_base = "${OLLAMA_API_URL}"
@@ -34,8 +34,26 @@ token_file = "token.json"
 
 [fast_parse]
 # The number of emails to fetch in the first pass.
-batch_size = 500
+batch_size = 100
 # The time-to-live for the folder hierarchy cache in hours.
 folder_cache_ttl_hours = 24
 # The designated folder for emails the AI cannot confidently classify.
 unclassified_folder_name = "Unclassified"
+junk_folder_name = "Junk"
+# Maximum number of retry attempts for transient failures.
+max_retries = 3
+# Initial delay between retries in seconds.
+retry_delay = 1.0
+# Multiplier for exponential backoff between retries.
+retry_backoff = 2.0
+# Random jitter factor to add to retry delays (0.0-1.0).
+retry_jitter = 0.1
+
+# Performance metrics configuration
+# Whether to enable metrics collection
+metrics_enabled = true
+# Log level for metrics reporting (DEBUG, INFO, WARNING, ERROR)
+metrics_log_level = "INFO"
+# How often to log metrics summary (in minutes)
+metrics_log_interval_minutes = 10
+

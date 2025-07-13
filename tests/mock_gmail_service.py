@@ -29,7 +29,37 @@ class MockGmailService:
     def list(self, **kwargs):
         if "userId" in kwargs and kwargs["userId"] == "me":
             if self.messages_data and "q" in kwargs:
-                return self.MockRequest({"messages": [{"id": msg_id} for msg_id in self.messages_data]})
+                query = kwargs["q"]
+
+                # More robust query parsing
+                filters = {}
+                parts = query.split(" ")
+                for part in parts:
+                    if ":" in part:
+                        key, value = part.split(":", 1)
+                        filters[key] = value.strip('"')
+
+                filtered_messages = []
+                for msg_id, msg_data in self.messages_data.items():
+                    match = True
+                    if "subject" in filters:
+                        subject_header = next(
+                            (h["value"] for h in msg_data["payload"]["headers"] if h["name"] == "Subject"), ""
+                        )
+                        if filters["subject"].lower() not in subject_header.lower():
+                            match = False
+
+                    if "from" in filters:
+                        from_header = next(
+                            (h["value"] for h in msg_data["payload"]["headers"] if h["name"] == "From"), ""
+                        )
+                        if filters["from"].lower() not in from_header.lower():
+                            match = False
+
+                    if match:
+                        filtered_messages.append({"id": msg_id})
+
+                return self.MockRequest({"messages": filtered_messages})
             return self.MockRequest(self.labels_data)
         return self
 
@@ -54,7 +84,12 @@ class MockGmailService:
             return self.data
 
     def add_message(
-        self, msg_id: str, label_ids: builtins.list[str], subject: str, body: str, sender: str = "test@example.com"
+        self,
+        msg_id: str,
+        label_ids: builtins.list[str],
+        subject: str,
+        body: str,
+        sender: str = "test@example.com",
     ):
         encoded_body = base64.urlsafe_b64encode(body.encode("utf-8")).decode("utf-8")
         self.messages_data[msg_id] = {

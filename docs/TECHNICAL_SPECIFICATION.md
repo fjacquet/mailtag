@@ -31,17 +31,17 @@ The classification system now relies on two separate databases:
 
 The core of the new engine is the AMSC strategy, which follows a prioritized sequence to classify emails.
 
-1.  **Validated Database Match:**
+1. **Validated Database Match:**
     - The system first checks `validated_classification_db.json` for the sender. If a match is found, that classification is used, and no further processing is done.
 
-2.  **Pre-computation (Server-Side Labels):**
+2. **Pre-computation (Server-Side Labels):**
     - If no validated classification is found, the system checks if the email on the server already has a classification label.
 
-3.  **Historical Analysis (AI Suggestions Database):**
+3. **Historical Analysis (AI Suggestions Database):**
     - If no validated classification or server-side label is found, the system queries the `sender_classification_db.json` database.
     - A classification is accepted if the confidence level exceeds `historical_confidence_threshold` and the sender has appeared at least `min_count` times.
 
-4.  **AI Model Fallback:**
+4. **AI Model Fallback:**
     - If all other signals fail, the system falls back to the AI model. The suggestion is then stored in `sender_classification_db.json`.
 
 ## 5. **Fast Parse (`src/mailtag/imap_service.py`)**
