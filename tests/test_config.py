@@ -20,10 +20,24 @@ api_base = "http://test-host:1234"
 level = "WARNING"
 file = "/test/log.file"
 
+[classifier]
+ai_confidence_threshold = 0.7
+historical_confidence_threshold = 0.9
+min_count = 3
+
 [preclassification]
 enabled = false
 min_count = 5
 confidence_threshold = 0.9
+
+[imap]
+host = "imap.test.com"
+user = "test@user.com"
+password = "password"
+
+[gmail]
+credentials_file = "creds.json"
+token_file = "token.json"
 """
     config_path = tmp_path / "config.toml"
     config_path.write_text(config_content)
@@ -36,7 +50,9 @@ def test_load_config_success(mock_config_file: Path):
     assert isinstance(config, AppConfig)
     assert config.general.ollama_model == "test-model"
     assert config.logging.level == "WARNING"
-    assert not config.preclassification.enabled
+    assert config.classifier.ai_confidence_threshold == 0.7
+    assert config.imap.host == "imap.test.com"
+    assert config.gmail.credentials_file == "creds.json"
 
 
 def test_load_config_file_not_found():

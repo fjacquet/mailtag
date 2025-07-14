@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
-    { name = "Your Name", email = "your@email.com" },
+    { name = "Frederic Jacquet", email = "fred.jacquet@gmail.com" },
 ]
 dependencies = [
     "beautifulsoup4>=4.13.4",
@@ -19,12 +19,16 @@ dependencies = [
     "pytest>=8.4.1",
     "streamlit>=1.46.1",
     "loguru>=0.7.2",
-    "faker>=37.4.0",
-    "pytest-cov>=6.2.1",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "python-dotenv>=1.1.1",
     "pytest-mock>=3.14.1",
-    "ruff>=0.12.2",
-    "pendulum>=3.1.0",
-    "yamlfix>=1.17.0",
+    "imapclient>=3.0.1",
+    "click>=8.2.1",
+    "fastapi>=0.115.14",
+    "watchdog>=6.0.0",
+    "psutil>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +50,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "--cov=mailtag --cov-report=term-missing"
 testpaths = ["tests"]
+pythonpath = [".", "src"]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

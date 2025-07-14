@@ -4,7 +4,6 @@
 
 # --- Configuration ---
 VENV_DIR=".venv"
-SRC_DIR="src"
 
 # --- Functions ---
 
@@ -15,22 +14,18 @@ function check_venv() {
     fi
 }
 
-function start_streamlit() {
-    echo "Starting Streamlit web interface..."
-    streamlit run "$SRC_DIR/streamlit_app.py"
-}
-
-function start_cli() {
-    echo "Starting command-line interface..."
-    python "$SRC_DIR/main.py" "$@"
-}
-
 # --- Main Logic ---
 
 check_venv
 
-if [ "$1" == "--ui" ]; then
-    start_streamlit
-else
-    start_cli "$@"
-fi
+case "$1" in
+    --ui)
+        ./scripts/streamlit.sh
+        ;;
+    --webhook)
+        ./scripts/webhook.sh
+        ;;
+    *)
+        ./scripts/cli.sh "$@"
+        ;;
+esac

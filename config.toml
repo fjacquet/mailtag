@@ -2,20 +2,18 @@
 
 [general]
 # The name of the Ollama model to use for classification.
-ollama_model = "ollama_chat/gemma3"
+ollama_model = "ollama_chat/gemma3n"
 
 # The base URL for the Ollama API.
-api_base = "http://localhost:11434"
+api_base = "${OLLAMA_API_URL}"
 
-[preclassification]
-# Enable or disable pre-classification based on sender history.
-enabled = true
-
+[classifier]
+# The confidence threshold required for the AI model's suggestion to be accepted.
+ai_confidence_threshold = 0.98
+# The confidence threshold required for a historical sender-based classification to be used.
+historical_confidence_threshold = 0.9
 # The minimum number of times a sender must be classified before pre-classification is used.
-min_count = 3
-
-# The confidence threshold (e.g., 0.8 = 80%) for a category to be used for pre-classification.
-confidence_threshold = 0.8
+min_count = 10
 
 
 [logging]
@@ -24,3 +22,38 @@ level = "INFO"
 
 # The file to write logs to.
 file = "logs/mailtag.log"
+
+[imap]
+host = "mail.infomaniak.com"
+user = "${IMAP_USER}"
+password = "${IMAP_PASSWORD}"
+
+[gmail]
+credentials_file = "credentials.json"
+token_file = "token.json"
+
+[fast_parse]
+# The number of emails to fetch in the first pass.
+batch_size = 100
+# The time-to-live for the folder hierarchy cache in hours.
+folder_cache_ttl_hours = 24
+# The designated folder for emails the AI cannot confidently classify.
+unclassified_folder_name = "Unclassified"
+junk_folder_name = "Junk"
+# Maximum number of retry attempts for transient failures.
+max_retries = 3
+# Initial delay between retries in seconds.
+retry_delay = 1.0
+# Multiplier for exponential backoff between retries.
+retry_backoff = 2.0
+# Random jitter factor to add to retry delays (0.0-1.0).
+retry_jitter = 0.1
+
+# Performance metrics configuration
+# Whether to enable metrics collection
+metrics_enabled = true
+# Log level for metrics reporting (DEBUG, INFO, WARNING, ERROR)
+metrics_log_level = "INFO"
+# How often to log metrics summary (in minutes)
+metrics_log_interval_minutes = 10
+

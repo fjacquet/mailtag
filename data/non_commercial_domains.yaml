@@ -1,0 +1,46 @@
+# Non-Commercial Email Domains
+# These domains host personal email accounts and should NOT be used for domain-based classification
+# Each domain can have millions of different users, so creating domain-wide rules would be incorrect
+
+non_commercial_domains:
+  # Major international providers
+  - gmail.com
+  - yahoo.com
+  - outlook.com
+  - hotmail.com
+  - aol.com
+  - icloud.com
+  
+  # Privacy-focused providers
+  - protonmail.com
+  - tutanota.com
+  - proton.me
+  
+  # Regional providers
+  - bluewin.ch
+  - gmx.com
+  - gmx.de
+  - web.de
+  - t-online.de
+  - orange.fr
+  - laposte.net
+  - free.fr
+  - wanadoo.fr
+  
+  # Other common personal providers
+  - yandex.com
+  - mail.ru
+  - qq.com
+  - 163.com
+  - sina.com
+  
+# Configuration
+settings:
+  # Whether to automatically skip these domains in domain-based classification
+  skip_domain_classification: true
+  
+  # Whether to log when emails from these domains are encountered
+  log_non_commercial_encounters: true
+  
+  # Whether to still allow manual domain rules for these domains (advanced use case)
+  allow_manual_override: false
