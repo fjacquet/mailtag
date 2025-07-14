@@ -1,4 +1,7 @@
+import json
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
 
 from loguru import logger
 
@@ -145,7 +148,7 @@ def _run_domain_classification_pass(
 
                 except Exception as e:
                     logger.error(f"Could not update database for email UID {uid}: {e}")
-            
+
             # Batch move all emails from this domain
             if not validate and category not in ["Unclassified", "À Classer", "(Model Error)"]:
                 try:
@@ -196,6 +199,10 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                 )
                 if uids_to_process_pass3:
                     full_emails = provider.get_full_emails(uids_to_process_pass3)
+
+                    # Dump email addresses for manual matching
+                    _dump_pass3_emails_for_manual_matching(full_emails)
+
                     for email in full_emails:
                         try:
                             category = classifier.classify_email(email)
@@ -237,3 +244,62 @@ def run_classification(provider_instance: Provider, database: ClassificationData
     except (FileNotFoundError, ConnectionError) as e:
         logger.critical(e)
         return
+
+
+def _dump_pass3_emails_for_manual_matching(emails):
+    """
+    Dump all email addresses that reach Pass 3 (AI classification) to a file for manual matching.
+
+    Args:
+        emails: List of Email objects that need AI classification
+    """
+    if not emails:
+        return
+
+    # Create dump data structure
+    dump_data = {
+        "timestamp": datetime.now().isoformat(),
+        "total_emails": len(emails),
+        "emails_for_manual_matching": [],
+    }
+
+    # Extract unique sender addresses with sample subjects
+    sender_data = defaultdict(list)
+    for email in emails:
+        sender_data[email.sender_address].append(
+            {
+                "subject": email.subject[:100],  # Truncate long subjects
+                "sender_name": email.sender_name,
+                "msg_id": email.msg_id,
+            }
+        )
+
+    # Build the dump with sender statistics
+    for sender_address, email_samples in sender_data.items():
+        domain = extract_domain(sender_address)
+        dump_data["emails_for_manual_matching"].append(
+            {
+                "sender_address": sender_address,
+                "domain": domain,
+                "email_count": len(email_samples),
+                "is_non_commercial": is_non_commercial_domain_cached(domain),
+                "sample_emails": email_samples[:3],  # Keep max 3 samples per sender
+                "suggested_category": "",  # Empty field for manual filling
+                "notes": "",  # Empty field for manual notes
+            }
+        )
+
+    # Sort by email count (most frequent senders first)
+    dump_data["emails_for_manual_matching"].sort(key=lambda x: x["email_count"], reverse=True)
+
+    # Save to file
+    dump_file = Path("data") / f"pass3_manual_matching_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    dump_file.parent.mkdir(exist_ok=True)
+
+    with open(dump_file, "w", encoding="utf-8") as f:
+        json.dump(dump_data, f, indent=2, ensure_ascii=False)
+
+    logger.info(f"Dumped {len(emails)} emails from {len(sender_data)} unique senders to {dump_file}")
+    logger.info(
+        f"Top senders: {', '.join([f'{addr} ({len(samples)})' for addr, samples in list(sender_data.items())[:5]])}"
+    )

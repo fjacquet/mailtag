@@ -1,7 +1,6 @@
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -11,9 +10,7 @@ from .utils.domain_utils import extract_domain, normalize_domain
 class ClassificationDatabase:
     """Manages the sender classification database."""
 
-    def __init__(
-        self, suggestion_db_path: Path, validated_db_path: Path, domain_db_path: Optional[Path] = None
-    ):
+    def __init__(self, suggestion_db_path: Path, validated_db_path: Path, domain_db_path: Path | None = None):
         self.suggestion_db_path = suggestion_db_path
         self.validated_db_path = validated_db_path
         self.domain_db_path = domain_db_path or suggestion_db_path.parent / "domain_classifications.json"
@@ -101,7 +98,7 @@ class ClassificationDatabase:
 
     # Domain-based classification methods
 
-    def get_category_by_domain(self, domain: str) -> Optional[str]:
+    def get_category_by_domain(self, domain: str) -> str | None:
         """Gets the category for a domain from the domain classification database.
 
         Args:
@@ -142,7 +139,7 @@ class ClassificationDatabase:
         """
         self.store_domain_classification(domain, category)
 
-    def get_category_by_email(self, email_address: str) -> Optional[str]:
+    def get_category_by_email(self, email_address: str) -> str | None:
         """Gets the category for an email address based on its domain.
 
         Args:
