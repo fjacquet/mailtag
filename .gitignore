@@ -149,3 +149,7 @@ db/
 token.json
 
 
+logs/mailtag.log
+.gitignore
+data/imap_folders.json
+old

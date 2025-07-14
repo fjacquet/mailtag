@@ -46,7 +46,7 @@ def refresh_imap_folders(imap_service: ImapService) -> None:
 def generate_filters(database):
     """Generates the mailfilter.xml file."""
     output_path = Path("data/mailfilter.xml")
-    generator = FilterGenerator(database.suggestion_db_path, output_path)
+    generator = FilterGenerator(database, output_path)
     generator.generate_filters()
     logger.info(f"Filters generated at {output_path}")
 
