@@ -18,15 +18,19 @@ class FilterGenerator:
         feed = Element("feed", xmlns="http://www.w3.org/2005/Atom")
 
         # Collect all unique senders from both suggestion and validated databases
-        all_senders = set(self.database.suggestion_db.keys()).union(
-            self.database.validated_db.keys()
-        )
+        all_senders = set(self.database.suggestion_db.keys()).union(self.database.validated_db.keys())
 
-        for sender in sorted(list(all_senders)):
+        # Collect all unique senders and their dominant categories
+        sender_categories = []
+        for sender in all_senders:
             most_common_category = self.database.get_dominant_classification(sender)
+            if most_common_category:
+                sender_categories.append((most_common_category, sender))
 
-            if not most_common_category:
-                continue
+        # Sort by category (label)
+        sender_categories.sort(key=lambda x: x[0])
+
+        for most_common_category, sender in sender_categories:
 
             entry = SubElement(feed, "entry")
             SubElement(entry, "category", term="filter")
@@ -62,6 +66,12 @@ class FilterGenerator:
                 "{http://schemas.google.com/apps/2006}property",
                 name="shouldNeverSpam",
                 value="true",
+            )
+            SubElement(
+                entry,
+                "{http://schemas.google.com/apps/2006}property",
+                name="hasTheWord",
+                value="has:unread",
             )
 
         # Pretty print the XML
