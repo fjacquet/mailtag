@@ -1,40 +1,32 @@
-import json
-from collections import defaultdict
 from pathlib import Path
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, register_namespace, tostring
+
+from .database import ClassificationDatabase
 
 
 class FilterGenerator:
     """Generates a Gmail filter XML file from the classification database."""
 
-    def __init__(self, db_path: Path, output_path: Path):
-        self.db_path = db_path
+    def __init__(self, database: ClassificationDatabase, output_path: Path):
+        self.database = database
         self.output_path = output_path
-        self.sender_db = self._load_database()
         register_namespace("apps", "http://schemas.google.com/apps/2006")
-
-    def _load_database(self) -> defaultdict:
-        """Loads the sender classification database from a JSON file."""
-        if not self.db_path.exists():
-            return defaultdict(lambda: defaultdict(int))
-        with self.db_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-            db = defaultdict(lambda: defaultdict(int))
-            for sender, cats in data.items():
-                db[sender] = defaultdict(int, cats)
-            return db
 
     def generate_filters(self):
         """Generates the mailfilter.xml file."""
         feed = Element("feed", xmlns="http://www.w3.org/2005/Atom")
 
-        for sender, categories in self.sender_db.items():
-            if not categories:
-                continue
+        # Collect all unique senders from both suggestion and validated databases
+        all_senders = set(self.database.suggestion_db.keys()).union(
+            self.database.validated_db.keys()
+        )
 
-            # Find the most common category for this sender
-            most_common_category = max(categories, key=categories.get)
+        for sender in sorted(list(all_senders)):
+            most_common_category = self.database.get_dominant_classification(sender)
+
+            if not most_common_category:
+                continue
 
             entry = SubElement(feed, "entry")
             SubElement(entry, "category", term="filter")
