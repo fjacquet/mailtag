@@ -1,4 +1,5 @@
 from pathlib import Path
+from email.header import Header
 
 import pytest
 from pytest_mock import MockerFixture
@@ -99,3 +100,11 @@ def test_batch_move_emails(
     mocker.spy(mock_imap_client, "move")
     imap_service.batch_move_emails([1, 2], "Archive")
     mock_imap_client.move.assert_called_once_with([1, 2], "Archive")
+
+
+def test_parse_sender_header(imap_service: ImapService):
+    """Ensure _parse_sender accepts email.header.Header objects."""
+    header = Header("Sender Name <sender@example.com>", "utf-8")
+    name, address = imap_service._parse_sender(header)
+    assert name == "Sender Name"
+    assert address == "sender@example.com"
