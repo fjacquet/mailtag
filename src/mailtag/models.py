@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Email(BaseModel):
@@ -9,4 +9,4 @@ class Email(BaseModel):
     sender_address: str
     sender_name: str
     body: str = ""
-    labels: list[str] = []
+    labels: list[str] = Field(default_factory=list)
