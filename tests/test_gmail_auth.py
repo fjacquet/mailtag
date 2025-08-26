@@ -1,6 +1,13 @@
+import pytest
 from pytest_mock import MockerFixture
 
-from mailtag.gmail_auth import get_gmail_service
+import mailtag.gmail_auth as gmail_auth
+
+pytestmark = pytest.mark.skipif(
+    not gmail_auth.GOOGLE_DEPS_AVAILABLE, reason="Google API libraries are not installed"
+)
+
+get_gmail_service = gmail_auth.get_gmail_service
 
 
 class TestGmailAuth:

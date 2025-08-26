@@ -31,6 +31,10 @@ class GmailService(EmailProvider):
                 yield self
             else:
                 raise ConnectionError("Failed to get Gmail service.")
+        except ImportError as e:
+            # Propagate import errors with a clear message
+            logger.error(e)
+            raise
         except Exception as e:
             logger.error(f"Failed to connect to Gmail API: {e}")
             raise ConnectionError(f"Gmail connection failed: {e}") from e

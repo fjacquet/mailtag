@@ -32,6 +32,13 @@ The `src/main.py` script provides a command-line interface to:
     uv pip install -e ".[dev]"
     ```
 
+   To enable Gmail integration, install the optional Google API libraries:
+    ```bash
+    uv pip install -e ".[gmail]"
+    # or with pip
+    pip install "mailtag[gmail]"
+    ```
+
 ## Configuration
 
 The application is configured via the `config.toml` file.
@@ -61,6 +68,8 @@ IMAP_PASSWORD="your-password"
 ### Gmail Configuration
 
 To use the Gmail provider, you need to enable the Gmail API and get a `credentials.json` file.
+
+Gmail support requires extra dependencies. Ensure you've installed them via `pip install "mailtag[gmail]"` or `uv pip install -e ".[gmail]"` before continuing.
 
 1. **Enable the Gmail API**:
    - Go to the [Google Cloud Console](https://console.cloud.google.com/).

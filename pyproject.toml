@@ -18,6 +18,7 @@ dependencies = [
     "ollama>=0.3.0",
     "streamlit>=1.46.1",
     "loguru>=0.7.2",
+    "pytest-mock>=3.14.1",
     "pydantic==2.11.7",
     "google-api-python-client==2.179.0",
     "google-auth-httplib2==0.2.0",
@@ -44,6 +45,13 @@ dev = [
     "faker",
     "pendulum",
     "yamlfix",
+]
+
+gmail = [
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "google>=3.0.0",
 ]
 
 [tool.setuptools.packages.find]
