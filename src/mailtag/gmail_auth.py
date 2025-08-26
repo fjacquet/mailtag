@@ -1,11 +1,18 @@
 import json
 import os
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 from loguru import logger
+
+try:  # pragma: no cover - import guarded for optional dependency
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+    GOOGLE_DEPS_AVAILABLE = True
+except ModuleNotFoundError as e:  # pragma: no cover - exercised via tests
+    GOOGLE_DEPS_AVAILABLE = False
+    _GOOGLE_IMPORT_ERROR = e
+    Request = Credentials = InstalledAppFlow = build = None
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
@@ -15,6 +22,12 @@ def get_gmail_service(credentials_file: str, token_file: str):
     Authenticates with the Gmail API and returns a service object.
     Handles the OAuth 2.0 flow, including token refreshing and user consent.
     """
+    if not GOOGLE_DEPS_AVAILABLE:
+        raise ImportError(
+            "Google API dependencies are required for Gmail integration. "
+            "Install them with 'pip install mailtag[gmail]'"
+        ) from _GOOGLE_IMPORT_ERROR
+
     creds = None
     if os.path.exists(token_file):
         logger.debug(f"Token file found at '{token_file}'. Loading credentials.")
