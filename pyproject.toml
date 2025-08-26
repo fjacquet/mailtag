@@ -29,6 +29,9 @@ dependencies = [
     "fastapi>=0.115.14",
     "watchdog>=6.0.0",
     "psutil>=7.0.0",
+    "pyyaml>=6.0.2",
+    "google>=3.0.0",
+    "dotenv>=0.9.9",
 ]
 
 [project.optional-dependencies]

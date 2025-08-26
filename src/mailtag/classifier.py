@@ -168,13 +168,14 @@ class Classifier:
                 f"Sujet: {email.subject}\n"
                 f"De: {sender}\n"
                 f"Corps: {truncated_body}\n\n"
-                "Classe dans une catégorie FEUILLE:\n"
+                "Classe dans une catégorie FEUILLE (catégorie de dernier niveau, sans sous-catégories):\n"
                 f"{category_list}\n\n"
-                "Ou propose un nouveau sous-dossier sous:\n"
+                "Si la catégorie appropriée n'existe pas, propose un nouveau sous-dossier sous:\n"
                 f"{parent_list}\n\n"
-                "IMPORTANT: Réponds UNIQUEMENT avec le nom de la catégorie exacte ou 'NOUVEAU: Parent/NewSub'. "
+                "IMPORTANT: Réponds UNIQUEMENT avec le nom exact d'une catégorie de la liste ci-dessus, ou 'Parent/NewSub'.\n"
+                "N'invente PAS de nouvelles catégories qui ne sont pas dans la liste.\n"
                 "Ne donne AUCUNE explication, AUCUN texte supplémentaire. Juste le nom de la catégorie.\n"
-                "Format: 'CategoryName' ou 'NOUVEAU: Parent/NewSub'"
+                "Format: 'CategoryName' ou 'Parent/NewSub'"
             )
         else:
             # Legacy behavior using static schema
@@ -184,11 +185,12 @@ class Classifier:
                 f"Sujet: {email.subject}\n"
                 f"De: {sender}\n"
                 f"Corps: {truncated_body}\n\n"
-                "Classe dans une catégorie:\n"
+                "Classe dans une catégorie de la liste suivante:\n"
                 f"{category_list}\n\n"
-                "IMPORTANT: Réponds UNIQUEMENT avec le nom de la catégorie exacte ou 'UNCERTAIN: suggestion'. "
+                "IMPORTANT: Réponds UNIQUEMENT avec le nom exact d'une catégorie de la liste ci-dessus, ou 'Parent/NewSub'.\n"
+                "N'invente PAS de nouvelles catégories qui ne sont pas dans la liste.\n"
                 "Ne donne AUCUNE explication, AUCUN texte supplémentaire. Juste le nom de la catégorie.\n"
-                "Format: 'CategoryName' ou 'UNCERTAIN: suggestion'"
+                "Format: 'CategoryName' ou 'Parent/NewSub'"
             )
 
         try:
@@ -216,8 +218,8 @@ class Classifier:
             # Handle folder-based classification responses
             if self.config.general.use_imap_folders_for_classification and self.folder_analyzer:
                 # Handle new subfolder suggestions
-                if classification.startswith("NOUVEAU:"):
-                    proposed_path = classification.replace("NOUVEAU:", "").strip()
+                if classification.startswith("Parent/NewSub"):
+                    proposed_path = classification.replace("Parent/NewSub", "").strip()
                     logger.debug(f"Processing new folder proposal: '{proposed_path}'")
 
                     if "/" in proposed_path:

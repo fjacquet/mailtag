@@ -166,7 +166,8 @@ def _run_domain_classification_pass(
             uids_for_pass3.extend(domain_uids)
 
     logger.info(
-        f"Pass 2 complete. Moved {emails_moved} emails via domain rules. {len(uids_for_pass3)} emails remain for Pass 3."
+        f"Pass 2 complete. Moved {emails_moved} emails via domain rules."
+        + " {len(uids_for_pass3)} emails remain for Pass 3."
     )
     return uids_for_pass3
 
@@ -301,5 +302,6 @@ def _dump_pass3_emails_for_manual_matching(emails):
 
     logger.info(f"Dumped {len(emails)} emails from {len(sender_data)} unique senders to {dump_file}")
     logger.info(
-        f"Top senders: {', '.join([f'{addr} ({len(samples)})' for addr, samples in list(sender_data.items())[:5]])}"
+        "Top senders: "
+        + "{', '.join([f'{addr} ({len(samples)})' for addr, samples in list(sender_data.items())[:5]])}"
     )
