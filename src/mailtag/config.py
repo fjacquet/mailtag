@@ -26,6 +26,7 @@ class ClassifierConfig:
     ai_confidence_threshold: float
     historical_confidence_threshold: float
     min_count: int
+    num_ctx: int = 8192  # AI model context window size
 
 
 @dataclass
@@ -73,9 +74,17 @@ def load_config(path: Path) -> AppConfig:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
-            ollama_api_url = os.getenv("OLLAMA_API_URL", data["general"].get("api_base"))
-            if not ollama_api_url:
-                raise ValueError("OLLAMA_API_URL not found in environment or config file.")
+            # Allow MODEL or MODEL_NAME from .env to override config.toml
+            ollama_model = (
+                os.getenv("MODEL") or os.getenv("MODEL_NAME") or data["general"].get("ollama_model")
+            )
+            if not ollama_model:
+                raise ValueError("MODEL not found in environment or config file.")
+
+            # API base is optional - required for Ollama, not needed for Gemini/others
+            ollama_api_url = (
+                os.getenv("OLLAMA_API_URL") or os.getenv("API_BASE") or data["general"].get("api_base", "")
+            )
 
             imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
             if not imap_user:
@@ -102,7 +111,7 @@ def load_config(path: Path) -> AppConfig:
 
             return AppConfig(
                 general=GeneralConfig(
-                    ollama_model=data["general"]["ollama_model"],
+                    ollama_model=ollama_model,
                     api_base=ollama_api_url,
                     use_imap_folders_for_classification=data["general"].get(
                         "use_imap_folders_for_classification", True
@@ -116,6 +125,7 @@ def load_config(path: Path) -> AppConfig:
                     ai_confidence_threshold=data["classifier"]["ai_confidence_threshold"],
                     historical_confidence_threshold=data["classifier"]["historical_confidence_threshold"],
                     min_count=data["classifier"]["min_count"],
+                    num_ctx=data["classifier"].get("num_ctx", 8192),
                 ),
                 imap=ImapConfig(
                     host=data["imap"]["host"],
@@ -150,6 +160,7 @@ except RuntimeError as e:
             ai_confidence_threshold=0.7,
             historical_confidence_threshold=0.9,
             min_count=3,
+            num_ctx=8192,
         ),
         imap=ImapConfig(
             host="imap.example.com",

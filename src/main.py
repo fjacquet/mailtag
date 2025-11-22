@@ -126,5 +126,87 @@ def filters():
     generate_filters(database)
 
 
+@cli.command()
+@click.option(
+    "--output",
+    default="data/domain_candidates.json",
+    help="Output file path for domain candidates JSON.",
+)
+@click.option(
+    "--min-emails",
+    default=5,
+    type=int,
+    help="Minimum number of emails required from a domain to be a candidate.",
+)
+@click.option(
+    "--top",
+    default=50,
+    type=int,
+    help="Number of top candidates to show in report.",
+)
+def analyze_domains(output: str, min_emails: int, top: int):
+    """Analyze Pass 3 files to identify domain classification candidates.
+
+    This command scans pass3_manual_matching_*.json files to find commercial domains
+    that frequently appear in AI fallback cases. These domains can be added to the
+    domain classification database to reduce AI usage.
+
+    Workflow:
+    \b
+    1. Run this command to generate domain_candidates.json
+    2. Review the JSON file and add 'suggested_category' for each domain
+    3. Run: python scripts/update_domain_db.py
+    4. Re-run classification to measure impact
+    """
+    from mailtag.utils.domain_analyzer import DomainAnalyzer
+
+    logger.info("Analyzing Pass 3 files for domain classification candidates...")
+
+    # Initialize analyzer
+    non_commercial_domains_path = Path("data/non_commercial_domains.yaml")
+    if not non_commercial_domains_path.exists():
+        logger.error(f"Non-commercial domains file not found: {non_commercial_domains_path}")
+        return
+
+    analyzer = DomainAnalyzer(non_commercial_domains_path)
+
+    # Analyze Pass 3 files
+    data_dir = Path("data")
+    candidates = analyzer.analyze_pass3_files(data_dir, min_email_count=min_emails)
+
+    if not candidates:
+        logger.warning(
+            "No domain candidates found. Make sure pass3_manual_matching_*.json files exist in data/"
+        )
+        return
+
+    # Export to JSON
+    output_path = Path(output)
+    analyzer.export_candidates(candidates, output_path)
+
+    # Generate and print report
+    report = analyzer.generate_report(candidates, top_n=top)
+    print()
+    print(report)
+
+    # Analyze existing domain DB for comparison
+    domain_db_path = Path("db/domain_classifications.json")
+    if domain_db_path.exists():
+        stats = analyzer.analyze_existing_domains(domain_db_path)
+        print()
+        print("Current Domain Database Statistics:")
+        print("-" * 80)
+        print(f"Total domains: {stats.get('total_domains', 0)}")
+        print(f"Total categories: {stats.get('total_categories', 0)}")
+        print(f"Parent categories: {', '.join(stats.get('parent_categories', []))}")
+        print()
+        print("Top 5 categories:")
+        for category, count in list(stats.get("top_categories", {}).items())[:5]:
+            print(f"  {category}: {count} domains")
+        print()
+
+    logger.info(f"Review {output_path} and add categories, then run: python scripts/update_domain_db.py")
+
+
 if __name__ == "__main__":
     cli()
