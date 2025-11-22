@@ -78,6 +78,13 @@ def load_config(path: Path) -> AppConfig:
             if not ollama_api_url:
                 raise ValueError("OLLAMA_API_URL not found in environment or config file.")
 
+            # Allow MODEL or MODEL_NAME from .env to override config.toml
+            ollama_model = (
+                os.getenv("MODEL") or os.getenv("MODEL_NAME") or data["general"].get("ollama_model")
+            )
+            if not ollama_model:
+                raise ValueError("MODEL not found in environment or config file.")
+
             imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
             if not imap_user:
                 raise ValueError("IMAP_USER not found in environment or config file.")
@@ -103,7 +110,7 @@ def load_config(path: Path) -> AppConfig:
 
             return AppConfig(
                 general=GeneralConfig(
-                    ollama_model=data["general"]["ollama_model"],
+                    ollama_model=ollama_model,
                     api_base=ollama_api_url,
                     use_imap_folders_for_classification=data["general"].get(
                         "use_imap_folders_for_classification", True
