@@ -52,10 +52,11 @@ class FolderAnalyzer:
     def get_all_categories(self) -> list[str]:
         """Get all available categories from the folder structure.
 
-        Returns only leaf folders (folders without subfolders) as these are the only valid
-        classification targets.
+        Returns all folders (both parent and leaf folders) as valid classification targets.
+        This allows emails to be classified into parent folders when they don't fit into
+        a specific subfolder.
         """
-        return self.leaf_folders
+        return self.folders
 
     def get_parent_folders(self) -> list[str]:
         """Get all parent folders."""

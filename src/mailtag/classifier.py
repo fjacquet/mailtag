@@ -221,21 +221,20 @@ class Classifier:
 
         if self.folder_analyzer:
             # Use dynamic folder structure
-            leaf_folders = self.folder_analyzer.get_all_categories()
+            all_folders = self.folder_analyzer.get_all_categories()
             parent_folders = self.folder_analyzer.get_parent_folders()
 
             # Create a more concise list for the prompt
-            category_list = "\n".join([f"- {cat}" for cat in sorted(leaf_folders)])
-            parent_list = "\n".join([f"- {parent}" for parent in sorted(parent_folders)])
+            category_list = "\n".join([f"- {cat}" for cat in sorted(all_folders)])
 
             prompt = (
                 f"Sujet: {email.subject}\n"
                 f"De: {sender}\n"
                 f"Corps: {truncated_body}\n\n"
-                "Classe dans une catégorie FEUILLE (catégorie de dernier niveau, sans sous-catégories):\n"
+                "Classe dans une des catégories suivantes (choisis la plus spécifique possible):\n"
                 f"{category_list}\n\n"
-                "Si la catégorie appropriée n'existe pas, propose un nouveau sous-dossier sous:\n"
-                f"{parent_list}\n\n"
+                "Si aucune catégorie n'existe, tu peux proposer un nouveau sous-dossier au format 'Parent/NewSub'\n"
+                f"Parents valides: {', '.join(sorted(parent_folders))}\n\n"
                 "IMPORTANT: Réponds en format JSON structuré:\n"
                 "{\n"
                 '  "category": "NomExactCategorie",\n'
@@ -270,17 +269,30 @@ class Classifier:
             )
 
         try:
-            response = litellm.completion(
-                model=self.config.general.ollama_model,
-                messages=[{"role": "user", "content": prompt}],
-                api_base=self.config.general.api_base,
-                extra_body={
+            # Prepare parameters based on model type
+            model_name = self.config.general.ollama_model
+            params = {
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+            }
+
+            # Add provider-specific parameters
+            if model_name.startswith("ollama") or model_name.startswith("ollama_chat"):
+                # Ollama-specific parameters
+                params["api_base"] = self.config.general.api_base
+                params["extra_body"] = {
                     "options": {
                         "temperature": 0.2,
                         "num_ctx": self.config.classifier.num_ctx,
                     }
-                },
-            )
+                }
+            elif model_name.startswith("gemini"):
+                # Gemini doesn't need api_base or extra_body
+                # API key is read from GEMINI_API_KEY environment variable
+                pass
+
+            response = litellm.completion(**params)
             raw_response = response.choices[0].message.content.strip()
 
             # Try to parse JSON response first

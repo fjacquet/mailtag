@@ -18,16 +18,52 @@ uv pip install -e ".[gmail]"
 
 # Sync dependencies (updates to latest compatible versions)
 uv sync -U
-
-# Start Ollama with optimized settings (required for AI classification)
-OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 OLLAMA_NUM_CTX=8192 ollama serve
 ```
 
-**Ollama Configuration:**
+### AI Model Configuration
+
+MailTag supports multiple AI providers as drop-in replacements via `.env` configuration:
+
+#### Option 1: Ollama (Local AI - Free)
+```bash
+# Start Ollama with optimized settings
+OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 OLLAMA_NUM_CTX=8192 ollama serve
+
+# In your .env file:
+MODEL=ollama_chat/qwen3-vl:8b-instruct
+OLLAMA_API_URL=http://localhost:11434
+```
+
+**Ollama Settings:**
 - `OLLAMA_FLASH_ATTENTION=1`: Enables flash attention for faster inference
 - `OLLAMA_KV_CACHE_TYPE=q4_0`: Uses 4-bit quantized KV cache to reduce memory usage
-- `OLLAMA_NUM_CTX=8192`: Sets default context window to 8192 tokens (prevents prompt truncation with large category lists)
-- These settings improve performance and reduce memory footprint for email classification
+- `OLLAMA_NUM_CTX=8192`: Sets context window to 8192 tokens (prevents prompt truncation)
+
+#### Option 2: Google Gemini (Cloud AI - Fast & Affordable)
+```bash
+# In your .env file:
+MODEL=gemini/gemini-2.5-flash
+GEMINI_API_KEY=your-api-key-from-aistudio.google.com
+API_BASE=  # Leave empty for Gemini
+
+# Get your API key from: https://aistudio.google.com/apikey
+```
+
+**Available Gemini Models:**
+- `gemini/gemini-2.5-flash` (recommended - latest, fastest)
+- `gemini/gemini-2.5-flash-lite-preview-09-2025` (cheaper, lighter)
+- `gemini/gemini-1.5-flash`
+- `gemini/gemini-1.5-pro`
+
+#### Option 3: OpenRouter (Multi-provider Cloud)
+```bash
+# In your .env file:
+MODEL=openai/gpt-4o-mini
+OPENROUTER_API_KEY=your-openrouter-api-key
+API_BASE=https://openrouter.ai/api/v1
+```
+
+**Switching between providers:** Simply update the `MODEL` variable in your `.env` file and restart the application. No code changes needed!
 
 ### Testing
 ```bash

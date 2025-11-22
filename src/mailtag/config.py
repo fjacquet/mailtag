@@ -74,16 +74,17 @@ def load_config(path: Path) -> AppConfig:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
-            ollama_api_url = os.getenv("OLLAMA_API_URL", data["general"].get("api_base"))
-            if not ollama_api_url:
-                raise ValueError("OLLAMA_API_URL not found in environment or config file.")
-
             # Allow MODEL or MODEL_NAME from .env to override config.toml
             ollama_model = (
                 os.getenv("MODEL") or os.getenv("MODEL_NAME") or data["general"].get("ollama_model")
             )
             if not ollama_model:
                 raise ValueError("MODEL not found in environment or config file.")
+
+            # API base is optional - required for Ollama, not needed for Gemini/others
+            ollama_api_url = (
+                os.getenv("OLLAMA_API_URL") or os.getenv("API_BASE") or data["general"].get("api_base", "")
+            )
 
             imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
             if not imap_user:
