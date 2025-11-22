@@ -2,14 +2,18 @@
 Performance metrics collection for the Mailtag application.
 
 This module provides utilities for collecting, tracking, and reporting performance
-metrics such as timing, success/failure rates, and memory usage.
+metrics such as timing, success/failure rates, memory usage, and classification quality.
 """
 
 import functools
+import json
+import statistics
 import time
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import TypeVar, cast
 
 import psutil
@@ -94,11 +98,176 @@ class MemoryMetrics:
 
 
 @dataclass
+class ClassificationMetrics:
+    """Metrics specific to email classification quality."""
+
+    signal_hits: Counter = field(default_factory=Counter)
+    category_distribution: Counter = field(default_factory=Counter)
+    confidence_scores: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
+    errors: Counter = field(default_factory=Counter)
+    processing_times: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
+
+    def record_classification(
+        self,
+        email_id: str,
+        signal: str,
+        category: str,
+        confidence: float | None = None,
+        processing_time_ms: float = 0.0,
+    ) -> None:
+        """Record a successful classification.
+
+        Args:
+            email_id: Unique email identifier
+            signal: Classification signal used (validated_db, server_labels, historical, domain, ai)
+            category: Category assigned to email
+            confidence: Confidence score (0.0-1.0), if available
+            processing_time_ms: Time taken to classify in milliseconds
+        """
+        self.signal_hits[signal] += 1
+        self.category_distribution[category] += 1
+
+        if confidence is not None:
+            self.confidence_scores[signal].append(confidence)
+
+        if processing_time_ms > 0:
+            self.processing_times[signal].append(processing_time_ms)
+
+    def record_error(self, error_type: str, context: str = "") -> None:
+        """Record a classification error.
+
+        Args:
+            error_type: Type of error encountered
+            context: Additional context (e.g., sender address)
+        """
+        error_key = f"{error_type}:{context}" if context else error_type
+        self.errors[error_key] += 1
+
+    def get_signal_hit_rates(self) -> dict[str, float]:
+        """Calculate percentage of emails classified by each signal.
+
+        Returns:
+            Dictionary mapping signal name to percentage
+        """
+        total = sum(self.signal_hits.values())
+        if total == 0:
+            return {}
+        return {signal: (count / total) * 100 for signal, count in self.signal_hits.items()}
+
+    def get_summary(self) -> dict:
+        """Get comprehensive metrics summary.
+
+        Returns:
+            Dictionary with all classification metrics
+        """
+        total_classified = sum(self.signal_hits.values())
+
+        return {
+            "total_classified": total_classified,
+            "signal_hit_rates": self.get_signal_hit_rates(),
+            "signal_counts": dict(self.signal_hits),
+            "top_categories": dict(self.category_distribution.most_common(10)),
+            "avg_confidence_by_signal": {
+                signal: statistics.mean(scores) if scores else 0.0
+                for signal, scores in self.confidence_scores.items()
+            },
+            "min_confidence_by_signal": {
+                signal: min(scores) if scores else 0.0 for signal, scores in self.confidence_scores.items()
+            },
+            "max_confidence_by_signal": {
+                signal: max(scores) if scores else 0.0 for signal, scores in self.confidence_scores.items()
+            },
+            "avg_processing_time_ms": {
+                signal: statistics.mean(times) if times else 0.0
+                for signal, times in self.processing_times.items()
+            },
+            "errors": dict(self.errors.most_common()),
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    def export_to_json(self, filepath: Path) -> None:
+        """Export metrics to JSON file.
+
+        Args:
+            filepath: Path to output JSON file
+        """
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(filepath, "w") as f:
+            json.dump(self.get_summary(), f, indent=2)
+        logger.debug(f"Exported classification metrics to {filepath}")
+
+    def log_summary(self, log_level: str = "INFO") -> None:
+        """Log a formatted summary of classification metrics.
+
+        Args:
+            log_level: Log level to use for output
+        """
+        summary = self.get_summary()
+
+        logger.log(log_level, "=" * 80)
+        logger.log(log_level, "CLASSIFICATION METRICS SUMMARY")
+        logger.log(log_level, "=" * 80)
+        logger.log(log_level, f"Total emails classified: {summary['total_classified']}")
+        logger.log(log_level, "")
+
+        if summary["signal_hit_rates"]:
+            logger.log(log_level, "Signal Hit Rates:")
+            for signal, rate in sorted(summary["signal_hit_rates"].items(), key=lambda x: x[1], reverse=True):
+                count = summary["signal_counts"].get(signal, 0)
+                logger.log(log_level, f"  {signal:20s}: {rate:6.2f}% ({count:4d} emails)")
+            logger.log(log_level, "")
+
+        if summary["top_categories"]:
+            logger.log(log_level, "Top 10 Categories:")
+            for category, count in list(summary["top_categories"].items())[:10]:
+                logger.log(log_level, f"  {category:50s}: {count:4d} emails")
+            logger.log(log_level, "")
+
+        if summary["avg_confidence_by_signal"]:
+            logger.log(log_level, "Average Confidence by Signal:")
+            for signal, conf in summary["avg_confidence_by_signal"].items():
+                if conf > 0:
+                    min_conf = summary["min_confidence_by_signal"].get(signal, 0)
+                    max_conf = summary["max_confidence_by_signal"].get(signal, 0)
+                    logger.log(
+                        log_level,
+                        f"  {signal:20s}: avg={conf:.3f}, min={min_conf:.3f}, max={max_conf:.3f}",
+                    )
+            logger.log(log_level, "")
+
+        if summary["avg_processing_time_ms"]:
+            logger.log(log_level, "Average Processing Time by Signal:")
+            for signal, time_ms in sorted(
+                summary["avg_processing_time_ms"].items(), key=lambda x: x[1], reverse=True
+            ):
+                if time_ms > 0:
+                    logger.log(log_level, f"  {signal:20s}: {time_ms:8.2f} ms")
+            logger.log(log_level, "")
+
+        if summary["errors"]:
+            logger.log(log_level, "Classification Errors:")
+            for error, count in summary["errors"].items():
+                logger.log(log_level, f"  {error}: {count}")
+            logger.log(log_level, "")
+
+        logger.log(log_level, "=" * 80)
+
+    def reset(self) -> None:
+        """Reset all classification metrics."""
+        self.signal_hits.clear()
+        self.category_distribution.clear()
+        self.confidence_scores.clear()
+        self.errors.clear()
+        self.processing_times.clear()
+
+
+@dataclass
 class MetricsRegistry:
     """Central registry for all metrics."""
 
     operation_metrics: dict[str, OperationMetrics] = field(default_factory=dict)
     memory_metrics: MemoryMetrics | None = None
+    classification_metrics: ClassificationMetrics = field(default_factory=ClassificationMetrics)
     enabled: bool = True
     log_level: str = "DEBUG"
 
@@ -136,6 +305,7 @@ class MetricsRegistry:
     def reset(self) -> None:
         """Reset all metrics."""
         self.operation_metrics.clear()
+        self.classification_metrics.reset()
         if self.enabled:
             process = psutil.Process()
             initial_rss = process.memory_info().rss / (1024 * 1024)

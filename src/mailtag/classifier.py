@@ -1,4 +1,5 @@
 import hashlib
+import time
 from pathlib import Path
 
 import litellm
@@ -8,6 +9,7 @@ from loguru import logger
 from .config import AppConfig
 from .database import ClassificationDatabase
 from .folder_analyzer import FolderAnalyzer
+from .metrics import METRICS
 from .models import Email
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
@@ -357,42 +359,97 @@ class Classifier:
     def classify_email(self, email: Email) -> str:
         """
         Classifies an email using the Adaptive Multi-Signal Classification (AMSC) strategy.
+        Tracks classification metrics for each signal.
         """
+        start_time = time.perf_counter()
+
         # Signal 1: Validated Database
         category = self._get_category_from_validated_db(email)
         if category:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
             logger.info(f"Classified via Validated DB: {category}")
+            METRICS.classification_metrics.record_classification(
+                email_id=email.msg_id,
+                signal="validated_db",
+                category=category,
+                confidence=1.0,  # Validated = 100% confidence
+                processing_time_ms=elapsed_ms,
+            )
             return category
 
         # Signal 2: Server-Side Label
         category = self._get_category_from_labels(email)
         if category:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
             logger.info(f"Classified via Server Label: {category}")
             self.database.update_suggestion(email.sender_address, category)
+            METRICS.classification_metrics.record_classification(
+                email_id=email.msg_id,
+                signal="server_labels",
+                category=category,
+                confidence=0.95,  # High confidence from user's existing organization
+                processing_time_ms=elapsed_ms,
+            )
             return category
 
         # Signal 3: Historical Suggestion Database
         category = self._get_category_from_history(email)
         if category:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
             logger.info(f"Classified via History: {category}")
-            # No need to update DB, it's already the most confident one
+
+            # Calculate actual confidence from historical data
+            sender_classifications = self.database.suggestion_db.get(email.sender_address, {})
+            total_count = sum(sender_classifications.values())
+            confidence = sender_classifications.get(category, 0) / total_count if total_count > 0 else 0.0
+
+            METRICS.classification_metrics.record_classification(
+                email_id=email.msg_id,
+                signal="historical_db",
+                category=category,
+                confidence=confidence,
+                processing_time_ms=elapsed_ms,
+            )
             return category
 
         # Signal 4: Domain-based Classification
         category = self._get_category_from_domain(email)
         if category:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
             logger.info(f"Classified via Domain: {category}")
-            # Update suggestion DB to learn from domain classification
             self.database.update_suggestion(email.sender_address, category)
+            METRICS.classification_metrics.record_classification(
+                email_id=email.msg_id,
+                signal="domain_db",
+                category=category,
+                confidence=0.90,  # Domain rules are high confidence
+                processing_time_ms=elapsed_ms,
+            )
             return category
 
         # Signal 5: AI Model (Fallback)
         logger.debug("No high-confidence signals found, falling back to AI model.")
+        ai_start_time = time.perf_counter()
         category = self._get_category_from_ai(email)
+        ai_elapsed_ms = (time.perf_counter() - ai_start_time) * 1000
+        total_elapsed_ms = (time.perf_counter() - start_time) * 1000
+
         logger.info(f"Classified via AI Model: {category}")
 
         if category not in ["À Classer", "(Model Error)"]:
             self.database.update_suggestion(email.sender_address, category)
+            METRICS.classification_metrics.record_classification(
+                email_id=email.msg_id,
+                signal="ai_model",
+                category=category,
+                confidence=None,  # Confidence already tracked in _get_category_from_ai
+                processing_time_ms=total_elapsed_ms,
+            )
+        elif category == "(Model Error)":
+            METRICS.classification_metrics.record_error("ai_model_error", email.sender_address)
+        else:
+            # "À Classer" - low confidence or uncertain
+            METRICS.classification_metrics.record_error("ai_uncertain", email.sender_address)
 
         return category
 
@@ -407,3 +464,31 @@ class Classifier:
             f.write(f"Subject: {email.subject}\n")
             f.write(f"Proposed Category: {proposal}\n")
             f.write(f"Body:\n{email.body}\n\n")
+
+    def export_metrics(self, output_dir: Path = Path("data/metrics")) -> Path:
+        """Export classification metrics to JSON file.
+
+        Args:
+            output_dir: Directory to save metrics file
+
+        Returns:
+            Path to exported metrics file
+        """
+        from datetime import datetime
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = output_dir / f"classification_metrics_{timestamp}.json"
+
+        METRICS.classification_metrics.export_to_json(filepath)
+        logger.info(f"Exported classification metrics to {filepath}")
+
+        return filepath
+
+    def log_metrics_summary(self, log_level: str = "INFO"):
+        """Log a formatted summary of classification metrics.
+
+        Args:
+            log_level: Log level to use for output
+        """
+        METRICS.classification_metrics.log_summary(log_level)
