@@ -26,6 +26,7 @@ class ClassifierConfig:
     ai_confidence_threshold: float
     historical_confidence_threshold: float
     min_count: int
+    num_ctx: int = 8192  # AI model context window size
 
 
 @dataclass
@@ -116,6 +117,7 @@ def load_config(path: Path) -> AppConfig:
                     ai_confidence_threshold=data["classifier"]["ai_confidence_threshold"],
                     historical_confidence_threshold=data["classifier"]["historical_confidence_threshold"],
                     min_count=data["classifier"]["min_count"],
+                    num_ctx=data["classifier"].get("num_ctx", 8192),
                 ),
                 imap=ImapConfig(
                     host=data["imap"]["host"],
@@ -150,6 +152,7 @@ except RuntimeError as e:
             ai_confidence_threshold=0.7,
             historical_confidence_threshold=0.9,
             min_count=3,
+            num_ctx=8192,
         ),
         imap=ImapConfig(
             host="imap.example.com",

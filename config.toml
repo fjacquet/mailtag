@@ -15,6 +15,9 @@ ai_confidence_threshold = 0.85
 historical_confidence_threshold = 0.9
 # The minimum number of times a sender must be classified before pre-classification is used.
 min_count = 10
+# AI model context window size (tokens). Increase if you have many categories (169+ folders).
+# 2048 = basic, 4096 = moderate, 8192 = large category lists, 16384 = very large
+num_ctx = 8192
 
 
 [logging]

@@ -277,7 +277,7 @@ class Classifier:
                 extra_body={
                     "options": {
                         "temperature": 0.2,
-                        "num_ctx": 2048,  # Reduced context window for better performance
+                        "num_ctx": self.config.classifier.num_ctx,
                     }
                 },
             )
