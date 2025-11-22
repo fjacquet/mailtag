@@ -20,12 +20,13 @@ uv pip install -e ".[gmail]"
 uv sync -U
 
 # Start Ollama with optimized settings (required for AI classification)
-OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 ollama serve
+OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 OLLAMA_NUM_CTX=8192 ollama serve
 ```
 
 **Ollama Configuration:**
 - `OLLAMA_FLASH_ATTENTION=1`: Enables flash attention for faster inference
 - `OLLAMA_KV_CACHE_TYPE=q4_0`: Uses 4-bit quantized KV cache to reduce memory usage
+- `OLLAMA_NUM_CTX=8192`: Sets default context window to 8192 tokens (prevents prompt truncation with large category lists)
 - These settings improve performance and reduce memory footprint for email classification
 
 ### Testing
