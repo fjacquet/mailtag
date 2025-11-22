@@ -71,6 +71,12 @@ python src/main.py run --provider all --validate
 # Generate email filters
 python src/main.py filters
 
+# Analyze Pass 3 files to find domain candidates (NEW)
+python src/main.py analyze-domains --output data/domain_candidates.json --min-emails 5 --top 50
+
+# Update domain database from reviewed candidates (NEW)
+python scripts/update_domain_db.py
+
 # Streamlit UI (alternative interface)
 streamlit run src/streamlit_app.py
 
@@ -84,13 +90,19 @@ python src/webhook.py
 
 The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical approach with 5 signals, evaluated in priority order:
 
-1. **Validated Database** - Manually validated sender classifications (highest confidence)
-2. **Server-Side Labels** - Existing IMAP folders or Gmail labels that match known categories
+1. **Validated Database** - Manually validated sender classifications (highest confidence, 100%)
+2. **Server-Side Labels** - Existing IMAP folders or Gmail labels that match known categories (95% confidence)
 3. **Historical Database** - High-confidence classifications based on sender history (90%+ confidence, 10+ occurrences by default)
-4. **Domain Classification** - Commercial domain-based rules (skips non-commercial domains like gmail.com, yahoo.com)
-5. **AI Model** - Fallback to Ollama LLM via litellm (lowest priority)
+4. **Domain Classification** - Commercial domain-based rules (90% confidence, skips non-commercial domains like gmail.com, yahoo.com)
+5. **AI Model** - Fallback to Ollama LLM via litellm with confidence scoring (configurable threshold: 0.85)
 
 Each signal can definitively classify an email, stopping further evaluation. Only unclassified emails proceed to the next signal.
+
+**Recent Improvements (2025-11-22)**:
+- **AI Confidence Scoring**: AI now returns JSON with category, confidence (0-1.0), and reasoning. Classifications below threshold (0.85) route to "À Classer"
+- **Classification Metrics**: Comprehensive tracking of signal hit rates, category distribution, confidence scores, and processing times
+- **Smart Text Processing**: Email bodies intelligently truncated from 500→1500 chars with signature removal and keyword preservation
+- **Domain Analysis Tools**: New `analyze-domains` command to identify commercial domains from Pass 3 files for database expansion
 
 ### Three-Pass Processing System (IMAP Only)
 
@@ -171,9 +183,33 @@ class Email(BaseModel):
 ### Utilities
 
 - `src/mailtag/utils/domain_utils.py`: Domain extraction, normalization, and non-commercial domain detection with caching
+- `src/mailtag/utils/domain_analyzer.py`: **NEW** - Analyze Pass 3 files to identify commercial domain candidates for classification DB
+- `src/mailtag/utils/text_utils.py`: **NEW** - Intelligent email body processing (smart truncation, signature removal, keyword extraction)
 - `src/mailtag/retry.py`: Retry logic with exponential backoff for transient failures
-- `src/mailtag/metrics.py`: Performance metrics collection and reporting
+- `src/mailtag/metrics.py`: Performance metrics collection and reporting (extended with classification quality metrics)
 - `src/mailtag/folder_analyzer.py`: IMAP folder hierarchy analysis and category extraction
+
+### Classification Metrics (NEW)
+
+After running classification, the system now tracks:
+- **Signal Hit Rates**: Percentage of emails classified by each signal (validated_db, server_labels, historical_db, domain_db, ai_model)
+- **Category Distribution**: Top 10 most-used categories
+- **Confidence Scores**: Average, min, max confidence per signal
+- **Processing Times**: Average time per signal in milliseconds
+- **Error Tracking**: AI uncertainties, model errors, and other issues
+
+Export metrics with:
+```python
+from mailtag.classifier import Classifier
+classifier.export_metrics(Path("data/metrics"))  # Exports to JSON
+classifier.log_metrics_summary("INFO")  # Logs formatted summary
+```
+
+Metrics are automatically tracked during classification and can be reviewed to:
+- Identify which signals are most effective
+- Detect classification bottlenecks
+- Monitor AI model performance
+- Track category usage patterns
 
 ## Key Patterns and Conventions
 
