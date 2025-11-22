@@ -18,7 +18,15 @@ uv pip install -e ".[gmail]"
 
 # Sync dependencies (updates to latest compatible versions)
 uv sync -U
+
+# Start Ollama with optimized settings (required for AI classification)
+OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 ollama serve
 ```
+
+**Ollama Configuration:**
+- `OLLAMA_FLASH_ATTENTION=1`: Enables flash attention for faster inference
+- `OLLAMA_KV_CACHE_TYPE=q4_0`: Uses 4-bit quantized KV cache to reduce memory usage
+- These settings improve performance and reduce memory footprint for email classification
 
 ### Testing
 ```bash
