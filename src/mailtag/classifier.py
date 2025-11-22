@@ -12,6 +12,7 @@ from .folder_analyzer import FolderAnalyzer
 from .metrics import METRICS
 from .models import Email
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
+from .utils.text_utils import smart_truncate
 
 
 class Classifier:
@@ -129,13 +130,19 @@ class Classifier:
         cache_input = f"{sender.lower()}:{subject.lower()}"
         return hashlib.md5(cache_input.encode()).hexdigest()
 
-    def _truncate_body(self, body: str, max_chars: int = 500) -> str:
-        """Truncate email body to reduce prompt size and improve performance."""
+    def _truncate_body(self, body: str, max_chars: int = 1500) -> str:
+        """Intelligently truncate email body to preserve important content.
+
+        Uses smart_truncate to:
+        - Remove quoted replies and signatures
+        - Extract key paragraphs and sentences
+        - Preserve high-signal keywords
+
+        Default increased from 500 to 1500 chars for better context.
+        """
         if not body:
             return ""
-        if len(body) <= max_chars:
-            return body
-        return body[:max_chars] + "..."
+        return smart_truncate(body, max_chars=max_chars)
 
     def _parse_ai_json_response(self, raw_response: str) -> tuple[str, float, str]:
         """
