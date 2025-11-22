@@ -801,6 +801,7 @@ dependencies = [
     { name = "ollama" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pytest-mock" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "streamlit" },
@@ -818,6 +819,12 @@ dev = [
     { name = "yamlfix" },
     { name = "yamllint" },
 ]
+gmail = [
+    { name = "google" },
+    { name = "google-api-python-client" },
+    { name = "google-auth-httplib2" },
+    { name = "google-auth-oauthlib" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -827,9 +834,13 @@ requires-dist = [
     { name = "faker", marker = "extra == 'dev'" },
     { name = "fastapi", specifier = ">=0.115.14" },
     { name = "google", specifier = ">=3.0.0" },
+    { name = "google", marker = "extra == 'gmail'", specifier = ">=3.0.0" },
     { name = "google-api-python-client", specifier = "==2.179.0" },
+    { name = "google-api-python-client", marker = "extra == 'gmail'" },
     { name = "google-auth-httplib2", specifier = "==0.2.0" },
+    { name = "google-auth-httplib2", marker = "extra == 'gmail'" },
     { name = "google-auth-oauthlib", specifier = "==1.2.2" },
+    { name = "google-auth-oauthlib", marker = "extra == 'gmail'" },
     { name = "imapclient", specifier = ">=3.0.1" },
     { name = "litellm", specifier = ">=1.73.6" },
     { name = "loguru", specifier = ">=0.7.2" },
@@ -840,6 +851,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.1" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "pytest-mock", specifier = ">=3.14.1" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.1" },
     { name = "python-dotenv", specifier = "==1.1.1" },
     { name = "pyyaml", specifier = "==6.0.2" },
@@ -849,7 +861,7 @@ requires-dist = [
     { name = "yamlfix", marker = "extra == 'dev'" },
     { name = "yamllint", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "gmail"]
 
 [[package]]
 name = "maison"
