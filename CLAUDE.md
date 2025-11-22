@@ -1,0 +1,202 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+MailTag is a Python-based email automation tool that classifies and organizes emails using AI. It supports both IMAP and Gmail, using a multi-signal classification strategy that prioritizes efficiency and accuracy.
+
+## Development Commands
+
+### Environment Setup
+```bash
+# Install dependencies (includes dev tools)
+uv pip install -e ".[dev]"
+
+# Install with Gmail support
+uv pip install -e ".[gmail]"
+
+# Sync dependencies (updates to latest compatible versions)
+uv sync -U
+```
+
+### Testing
+```bash
+# Run all tests with coverage
+uv run pytest --cov --cov-branch --cov-report=xml
+
+# Run tests without coverage (faster for development)
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_database.py
+
+# Run specific test function
+uv run pytest tests/test_database.py::test_function_name
+```
+
+### Linting and Formatting
+```bash
+# Check code with ruff linter
+uv run ruff check .
+
+# Auto-fix linting issues
+uv run ruff check . --fix
+
+# Check formatting
+uv run ruff format --check .
+
+# Auto-format code
+uv run ruff format .
+
+# Check YAML files
+uv run yamllint .
+
+# Auto-fix YAML files
+uv run yamlfix .
+```
+
+### Running the Application
+```bash
+# CLI entry point - run classification on all providers
+python src/main.py run --provider all
+
+# Run on specific provider
+python src/main.py run --provider imap
+python src/main.py run --provider gmail
+
+# Validation mode (read-only, no email moves)
+python src/main.py run --provider all --validate
+
+# Generate email filters
+python src/main.py filters
+
+# Streamlit UI (alternative interface)
+streamlit run src/streamlit_app.py
+
+# FastAPI webhook server
+python src/webhook.py
+```
+
+## Architecture
+
+### Multi-Signal Classification Strategy (AMSC)
+
+The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical approach with 5 signals, evaluated in priority order:
+
+1. **Validated Database** - Manually validated sender classifications (highest confidence)
+2. **Server-Side Labels** - Existing IMAP folders or Gmail labels that match known categories
+3. **Historical Database** - High-confidence classifications based on sender history (90%+ confidence, 10+ occurrences by default)
+4. **Domain Classification** - Commercial domain-based rules (skips non-commercial domains like gmail.com, yahoo.com)
+5. **AI Model** - Fallback to Ollama LLM via litellm (lowest priority)
+
+Each signal can definitively classify an email, stopping further evaluation. Only unclassified emails proceed to the next signal.
+
+### Three-Pass Processing System (IMAP Only)
+
+For IMAP providers, the classification runs in three passes for performance optimization (`src/mailtag/utils/tasks.py`):
+
+- **Pass 1 (Fast Parse)**: Processes emails using only headers (sender, subject). Uses validated and historical databases for instant classification. Processes emails in configurable batches (default 100).
+- **Pass 2 (Domain Classification)**: Groups remaining emails by commercial domain and applies domain-based rules in bulk. Generates manual matching files in `data/pass3_manual_matching_*.json` for review.
+- **Pass 3 (AI Classification)**: Fetches full email bodies and uses AI classification for remaining emails.
+
+Gmail providers use single-pass processing with the full AMSC strategy.
+
+### Provider Architecture
+
+The codebase uses a provider pattern (`src/mailtag/providers.py`):
+
+- `EmailProvider`: Abstract base class defining the interface
+- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support
+- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication
+
+All providers implement:
+- `connect()`: Context manager for connection lifecycle
+- `get_emails()`: Fetch emails with optional filters
+- `move_email()`: Move single email to destination folder/label
+
+IMAP additionally supports:
+- `batch_move_emails()`: Efficient bulk move operations
+- `get_email_headers()`: Fetch headers without full body
+- `get_folder_hierarchy()`: Retrieve and cache folder structure
+
+### Database Layer
+
+Three JSON databases managed by `ClassificationDatabase` (`src/mailtag/database.py`):
+
+- `db/sender_classification_db.json`: AI suggestions and historical patterns per sender
+- `db/validated_classification_db.json`: Manually validated sender-category mappings
+- `db/domain_classifications.json`: Domain-level classification rules
+
+All databases use lowercase normalization for sender addresses and domains to ensure consistent lookups.
+
+### Configuration System
+
+Configuration loaded from `config.toml` with environment variable substitution:
+
+- `general`: Ollama model, API base URL, folder classification mode
+- `classifier`: Confidence thresholds and minimum counts
+- `imap`: Server settings (supports `${IMAP_USER}`, `${IMAP_PASSWORD}` env vars)
+- `gmail`: OAuth credentials paths
+- `fast_parse`: Batch sizes, retry configuration, metrics settings
+- `logging`: Level and file path
+
+Create a `.env` file for local development with:
+```
+IMAP_USER=your-email@example.com
+IMAP_PASSWORD=your-password
+OLLAMA_API_URL=http://localhost:11434
+```
+
+### Dynamic vs Static Classification
+
+Two modes controlled by `general.use_imap_folders_for_classification`:
+
+- **Dynamic Mode (default)**: Uses live IMAP folder structure from `data/imap_folders.json` as classification categories. AI can suggest new subfolders under existing parents. Folder structure is refreshed at startup.
+- **Static Mode**: Uses fixed categories from `data/classification_schema.yml` (legacy YAML-based schema).
+
+### Email Model
+
+Pydantic model at `src/mailtag/models.py`:
+```python
+class Email(BaseModel):
+    msg_id: str               # Unique identifier
+    sender_address: str       # Email address
+    sender_name: str          # Display name
+    subject: str              # Subject line
+    body: str                 # Full email body
+    labels: list[str]         # Existing server-side labels/folders
+```
+
+### Utilities
+
+- `src/mailtag/utils/domain_utils.py`: Domain extraction, normalization, and non-commercial domain detection with caching
+- `src/mailtag/retry.py`: Retry logic with exponential backoff for transient failures
+- `src/mailtag/metrics.py`: Performance metrics collection and reporting
+- `src/mailtag/folder_analyzer.py`: IMAP folder hierarchy analysis and category extraction
+
+## Key Patterns and Conventions
+
+- Uses `loguru` for structured logging throughout the codebase
+- Configuration uses dataclasses for type safety
+- Email addresses and domains are normalized to lowercase for all database operations
+- IMAP folder names are case-sensitive and use forward slash as delimiter
+- AI prompts are in French (prompts in `classifier.py`)
+- Uses context managers (`with` statements) for provider connections
+- Batch operations preferred over individual operations for IMAP efficiency
+
+## Testing Notes
+
+- Tests use `pytest` with `pytest-mock` for mocking
+- `conftest.py` provides common fixtures
+- `tests/test_missing_google_deps.py` validates graceful handling when Gmail dependencies are missing
+- Mock email data generated using `faker` library
+- CI runs on Python 3.10 (minimum) but project requires Python 3.12+ locally
+
+## Code Style
+
+- Line length: 110 characters (configured in ruff)
+- Target: Python 3.12
+- Uses modern Python features: type hints, union types with `|`, match statements
+- Ruff linter rules: pycodestyle, Pyflakes, flake8-bugbear, isort, pyupgrade
+- Underscore-prefixed variables allowed for intentionally unused variables
