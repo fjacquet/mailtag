@@ -54,7 +54,59 @@ Analyze Pass 3 output files to find domain candidates for DB expansion.
 python src/main.py analyze-domains --output data/domain_candidates.json
 ```
 
+### data_cleanup.py
+Utilities for cleaning up accumulated data files.
+
+**Key Functions:**
+- `cleanup_old_pass3_files(data_dir, max_age_days)` - Remove pass3 files older than threshold
+- `consolidate_duplicate_pass3_files(data_dir)` - Remove duplicates, keep first/last per day
+- `get_pass3_file_stats(data_dir)` - Get statistics about pass3 files
+
+**Usage:**
+```bash
+python src/main.py cleanup --max-age 30
+python src/main.py cleanup --consolidate
+```
+
+### db_backup.py
+Database backup and restore utilities with automatic rotation.
+
+**Key Functions:**
+- `backup_database(db_path, backup_dir)` - Create timestamped backup
+- `backup_all_databases(db_dir)` - Backup all JSON databases
+- `restore_database(backup_path, db_path)` - Restore from backup
+- `cleanup_old_backups(backup_dir, keep_count)` - Remove old backups
+- `list_backups(backup_dir)` - List available backups
+- `get_backup_stats(backup_dir)` - Get backup statistics
+
+**Automatic Backups:**
+- Databases are backed up once at start of each classification run
+- Backups stored in `db/backups/` with timestamp suffix
+- Keeps 10 most recent backups by default
+
+### data_validation.py
+Validation and normalization utilities for data integrity.
+
+**Key Functions:**
+- `normalize_email(email)` - Strip brackets, decode RFC 2047, lowercase
+- `normalize_domain(domain)` - Strip artifacts, lowercase
+- `validate_domain_format(domain)` - Check valid domain pattern
+- `validate_domain_classifications(db_path)` - Find issues in domain DB
+- `validate_sender_classifications(db_path)` - Find issues in sender DB
+- `fix_domain_classifications(db_path)` - Auto-fix malformed domains
+- `prune_low_confidence_senders(db_path, min_count)` - Remove low-count entries
+- `get_database_stats(db_dir)` - Get statistics for all databases
+
+**Usage:**
+```bash
+python src/main.py db-stats
+python src/main.py prune-db --min-count 3
+```
+
 ## Testing
 Test files in `tests/`:
 - `test_text_utils.py`
 - `test_domain_analyzer.py`
+- `test_data_cleanup.py`
+- `test_db_backup.py`
+- `test_data_validation.py`
