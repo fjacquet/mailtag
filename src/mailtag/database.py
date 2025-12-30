@@ -1,10 +1,29 @@
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
 from loguru import logger
 
 from .utils.domain_utils import extract_domain, normalize_domain
+
+
+def _normalize_email(email: str) -> str:
+    """Normalize an email address for consistent storage.
+
+    - Strip angle brackets
+    - Convert to lowercase
+    - Strip whitespace
+    """
+    if not email:
+        return ""
+    # Strip angle brackets
+    email = re.sub(r"^<|>$", "", email.strip())
+    # Extract email from "Name <email>" format
+    match = re.search(r"<([^>]+)>", email)
+    if match:
+        email = match.group(1)
+    return email.lower().strip()
 
 
 class ClassificationDatabase:
@@ -65,33 +84,35 @@ class ClassificationDatabase:
 
     def update_suggestion(self, sender_address: str, category: str):
         """Updates the occurrence count for a sender-category pair in the suggestion database."""
-        self.suggestion_db[sender_address.lower()][category] += 1
+        normalized = _normalize_email(sender_address)
+        self.suggestion_db[normalized][category] += 1
         self._save_suggestion_db()
 
     def promote_to_validated(self, sender_address: str, category: str):
         """Promotes a classification from the suggestion DB to the validated DB."""
-        sender_address = sender_address.lower()
+        normalized = _normalize_email(sender_address)
         # Remove from suggestion DB
-        if sender_address in self.suggestion_db:
-            del self.suggestion_db[sender_address]
+        if normalized in self.suggestion_db:
+            del self.suggestion_db[normalized]
             self._save_suggestion_db()
         # Add to validated DB
-        self.validated_db[sender_address] = {category: 1}
+        self.validated_db[normalized] = {category: 1}
         self._save_validated_db()
 
     def get_classification_count(self, sender_address: str, category: str) -> int:
         """Gets the classification count for a sender-category pair from the suggestion DB."""
-        return self.suggestion_db[sender_address.lower()][category]
+        normalized = _normalize_email(sender_address)
+        return self.suggestion_db[normalized][category]
 
     def get_dominant_classification(self, sender_address: str) -> str | None:
         """Gets the category with the highest count for a given sender."""
-        sender_address = sender_address.lower()
+        normalized = _normalize_email(sender_address)
         # Check validated DB first
-        if sender_address in self.validated_db:
-            return list(self.validated_db[sender_address].keys())[0]
+        if normalized in self.validated_db:
+            return list(self.validated_db[normalized].keys())[0]
         # Then check suggestion DB
-        if sender_address in self.suggestion_db:
-            classifications = self.suggestion_db[sender_address]
+        if normalized in self.suggestion_db:
+            classifications = self.suggestion_db[normalized]
             if classifications:
                 return max(classifications, key=classifications.get)
         return None
