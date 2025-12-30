@@ -165,6 +165,7 @@ class MLXLLM:
             Generated text response
         """
         from mlx_lm import generate
+        from mlx_lm.sample_utils import make_sampler
 
         max_tokens = max_tokens or self.max_tokens
         temperature = temperature or self.temperature
@@ -178,12 +179,15 @@ class MLXLLM:
         else:
             formatted_prompt = prompt
 
+        # Create sampler with temperature (new API)
+        sampler = make_sampler(temp=temperature)
+
         response = generate(
             self.model,
             self.tokenizer,
             prompt=formatted_prompt,
             max_tokens=max_tokens,
-            temp=temperature,
+            sampler=sampler,
             verbose=False,
         )
 
