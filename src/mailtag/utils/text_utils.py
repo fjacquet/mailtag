@@ -5,7 +5,6 @@ including smart truncation, signature removal, and content extraction.
 """
 
 import re
-from typing import Tuple
 
 
 def smart_truncate(body: str, max_chars: int = 1500) -> str:

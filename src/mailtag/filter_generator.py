@@ -31,7 +31,6 @@ class FilterGenerator:
         sender_categories.sort(key=lambda x: x[0])
 
         for most_common_category, sender in sender_categories:
-
             entry = SubElement(feed, "entry")
             SubElement(entry, "category", term="filter")
             title = SubElement(entry, "title")
@@ -76,7 +75,7 @@ class FilterGenerator:
 
         # Pretty print the XML
         xml_str = tostring(feed, "utf-8")
-        pretty_xml_str = minidom.parseString(xml_str).toprettyxml(indent="    ")
+        pretty_xml_str = minidom.parseString(xml_str).toprettyxml(indent="    ")  # nosec B318
 
         with self.output_path.open("w", encoding="utf-8") as f:
             f.write(pretty_xml_str)

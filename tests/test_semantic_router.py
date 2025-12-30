@@ -15,11 +15,13 @@ class TestSemanticRouter:
     def mock_embedder(self):
         """Create a mock embedder."""
         embedder = MagicMock()
-        embedder.encode_documents.return_value = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ])
+        embedder.encode_documents.return_value = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         embedder.encode_query.return_value = np.array([0.9, 0.1, 0.0])
         return embedder
 
@@ -81,20 +83,24 @@ class TestSemanticRouter:
         from mailtag.semantic_router import SemanticRouter
 
         # Setup embedder to return specific embeddings
-        mock_embedder.encode_documents.return_value = np.array([
-            [1.0, 0.0, 0.0],  # Commerce
-            [0.0, 1.0, 0.0],  # Finance
-            [0.0, 0.0, 1.0],  # Travel
-        ])
+        mock_embedder.encode_documents.return_value = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Commerce
+                [0.0, 1.0, 0.0],  # Finance
+                [0.0, 0.0, 1.0],  # Travel
+            ]
+        )
         # Query embedding is close to Commerce
         mock_embedder.encode_query.return_value = np.array([0.95, 0.05, 0.0])
 
         router = SemanticRouter(mock_embedder, score_threshold=0.5)
-        router.build_from_examples({
-            "Commerce": ["shopping"],
-            "Finance": ["banking"],
-            "Travel": ["flights"],
-        })
+        router.build_from_examples(
+            {
+                "Commerce": ["shopping"],
+                "Finance": ["banking"],
+                "Travel": ["flights"],
+            }
+        )
 
         category, score = router.route("shopping related query")
 
@@ -106,18 +112,22 @@ class TestSemanticRouter:
         from mailtag.semantic_router import SemanticRouter
 
         # Setup embedder with orthogonal embeddings
-        mock_embedder.encode_documents.return_value = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-        ])
+        mock_embedder.encode_documents.return_value = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ]
+        )
         # Query embedding is not close to any category
         mock_embedder.encode_query.return_value = np.array([0.3, 0.3, 0.9])
 
         router = SemanticRouter(mock_embedder, score_threshold=0.75)
-        router.build_from_examples({
-            "Cat1": ["example1"],
-            "Cat2": ["example2"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["example1"],
+                "Cat2": ["example2"],
+            }
+        )
 
         category, score = router.route("unrelated query")
 
@@ -140,19 +150,23 @@ class TestSemanticRouter:
         from mailtag.semantic_router import SemanticRouter
 
         # Setup embeddings
-        mock_embedder.encode_documents.return_value = np.array([
-            [1.0, 0.0, 0.0],
-            [0.9, 0.1, 0.0],
-            [0.0, 1.0, 0.0],
-        ])
+        mock_embedder.encode_documents.return_value = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.9, 0.1, 0.0],
+                [0.0, 1.0, 0.0],
+            ]
+        )
         mock_embedder.encode_query.return_value = np.array([0.95, 0.05, 0.0])
 
         router = SemanticRouter(mock_embedder)
-        router.build_from_examples({
-            "Cat1": ["ex1"],
-            "Cat2": ["ex2"],
-            "Cat3": ["ex3"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["ex1"],
+                "Cat2": ["ex2"],
+                "Cat3": ["ex3"],
+            }
+        )
 
         alternatives = router.route_with_alternatives("query", top_k=2)
 
@@ -194,10 +208,12 @@ class TestSemanticRouter:
         from mailtag.semantic_router import SemanticRouter
 
         router = SemanticRouter(mock_embedder)
-        router.build_from_examples({
-            "Cat1": ["ex1"],
-            "Cat2": ["ex2"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["ex1"],
+                "Cat2": ["ex2"],
+            }
+        )
 
         assert "Cat1" in router.categories
         result = router.remove_category("Cat1")
@@ -224,10 +240,12 @@ class TestSemanticRouter:
 
             # Build and save
             router1 = SemanticRouter(mock_embedder)
-            router1.build_from_examples({
-                "Cat1": ["ex1"],
-                "Cat2": ["ex2"],
-            })
+            router1.build_from_examples(
+                {
+                    "Cat1": ["ex1"],
+                    "Cat2": ["ex2"],
+                }
+            )
             save_result = router1.save_embeddings(filepath)
 
             assert save_result is True
@@ -258,11 +276,13 @@ class TestSemanticRouter:
         router = SemanticRouter(mock_embedder)
         assert router.num_categories == 0
 
-        router.build_from_examples({
-            "Cat1": ["ex1"],
-            "Cat2": ["ex2"],
-            "Cat3": ["ex3"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["ex1"],
+                "Cat2": ["ex2"],
+                "Cat3": ["ex3"],
+            }
+        )
         assert router.num_categories == 3
 
     def test_get_category_info(self, mock_embedder):
@@ -270,10 +290,12 @@ class TestSemanticRouter:
         from mailtag.semantic_router import SemanticRouter
 
         router = SemanticRouter(mock_embedder)
-        router.build_from_examples({
-            "Cat1": ["ex1"],
-            "Cat2": ["ex2"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["ex1"],
+                "Cat2": ["ex2"],
+            }
+        )
 
         info = router.get_category_info()
 
@@ -333,16 +355,20 @@ class TestSemanticRouterEmbeddingMatrix:
         from mailtag.semantic_router import SemanticRouter
 
         # Return non-normalized embeddings
-        mock_embedder.encode_documents.return_value = np.array([
-            [3.0, 4.0, 0.0],  # Norm = 5
-            [0.0, 2.0, 0.0],  # Norm = 2
-        ])
+        mock_embedder.encode_documents.return_value = np.array(
+            [
+                [3.0, 4.0, 0.0],  # Norm = 5
+                [0.0, 2.0, 0.0],  # Norm = 2
+            ]
+        )
 
         router = SemanticRouter(mock_embedder)
-        router.build_from_examples({
-            "Cat1": ["ex1"],
-            "Cat2": ["ex2"],
-        })
+        router.build_from_examples(
+            {
+                "Cat1": ["ex1"],
+                "Cat2": ["ex2"],
+            }
+        )
 
         # Check that rows are normalized
         norms = np.linalg.norm(router._embedding_matrix, axis=1)

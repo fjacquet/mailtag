@@ -223,14 +223,10 @@ class Classifier:
         if category:
             # Validate category exists in our known categories
             if category in self.categories:
-                logger.debug(
-                    f"Semantic router matched '{category}' with score {score:.3f}"
-                )
+                logger.debug(f"Semantic router matched '{category}' with score {score:.3f}")
                 return category, score
             else:
-                logger.debug(
-                    f"Semantic router suggested unknown category '{category}', ignoring"
-                )
+                logger.debug(f"Semantic router suggested unknown category '{category}', ignoring")
 
         return None, score
 
@@ -240,7 +236,7 @@ class Classifier:
         subject = email.subject or "No Subject"
         # Create a hash of sender + subject for caching
         cache_input = f"{sender.lower()}:{subject.lower()}"
-        return hashlib.md5(cache_input.encode()).hexdigest()
+        return hashlib.md5(cache_input.encode(), usedforsecurity=False).hexdigest()
 
     def _truncate_body(self, body: str, max_chars: int = 1500) -> str:
         """Intelligently truncate email body to preserve important content.

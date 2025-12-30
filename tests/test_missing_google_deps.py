@@ -1,8 +1,8 @@
 import pytest
 
+import mailtag.gmail_auth as gmail_auth
 from mailtag.config import GmailConfig
 from mailtag.gmail_service import GmailService
-import mailtag.gmail_auth as gmail_auth
 
 
 def test_get_gmail_service_missing_dependencies(monkeypatch):
@@ -19,4 +19,3 @@ def test_gmail_service_connect_missing_dependencies(monkeypatch):
     with pytest.raises(ImportError, match="Google API dependencies are required"):
         with service.connect():
             pass
-

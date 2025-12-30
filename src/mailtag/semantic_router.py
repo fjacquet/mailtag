@@ -261,6 +261,4 @@ class SemanticRouter:
         Returns:
             Dict with category names and embedding dimensions
         """
-        return {
-            cat: {"embedding_dim": emb.shape[0]} for cat, emb in self.category_embeddings.items()
-        }
+        return {cat: {"embedding_dim": emb.shape[0]} for cat, emb in self.category_embeddings.items()}

@@ -35,9 +35,7 @@ class TestMLXEmbedder:
         mock_st.return_value = mock_model
 
         with patch.dict(sys.modules, {"sentence_transformers": MagicMock()}):
-            with patch(
-                "sentence_transformers.SentenceTransformer", mock_st
-            ):
+            with patch("sentence_transformers.SentenceTransformer", mock_st):
                 embedder = MLXEmbedder()
 
                 # Model not loaded yet - _model is None
@@ -115,11 +113,13 @@ class TestMLXEmbedder:
 
         # Create test embeddings
         query = np.array([1.0, 0.0, 0.0])
-        docs = np.array([
-            [1.0, 0.0, 0.0],  # Same as query
-            [0.0, 1.0, 0.0],  # Orthogonal
-            [0.707, 0.707, 0.0],  # 45 degrees
-        ])
+        docs = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Same as query
+                [0.0, 1.0, 0.0],  # Orthogonal
+                [0.707, 0.707, 0.0],  # 45 degrees
+            ]
+        )
 
         similarities = embedder.similarity(query, docs)
 
@@ -255,9 +255,7 @@ class TestMLXLLM:
         llm._model = mock_model
         llm._tokenizer = mock_tokenizer
 
-        mock_generate = MagicMock(
-            return_value='{"category": "Test", "confidence": 1.5, "reason": ""}'
-        )
+        mock_generate = MagicMock(return_value='{"category": "Test", "confidence": 1.5, "reason": ""}')
         with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
             with patch("mlx_lm.generate", mock_generate):
                 _, confidence, _ = llm.classify("Test prompt")

@@ -104,7 +104,10 @@ class TestAIJsonResponseParsing:
 
     def test_parse_json_with_markdown_code_block(self, classifier):
         """Test parsing JSON wrapped in markdown code blocks."""
-        json_response = '```json\n{"category": "Shopping/Online", "confidence": 0.88, "reason": "Order confirmation"}\n```'
+        json_response = (
+            '```json\n{"category": "Shopping/Online", '
+            '"confidence": 0.88, "reason": "Order confirmation"}\n```'
+        )
         category, confidence, reason = classifier._parse_ai_json_response(json_response)
 
         assert category == "Shopping/Online"
@@ -113,7 +116,10 @@ class TestAIJsonResponseParsing:
 
     def test_parse_json_with_extra_text(self, classifier):
         """Test parsing JSON with extra text around it."""
-        json_response = 'Here is my classification: {"category": "Services/Professional", "confidence": 0.92, "reason": "LinkedIn"} hope this helps'
+        json_response = (
+            'Here is my classification: {"category": "Services/Professional", '
+            '"confidence": 0.92, "reason": "LinkedIn"} hope this helps'
+        )
         category, confidence, reason = classifier._parse_ai_json_response(json_response)
 
         assert category == "Services/Professional"
@@ -265,9 +271,7 @@ class TestInvalidCategoryHandling:
 
         assert result == "À Classer"
 
-    def test_new_folder_proposal_valid_parent(
-        self, classifier, sample_email, mock_folder_analyzer
-    ):
+    def test_new_folder_proposal_valid_parent(self, classifier, sample_email, mock_folder_analyzer):
         """Test new folder proposal with valid parent."""
         # Mock MLX components with new folder proposal
         mock_llm = Mock()
@@ -281,9 +285,7 @@ class TestInvalidCategoryHandling:
         # Should be logged as proposal and return "À Classer"
         assert result == "À Classer"
 
-    def test_new_folder_proposal_invalid_parent(
-        self, classifier, sample_email, mock_folder_analyzer
-    ):
+    def test_new_folder_proposal_invalid_parent(self, classifier, sample_email, mock_folder_analyzer):
         """Test new folder proposal with invalid parent."""
         # Mock MLX components with invalid parent proposal
         mock_llm = Mock()

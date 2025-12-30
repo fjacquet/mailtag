@@ -90,7 +90,7 @@ class DomainAnalyzer:
                     if sender not in domain_data[domain]["sender_list"]:
                         domain_data[domain]["sender_list"].append(sender)
 
-            except (json.JSONDecodeError, IOError) as e:
+            except (OSError, json.JSONDecodeError) as e:
                 logger.warning(f"Failed to process {filepath}: {e}")
                 continue
 
@@ -205,13 +205,13 @@ class DomainAnalyzer:
         try:
             with open(domain_db_path) as f:
                 domain_db = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.error(f"Failed to load domain DB: {e}")
             return {}
 
         # Analyze categories
         category_distribution = defaultdict(int)
-        for domain, category in domain_db.items():
+        for _domain, category in domain_db.items():
             category_distribution[category] += 1
 
         # Find parent categories

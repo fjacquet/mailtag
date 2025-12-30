@@ -1,5 +1,5 @@
-from pathlib import Path
 from email.header import Header
+from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture

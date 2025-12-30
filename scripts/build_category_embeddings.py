@@ -261,9 +261,7 @@ def build_embeddings(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Build category embeddings for semantic routing"
-    )
+    parser = argparse.ArgumentParser(description="Build category embeddings for semantic routing")
     parser.add_argument(
         "--output",
         type=Path,

@@ -24,7 +24,7 @@ def update_domain_db(candidates_file: Path, domain_db_file: Path) -> tuple[int, 
     try:
         with open(candidates_file) as f:
             data = json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"Error loading candidates file: {e}")
         return 0, 0
 
@@ -32,8 +32,8 @@ def update_domain_db(candidates_file: Path, domain_db_file: Path) -> tuple[int, 
     try:
         with open(domain_db_file) as f:
             domain_db = json.load(f)
-    except (json.JSONDecodeError, IOError):
-        print(f"Warning: Could not load existing DB, creating new one")
+    except (OSError, json.JSONDecodeError):
+        print("Warning: Could not load existing DB, creating new one")
         domain_db = {}
 
     # Add new entries
