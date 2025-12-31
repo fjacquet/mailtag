@@ -119,8 +119,14 @@ python src/main.py filters
 # Analyze Pass 3 files to find domain candidates (NEW)
 python src/main.py analyze-domains --output data/domain_candidates.json --min-emails 5 --top 50
 
-# Update domain database from reviewed candidates (NEW)
+# Update domain database from reviewed candidates
 python scripts/update_domain_db.py
+
+# Data management commands
+python src/main.py cleanup          # Remove old pass3 files (default: 30 days)
+python src/main.py cleanup --consolidate  # Also remove duplicate files per day
+python src/main.py db-stats         # Show database statistics and health check
+python src/main.py prune-db         # Remove low-confidence sender entries
 
 # Streamlit UI (alternative interface)
 streamlit run src/streamlit_app.py
@@ -187,6 +193,8 @@ Three JSON databases managed by `ClassificationDatabase` (`src/mailtag/database.
 
 All databases use lowercase normalization for sender addresses and domains to ensure consistent lookups.
 
+**Automatic Backups**: Databases are backed up to `db/backups/` once at the start of each classification run. Keeps 10 most recent backups per database.
+
 ### Configuration System
 
 Configuration loaded from `config.toml` with environment variable substitution:
@@ -228,11 +236,16 @@ class Email(BaseModel):
 ### Utilities
 
 - `src/mailtag/utils/domain_utils.py`: Domain extraction, normalization, and non-commercial domain detection with caching
-- `src/mailtag/utils/domain_analyzer.py`: **NEW** - Analyze Pass 3 files to identify commercial domain candidates for classification DB
-- `src/mailtag/utils/text_utils.py`: **NEW** - Intelligent email body processing (smart truncation, signature removal, keyword extraction)
+- `src/mailtag/utils/domain_analyzer.py`: Analyze Pass 3 files to identify commercial domain candidates for classification DB
+- `src/mailtag/utils/text_utils.py`: Intelligent email body processing (smart truncation, signature removal, keyword extraction)
+- `src/mailtag/utils/data_cleanup.py`: Pass3 file cleanup and consolidation utilities
+- `src/mailtag/utils/db_backup.py`: Database backup/restore with automatic rotation
+- `src/mailtag/utils/data_validation.py`: Email/domain normalization and database validation
 - `src/mailtag/retry.py`: Retry logic with exponential backoff for transient failures
 - `src/mailtag/metrics.py`: Performance metrics collection and reporting (extended with classification quality metrics)
 - `src/mailtag/folder_analyzer.py`: IMAP folder hierarchy analysis and category extraction
+
+See [docs/DATA_MANAGEMENT.md](docs/DATA_MANAGEMENT.md) for detailed data management documentation.
 
 ### Classification Metrics (NEW)
 

@@ -3,11 +3,14 @@ import os
 
 from loguru import logger
 
+_GOOGLE_IMPORT_ERROR: ModuleNotFoundError | None = None
+
 try:  # pragma: no cover - import guarded for optional dependency
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
     from googleapiclient.discovery import build
+
     GOOGLE_DEPS_AVAILABLE = True
 except ModuleNotFoundError as e:  # pragma: no cover - exercised via tests
     GOOGLE_DEPS_AVAILABLE = False

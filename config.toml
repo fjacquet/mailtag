@@ -60,3 +60,26 @@ metrics_enabled = true
 metrics_log_level = "INFO"
 # How often to log metrics summary (in minutes)
 metrics_log_interval_minutes = 10
+
+[mlx]
+# MLX-based classification (Apple Silicon optimized)
+# Set to false to use legacy litellm/Ollama instead
+enabled = true
+
+# Semantic Router (Signal 5) - embedding-based instant classification
+# Model for generating embeddings (nomic supports French and long context)
+embedding_model = "nomic-ai/nomic-embed-text-v1.5"
+# Minimum similarity score to accept semantic classification (0.0-1.0)
+score_threshold = 0.75
+# Pre-computed category embeddings file
+embeddings_file = "data/category_embeddings.npz"
+
+# LLM Fallback (Signal 6) - text generation when semantic routing fails
+# MLX-compatible model from mlx-community
+llm_model = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+# Confidence threshold for LLM classification
+llm_confidence = 0.85
+# Maximum tokens to generate
+llm_max_tokens = 256
+# Temperature for generation (lower = more deterministic)
+llm_temperature = 0.2

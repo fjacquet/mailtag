@@ -16,6 +16,7 @@ from mailtag.config import (
     GmailConfig,
     ImapConfig,
     LoggingConfig,
+    MLXConfig,
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.metrics import METRICS, ClassificationMetrics
@@ -51,6 +52,7 @@ def mock_config():
             unclassified_folder_name="Unclassified",
             junk_folder_name="Junk",
         ),
+        mlx=MLXConfig(enabled=False),  # Disable MLX for unit tests
     )
 
 

@@ -2,7 +2,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import pytest
-import yaml
 from pytest_mock import MockerFixture
 
 from mailtag.classifier import Classifier
@@ -14,6 +13,7 @@ from mailtag.config import (
     GmailConfig,
     ImapConfig,
     LoggingConfig,
+    MLXConfig,
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
@@ -29,6 +29,8 @@ def mock_db(mocker: MockerFixture) -> MockerFixture:
     db.get_dominant_classification.side_effect = (
         lambda sender: list(db.validated_db.get(sender, {}).keys())[0] if sender in db.validated_db else None
     )
+    # Default: no domain classification
+    db.get_category_by_domain.return_value = None
     return db
 
 
@@ -39,6 +41,7 @@ def config() -> AppConfig:
         general=GeneralConfig(
             ollama_model="test-model",
             api_base="http://localhost:11434",
+            use_imap_folders_for_classification=False,  # Use schema-based categories
         ),
         logging=LoggingConfig(level="DEBUG", file=""),
         classifier=ClassifierConfig(
@@ -54,34 +57,23 @@ def config() -> AppConfig:
             unclassified_folder_name="Unclassified",
             junk_folder_name="Junk",
         ),
+        mlx=MLXConfig(enabled=False),  # Disable MLX for unit tests
     )
 
 
 @pytest.fixture
 def classifier(config: AppConfig, mock_db: MockerFixture, mocker: MockerFixture) -> Classifier:
     """Returns a Classifier instance with a mocked database."""
-    schema_content = """
-    - name: Finances
-      sublabels:
-        - name: Bloomberg
-    - name: Services
-      sublabels:
-        - name: Skylum
-    - name: À Classer
-    """
-    # Mock Path object to control file operations
-    mock_path_constructor = mocker.patch("pathlib.Path")
-    mock_path_instance = mock_path_constructor.return_value
-    mock_path_instance.exists.return_value = True
-    # Create a mock file object for the context manager
-    mock_file = mocker.mock_open(read_data=schema_content)
-    mock_path_instance.open.return_value = mock_file.return_value
-
-    # Mock yaml.safe_load to return the parsed schema
-    mocker.patch("yaml.safe_load", return_value=yaml.safe_load(schema_content))
-
     # Initialize the classifier
     classifier_instance = Classifier(config=config, database=mock_db)
+
+    # Directly set the categories for testing
+    classifier_instance.categories = [
+        "Finances/Bloomberg",
+        "Services/Skylum",
+        "À Classer",
+    ]
+
     # Mock the proposal file to prevent actual file writes
     classifier_instance.proposal_file = mocker.MagicMock(spec=Path)
     return classifier_instance

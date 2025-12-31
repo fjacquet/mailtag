@@ -1,7 +1,5 @@
 """Tests for text processing utilities."""
 
-import pytest
-
 from mailtag.utils.text_utils import (
     _remove_signatures,
     clean_whitespace,
@@ -339,7 +337,11 @@ class TestIsLikelyAutomated:
         assert is_likely_automated(body, subject) is False  # Only 1 indicator
 
         # Add more indicators
-        body = "Newsletter with https://link1.com and https://link2.com and https://link3.com and https://link4.com and https://link5.com and https://link6.com. Unsubscribe here."
+        body = (
+            "Newsletter with https://link1.com and https://link2.com and "
+            "https://link3.com and https://link4.com and https://link5.com and "
+            "https://link6.com. Unsubscribe here."
+        )
         assert is_likely_automated(body, subject) is True  # 2+ indicators
 
     def test_is_automated_noreply(self):

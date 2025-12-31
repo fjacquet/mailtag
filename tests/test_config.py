@@ -44,8 +44,12 @@ token_file = "token.json"
     return config_path
 
 
-def test_load_config_success(mock_config_file: Path):
+def test_load_config_success(mock_config_file: Path, monkeypatch):
     """Tests that the config is loaded correctly from a valid file."""
+    # Clear environment variables that override config file
+    for env_var in ["MODEL", "MODEL_NAME", "OLLAMA_API_URL", "API_BASE", "IMAP_USER", "IMAP_PASSWORD"]:
+        monkeypatch.delenv(env_var, raising=False)
+
     config = load_config(mock_config_file)
     assert isinstance(config, AppConfig)
     assert config.general.ollama_model == "test-model"

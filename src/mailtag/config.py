@@ -59,6 +59,22 @@ class FastParseConfig:
 
 
 @dataclass
+class MLXConfig:
+    """Configuration for MLX-based classification (Apple Silicon optimized)."""
+
+    enabled: bool = True
+    # Semantic Router (Signal 5) - embedding-based classification
+    embedding_model: str = "nomic-ai/nomic-embed-text-v1.5"
+    score_threshold: float = 0.75
+    embeddings_file: str = "data/category_embeddings.npz"
+    # LLM Fallback (Signal 6) - text generation
+    llm_model: str = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+    llm_confidence: float = 0.85
+    llm_max_tokens: int = 256
+    llm_temperature: float = 0.2
+
+
+@dataclass
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
@@ -66,6 +82,7 @@ class AppConfig:
     imap: ImapConfig
     gmail: GmailConfig
     fast_parse: FastParseConfig
+    mlx: MLXConfig
 
 
 def load_config(path: Path) -> AppConfig:
@@ -109,6 +126,18 @@ def load_config(path: Path) -> AppConfig:
                 metrics_log_interval_minutes=fast_parse_data.get("metrics_log_interval_minutes", 10),
             )
 
+            mlx_data = data.get("mlx", {})
+            mlx_config = MLXConfig(
+                enabled=mlx_data.get("enabled", True),
+                embedding_model=mlx_data.get("embedding_model", "nomic-ai/nomic-embed-text-v1.5"),
+                score_threshold=mlx_data.get("score_threshold", 0.75),
+                embeddings_file=mlx_data.get("embeddings_file", "data/category_embeddings.npz"),
+                llm_model=mlx_data.get("llm_model", "mlx-community/Mistral-7B-Instruct-v0.3-4bit"),
+                llm_confidence=mlx_data.get("llm_confidence", 0.85),
+                llm_max_tokens=mlx_data.get("llm_max_tokens", 256),
+                llm_temperature=mlx_data.get("llm_temperature", 0.2),
+            )
+
             return AppConfig(
                 general=GeneralConfig(
                     ollama_model=ollama_model,
@@ -138,6 +167,7 @@ def load_config(path: Path) -> AppConfig:
                     token_file=data["gmail"]["token_file"],
                 ),
                 fast_parse=fast_parse_config,
+                mlx=mlx_config,
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
@@ -178,4 +208,5 @@ except RuntimeError as e:
             unclassified_folder_name="Unclassified",
             junk_folder_name="Junk",
         ),
+        mlx=MLXConfig(),
     )

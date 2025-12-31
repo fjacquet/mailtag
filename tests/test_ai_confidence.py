@@ -13,6 +13,7 @@ from mailtag.config import (
     GmailConfig,
     ImapConfig,
     LoggingConfig,
+    MLXConfig,
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
@@ -39,6 +40,7 @@ def mock_config():
             unclassified_folder_name="Unclassified",
             junk_folder_name="Junk",
         ),
+        mlx=MLXConfig(enabled=False),  # Disable MLX for unit tests
     )
 
 
@@ -102,7 +104,10 @@ class TestAIJsonResponseParsing:
 
     def test_parse_json_with_markdown_code_block(self, classifier):
         """Test parsing JSON wrapped in markdown code blocks."""
-        json_response = '```json\n{"category": "Shopping/Online", "confidence": 0.88, "reason": "Order confirmation"}\n```'
+        json_response = (
+            '```json\n{"category": "Shopping/Online", '
+            '"confidence": 0.88, "reason": "Order confirmation"}\n```'
+        )
         category, confidence, reason = classifier._parse_ai_json_response(json_response)
 
         assert category == "Shopping/Online"
@@ -111,7 +116,10 @@ class TestAIJsonResponseParsing:
 
     def test_parse_json_with_extra_text(self, classifier):
         """Test parsing JSON with extra text around it."""
-        json_response = 'Here is my classification: {"category": "Services/Professional", "confidence": 0.92, "reason": "LinkedIn"} hope this helps'
+        json_response = (
+            'Here is my classification: {"category": "Services/Professional", '
+            '"confidence": 0.92, "reason": "LinkedIn"} hope this helps'
+        )
         category, confidence, reason = classifier._parse_ai_json_response(json_response)
 
         assert category == "Services/Professional"
@@ -199,72 +207,51 @@ class TestLegacyResponseParsing:
 class TestConfidenceThreshold:
     """Test confidence threshold enforcement."""
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_high_confidence_accepted(self, mock_completion, classifier, sample_email):
+    def test_high_confidence_accepted(self, classifier, sample_email):
         """Test that high confidence classifications are accepted."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.95, "reason": "Invoice"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.95, "Invoice")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "Finance/Banking"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_low_confidence_rejected(self, mock_completion, classifier, sample_email):
+    def test_low_confidence_rejected(self, classifier, sample_email):
         """Test that low confidence classifications are rejected."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.50, "reason": "Not sure"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.50, "Not sure")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_threshold_boundary(self, mock_completion, classifier, sample_email):
+    def test_threshold_boundary(self, classifier, sample_email):
         """Test classification at threshold boundary (0.85)."""
-        # Exactly at threshold should be accepted
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.85, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components - exactly at threshold should be accepted
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.85, "Test")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "Finance/Banking"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_just_below_threshold(self, mock_completion, classifier, sample_email):
+    def test_just_below_threshold(self, classifier, sample_email):
         """Test classification just below threshold."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.84, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.84, "Test")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
@@ -272,61 +259,42 @@ class TestConfidenceThreshold:
 class TestInvalidCategoryHandling:
     """Test handling of invalid category suggestions."""
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_invalid_category_high_confidence(self, mock_completion, classifier, sample_email):
+    def test_invalid_category_high_confidence(self, classifier, sample_email):
         """Test that invalid categories are rejected even with high confidence."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "InvalidCategory", "confidence": 0.99, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components with invalid category
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("InvalidCategory", 0.99, "Test")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_new_folder_proposal_valid_parent(
-        self, mock_completion, classifier, sample_email, mock_folder_analyzer
-    ):
+    def test_new_folder_proposal_valid_parent(self, classifier, sample_email, mock_folder_analyzer):
         """Test new folder proposal with valid parent."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/NewFolder", "confidence": 0.90, "reason": "New category"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components with new folder proposal
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/NewFolder", 0.90, "New category")
+        classifier._mlx_llm = mock_llm
         mock_folder_analyzer.is_valid_parent_folder.return_value = True
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         # Should be logged as proposal and return "À Classer"
         assert result == "À Classer"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_new_folder_proposal_invalid_parent(
-        self, mock_completion, classifier, sample_email, mock_folder_analyzer
-    ):
+    def test_new_folder_proposal_invalid_parent(self, classifier, sample_email, mock_folder_analyzer):
         """Test new folder proposal with invalid parent."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "InvalidParent/NewFolder", "confidence": 0.90, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components with invalid parent proposal
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("InvalidParent/NewFolder", 0.90, "Test")
+        classifier._mlx_llm = mock_llm
         mock_folder_analyzer.is_valid_parent_folder.return_value = False
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
@@ -334,41 +302,30 @@ class TestInvalidCategoryHandling:
 class TestCaching:
     """Test AI response caching."""
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_cache_hit(self, mock_completion, classifier, sample_email):
+    def test_cache_hit(self, classifier, sample_email):
         """Test that cached responses are used."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.95, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.95, "Test")
+        classifier._mlx_llm = mock_llm
 
-        # First call - should hit API
-        result1 = classifier._get_category_from_ai(sample_email)
-        assert result1 == "Finance/Banking"
-        assert mock_completion.call_count == 1
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            # First call - should call LLM
+            result1 = classifier._get_category_from_ai(sample_email)
+            assert result1 == "Finance/Banking"
+            assert mock_llm.classify.call_count == 1
 
-        # Second call with same email - should use cache
-        result2 = classifier._get_category_from_ai(sample_email)
-        assert result2 == "Finance/Banking"
-        assert mock_completion.call_count == 1  # No additional API call
+            # Second call with same email - should use cache
+            result2 = classifier._get_category_from_ai(sample_email)
+            assert result2 == "Finance/Banking"
+            assert mock_llm.classify.call_count == 1  # No additional call
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_cache_key_includes_subject(self, mock_completion, classifier):
+    def test_cache_key_includes_subject(self, classifier):
         """Test that cache key includes subject (different subjects = different cache entries)."""
-        mock_completion.return_value = Mock(
-            choices=[
-                Mock(
-                    message=Mock(
-                        content='{"category": "Finance/Banking", "confidence": 0.95, "reason": "Test"}'
-                    )
-                )
-            ]
-        )
+        # Mock MLX components
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.95, "Test")
+        classifier._mlx_llm = mock_llm
 
         email1 = Email(
             msg_id="1",
@@ -386,42 +343,50 @@ class TestCaching:
             body="Body",
         )
 
-        classifier._get_category_from_ai(email1)
-        classifier._get_category_from_ai(email2)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            classifier._get_category_from_ai(email1)
+            classifier._get_category_from_ai(email2)
 
-        # Should be 2 API calls (different cache keys)
-        assert mock_completion.call_count == 2
+        # Should be 2 LLM calls (different cache keys)
+        assert mock_llm.classify.call_count == 2
 
 
-class TestBackwardCompatibility:
-    """Test backward compatibility with legacy string responses."""
+class TestMLXEdgeCases:
+    """Test edge cases with MLX LLM responses."""
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_legacy_string_response_valid_category(self, mock_completion, classifier, sample_email):
-        """Test that legacy string responses still work."""
-        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="Finance/Banking"))])
+    def test_valid_category_response(self, classifier, sample_email):
+        """Test that valid category responses work correctly."""
+        # Mock MLX components with valid category
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.95, "Test reason")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "Finance/Banking"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_legacy_string_response_invalid_category(self, mock_completion, classifier, sample_email):
-        """Test that invalid legacy responses are handled."""
-        mock_completion.return_value = Mock(choices=[Mock(message=Mock(content="InvalidCategory"))])
+    def test_empty_category_response(self, classifier, sample_email):
+        """Test that empty category responses are handled."""
+        # Mock MLX components with empty category
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("", 0.95, "No match found")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_legacy_uncertain_response(self, mock_completion, classifier, sample_email):
-        """Test legacy UNCERTAIN format."""
-        mock_completion.return_value = Mock(
-            choices=[Mock(message=Mock(content="UNCERTAIN: Finance/Banking"))]
-        )
+    def test_low_confidence_with_valid_category(self, classifier, sample_email):
+        """Test that low confidence classifications route to À Classer."""
+        # Mock MLX components with low confidence
+        mock_llm = Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.40, "Not confident")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "À Classer"
 
@@ -429,24 +394,32 @@ class TestBackwardCompatibility:
 class TestErrorHandling:
     """Test error handling in AI classification."""
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_api_exception(self, mock_completion, classifier, sample_email):
-        """Test handling of API exceptions."""
-        mock_completion.side_effect = Exception("API Error")
+    def test_llm_exception(self, classifier, sample_email):
+        """Test handling of LLM exceptions."""
+        # Mock MLX components that raise an exception
+        mock_llm = Mock()
+        mock_llm.classify.side_effect = Exception("LLM Error")
+        classifier._mlx_llm = mock_llm
 
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
         assert result == "(Model Error)"
 
-    @patch("mailtag.classifier.litellm.completion")
-    def test_malformed_json_fallback(self, mock_completion, classifier, sample_email):
-        """Test that malformed JSON falls back to legacy parsing."""
-        mock_completion.return_value = Mock(
-            choices=[Mock(message=Mock(content='{"category": "Finance/Banking"'))]  # Missing closing brace
-        )
+    def test_mlx_not_initialized(self, classifier, sample_email):
+        """Test handling when MLX components are not initialized."""
+        # Set _mlx_llm to None - _init_mlx_components returns True but _mlx_llm is None
+        classifier._mlx_llm = None
 
-        # Should fall back to legacy parsing and treat as plain text
-        result = classifier._get_category_from_ai(sample_email)
+        with patch.object(classifier, "_init_mlx_components", return_value=True):
+            result = classifier._get_category_from_ai(sample_email)
 
-        # Legacy parser will see the malformed JSON as invalid category
-        assert result == "À Classer"
+        assert result == "(Model Error)"
+
+    def test_mlx_disabled_returns_error(self, classifier, sample_email):
+        """Test that disabled MLX returns model error."""
+        # When MLX is disabled and can't initialize, it should return error
+        with patch.object(classifier, "_init_mlx_components", return_value=False):
+            result = classifier._get_category_from_ai(sample_email)
+
+        assert result == "(Model Error)"

@@ -308,7 +308,7 @@ class TestGenerateReport:
 
         # Count domain lines (exclude header/separator lines)
         lines = report.split("\n")
-        domain_lines = [l for l in lines if ".com" in l and not l.startswith("-")]
+        domain_lines = [line for line in lines if ".com" in line and not line.startswith("-")]
 
         # Should show at most 2 domains (or less if fewer candidates)
         assert len(domain_lines) <= 2

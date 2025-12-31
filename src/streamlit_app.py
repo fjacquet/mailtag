@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from mailtag.mail_service import MailService
 
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
 from mailtag.database import ClassificationDatabase
-from mailtag.mail_service import MailService
 
 st.set_page_config(page_title="MailTag Classifier", layout="wide")
 
