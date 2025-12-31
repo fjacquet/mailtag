@@ -174,11 +174,16 @@ class TestMLXLLM:
         llm._model = mock_model
         llm._tokenizer = mock_tokenizer
 
-        # Patch mlx_lm.generate at module level before import
+        # Patch mlx_lm.generate and mlx_lm.sample_utils.make_sampler at module level
         mock_generate = MagicMock(return_value="  Generated response  ")
-        with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
-            with patch("mlx_lm.generate", mock_generate):
-                result = llm.generate("Test prompt")
+        mock_make_sampler = MagicMock(return_value=MagicMock())
+        mock_sample_utils = MagicMock(make_sampler=mock_make_sampler)
+        mock_mlx_lm = MagicMock(generate=mock_generate, sample_utils=mock_sample_utils)
+        with patch.dict(
+            sys.modules,
+            {"mlx_lm": mock_mlx_lm, "mlx_lm.sample_utils": mock_sample_utils},
+        ):
+            result = llm.generate("Test prompt")
 
         assert result == "Generated response"  # Stripped
 
@@ -195,9 +200,14 @@ class TestMLXLLM:
 
         json_response = '{"category": "Commerce/Amazon", "confidence": 0.95, "reason": "test"}'
         mock_generate = MagicMock(return_value=json_response)
-        with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
-            with patch("mlx_lm.generate", mock_generate):
-                category, confidence, reason = llm.classify("Test prompt")
+        mock_make_sampler = MagicMock(return_value=MagicMock())
+        mock_sample_utils = MagicMock(make_sampler=mock_make_sampler)
+        mock_mlx_lm = MagicMock(generate=mock_generate, sample_utils=mock_sample_utils)
+        with patch.dict(
+            sys.modules,
+            {"mlx_lm": mock_mlx_lm, "mlx_lm.sample_utils": mock_sample_utils},
+        ):
+            category, confidence, reason = llm.classify("Test prompt")
 
         assert category == "Commerce/Amazon"
         assert confidence == 0.95
@@ -216,9 +226,14 @@ class TestMLXLLM:
 
         response = 'I classify this as {"category": "Finance", "confidence": 0.8, "reason": "invoice"}'
         mock_generate = MagicMock(return_value=response)
-        with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
-            with patch("mlx_lm.generate", mock_generate):
-                category, confidence, reason = llm.classify("Test prompt")
+        mock_make_sampler = MagicMock(return_value=MagicMock())
+        mock_sample_utils = MagicMock(make_sampler=mock_make_sampler)
+        mock_mlx_lm = MagicMock(generate=mock_generate, sample_utils=mock_sample_utils)
+        with patch.dict(
+            sys.modules,
+            {"mlx_lm": mock_mlx_lm, "mlx_lm.sample_utils": mock_sample_utils},
+        ):
+            category, confidence, reason = llm.classify("Test prompt")
 
         assert category == "Finance"
         assert confidence == 0.8
@@ -235,9 +250,14 @@ class TestMLXLLM:
         llm._tokenizer = mock_tokenizer
 
         mock_generate = MagicMock(return_value="Commerce/Amazon")
-        with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
-            with patch("mlx_lm.generate", mock_generate):
-                category, confidence, reason = llm.classify("Test prompt")
+        mock_make_sampler = MagicMock(return_value=MagicMock())
+        mock_sample_utils = MagicMock(make_sampler=mock_make_sampler)
+        mock_mlx_lm = MagicMock(generate=mock_generate, sample_utils=mock_sample_utils)
+        with patch.dict(
+            sys.modules,
+            {"mlx_lm": mock_mlx_lm, "mlx_lm.sample_utils": mock_sample_utils},
+        ):
+            category, confidence, reason = llm.classify("Test prompt")
 
         # Fallback: raw response as category with low confidence
         assert category == "Commerce/Amazon"
@@ -256,9 +276,14 @@ class TestMLXLLM:
         llm._tokenizer = mock_tokenizer
 
         mock_generate = MagicMock(return_value='{"category": "Test", "confidence": 1.5, "reason": ""}')
-        with patch.dict(sys.modules, {"mlx_lm": MagicMock(generate=mock_generate)}):
-            with patch("mlx_lm.generate", mock_generate):
-                _, confidence, _ = llm.classify("Test prompt")
+        mock_make_sampler = MagicMock(return_value=MagicMock())
+        mock_sample_utils = MagicMock(make_sampler=mock_make_sampler)
+        mock_mlx_lm = MagicMock(generate=mock_generate, sample_utils=mock_sample_utils)
+        with patch.dict(
+            sys.modules,
+            {"mlx_lm": mock_mlx_lm, "mlx_lm.sample_utils": mock_sample_utils},
+        ):
+            _, confidence, _ = llm.classify("Test prompt")
 
         assert confidence == 1.0  # Clamped to max
 

@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from mailtag.utils.data_validation import (
     fix_domain_classifications,
     get_database_stats,

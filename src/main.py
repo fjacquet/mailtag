@@ -343,14 +343,14 @@ def db_stats():
     print("\nPass3 Manual Matching Files:")
     print(f"  Total files: {pass3_stats['total_files']}")
     print(f"  Total size: {pass3_stats.get('total_size_mb', 0)} MB")
-    if pass3_stats.get('oldest_date'):
+    if pass3_stats.get("oldest_date"):
         print(f"  Date range: {pass3_stats['oldest_date']} to {pass3_stats['newest_date']}")
 
     # Backup stats
     backup_stats = get_backup_stats(backup_dir)
     print("\nBackups:")
     print(f"  Total backups: {backup_stats['total_backups']}")
-    if backup_stats['total_backups'] > 0:
+    if backup_stats["total_backups"] > 0:
         print(f"  Total size: {backup_stats.get('total_size_mb', 0)} MB")
         print(f"  Oldest: {backup_stats.get('oldest_backup', 'N/A')}")
         print(f"  Newest: {backup_stats.get('newest_backup', 'N/A')}")

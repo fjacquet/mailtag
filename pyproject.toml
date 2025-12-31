@@ -36,6 +36,7 @@ dependencies = [
     "mlx-lm>=0.18.0",
     "sentence-transformers>=2.2.0",
     "numpy>=1.24.0",
+    "einops>=0.8.1",
 ]
 
 [project.optional-dependencies]
