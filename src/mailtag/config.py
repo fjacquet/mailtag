@@ -173,40 +173,50 @@ def load_config(path: Path) -> AppConfig:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
 
 
+def _validate_config(config: AppConfig) -> None:
+    """Validate configuration values.
+
+    Args:
+        config: Configuration object to validate
+
+    Raises:
+        ValueError: If any configuration value is invalid
+    """
+    import re
+
+    # Check email format
+    email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if not re.match(email_regex, config.imap.user):
+        raise ValueError(f"Invalid email format: {config.imap.user}")
+
+    # Check non-empty password
+    if not config.imap.password:
+        raise ValueError(
+            "IMAP password cannot be empty. Set IMAP_PASSWORD environment variable."
+        )
+
+    # Validate API base URL format (if provided and not empty)
+    # Empty string is valid for non-Ollama providers like Gemini
+    # Skip validation for template placeholders like ${VARIABLE}
+    if (
+        config.general.api_base
+        and config.general.api_base.strip()
+        and not config.general.api_base.startswith(("http://", "https://", "${"))
+    ):
+        raise ValueError(f"Invalid API base URL: {config.general.api_base}")
+
+    # Validate thresholds (0-1 range)
+    if not 0 <= config.classifier.historical_confidence_threshold <= 1:
+        raise ValueError(
+            f"Historical confidence threshold must be 0-1, got: {config.classifier.historical_confidence_threshold}"
+        )
+
+    if not 0 <= config.classifier.ai_confidence_threshold <= 1:
+        raise ValueError(
+            f"AI confidence threshold must be 0-1, got: {config.classifier.ai_confidence_threshold}"
+        )
+
+
 # Load the global config
-try:
-    CONFIG = load_config(Path("config.toml"))
-except RuntimeError as e:
-    print(f"Error: {e}")
-    # Provide a default/fallback config or exit
-    CONFIG = AppConfig(
-        general=GeneralConfig(
-            ollama_model="gemma3",
-            api_base="http://localhost:11434",
-            use_imap_folders_for_classification=True,
-        ),
-        logging=LoggingConfig(level="INFO", file="mailtag.log"),
-        classifier=ClassifierConfig(
-            ai_confidence_threshold=0.7,
-            historical_confidence_threshold=0.9,
-            min_count=3,
-            num_ctx=8192,
-        ),
-        imap=ImapConfig(
-            host="imap.example.com",
-            user="user@example.com",
-            password="",
-            use_gmail_extensions=False,
-        ),
-        gmail=GmailConfig(
-            credentials_file="credentials.json",
-            token_file="token.json",
-        ),
-        fast_parse=FastParseConfig(
-            batch_size=500,
-            folder_cache_ttl_hours=24,
-            unclassified_folder_name="Unclassified",
-            junk_folder_name="Junk",
-        ),
-        mlx=MLXConfig(),
-    )
+CONFIG = load_config(Path("config.toml"))
+_validate_config(CONFIG)

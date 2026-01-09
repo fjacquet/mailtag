@@ -67,28 +67,28 @@ class ClassificationDatabase:
             logger.error(f"Could not read or parse domain db file at {self.domain_db_path}")
             return {}
 
-    def _save_suggestion_db(self):
+    def _save_suggestion_db(self) -> None:
         """Saves the suggestion database to a JSON file."""
         with self.suggestion_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.suggestion_db, f, indent=2, ensure_ascii=False)
 
-    def _save_validated_db(self):
+    def _save_validated_db(self) -> None:
         """Saves the validated database to a JSON file."""
         with self.validated_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.validated_db, f, indent=2, ensure_ascii=False)
 
-    def _save_domain_db(self):
+    def _save_domain_db(self) -> None:
         """Saves the domain classification database to a JSON file."""
         with self.domain_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.domain_db, f, indent=2, ensure_ascii=False)
 
-    def update_suggestion(self, sender_address: str, category: str):
+    def update_suggestion(self, sender_address: str, category: str) -> None:
         """Updates the occurrence count for a sender-category pair in the suggestion database."""
         normalized = _normalize_email(sender_address)
         self.suggestion_db[normalized][category] += 1
         self._save_suggestion_db()
 
-    def promote_to_validated(self, sender_address: str, category: str):
+    def promote_to_validated(self, sender_address: str, category: str) -> None:
         """Promotes a classification from the suggestion DB to the validated DB."""
         normalized = _normalize_email(sender_address)
         # Remove from suggestion DB
@@ -117,6 +117,19 @@ class ClassificationDatabase:
                 return max(classifications, key=classifications.get)
         return None
 
+    def get_sender_classifications(self, sender_address: str) -> dict[str, int]:
+        """Get all classifications for a sender from the suggestion database.
+
+        Args:
+            sender_address: Email address of the sender
+
+        Returns:
+            Dictionary mapping categories to occurrence counts
+            Returns empty dict if sender not found
+        """
+        normalized = _normalize_email(sender_address)
+        return dict(self.suggestion_db.get(normalized, {}))
+
     # Domain-based classification methods
 
     def get_category_by_domain(self, domain: str) -> str | None:
@@ -131,7 +144,7 @@ class ClassificationDatabase:
         normalized_domain = normalize_domain(domain)
         return self.domain_db.get(normalized_domain)
 
-    def store_domain_classification(self, domain: str, category: str):
+    def store_domain_classification(self, domain: str, category: str) -> None:
         """Stores a domain classification in the database.
 
         Args:
@@ -151,7 +164,7 @@ class ClassificationDatabase:
         """
         return self.domain_db.copy()
 
-    def update_domain_classification(self, domain: str, category: str):
+    def update_domain_classification(self, domain: str, category: str) -> None:
         """Updates an existing domain classification.
 
         Args:

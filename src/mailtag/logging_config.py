@@ -3,7 +3,7 @@ import sys
 from loguru import logger
 
 
-def setup_logging(log_level: str, log_file: str):
+def setup_logging(log_level: str, log_file: str) -> None:
     """Configures the application's logging using loguru."""
     logger.remove()  # Remove default handler
     log_format = (

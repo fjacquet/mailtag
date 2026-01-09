@@ -175,7 +175,7 @@ class ImapService(EmailProvider):
 
         return results
 
-    def _parse_header_value(self, header_value):
+    def _parse_header_value(self, header_value: Any) -> str:
         """Safely parse a header value, handling different types including email.header.Header."""
         if header_value is None:
             return ""

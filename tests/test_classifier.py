@@ -29,6 +29,10 @@ def mock_db(mocker: MockerFixture) -> MockerFixture:
     db.get_dominant_classification.side_effect = (
         lambda sender: list(db.validated_db.get(sender, {}).keys())[0] if sender in db.validated_db else None
     )
+    # Mock get_sender_classifications to return suggestion_db data
+    db.get_sender_classifications.side_effect = (
+        lambda sender: dict(db.suggestion_db.get(sender, {}))
+    )
     # Default: no domain classification
     db.get_category_by_domain.return_value = None
     return db

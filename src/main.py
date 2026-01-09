@@ -5,12 +5,22 @@ Main CLI entry point for the mailtag email classification script.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import click
 from loguru import logger
 
-from mailtag.config import CONFIG
+try:
+    from mailtag.config import CONFIG
+except RuntimeError as e:
+    print(f"❌ Configuration file error: {e}")
+    print("Please ensure config.toml exists and is valid TOML format")
+    sys.exit(1)
+except ValueError as e:
+    print(f"❌ Configuration validation error: {e}")
+    print("Please check your config.toml and .env file settings")
+    sys.exit(1)
 from mailtag.database import ClassificationDatabase
 from mailtag.filter_generator import FilterGenerator
 from mailtag.gmail_service import GmailService

@@ -7,7 +7,7 @@ class EmailProvider(ABC):
     """Abstract base class for email providers."""
 
     @abstractmethod
-    def connect(self):
+    def connect(self) -> "EmailProvider":
         """Connects to the email server."""
 
     @abstractmethod
@@ -20,5 +20,5 @@ class EmailProvider(ABC):
         """Fetches emails from the server."""
 
     @abstractmethod
-    def move_email(self, email: Email, destination: str):
+    def move_email(self, email: Email, destination: str) -> None:
         """Moves an email to a new destination."""
