@@ -1,6 +1,6 @@
 import base64
+import base64
 from contextlib import contextmanager
-from email import utils as email_utils
 
 from loguru import logger
 
@@ -8,6 +8,7 @@ from .config import GmailConfig
 from .gmail_auth import get_gmail_service
 from .models import Email
 from .providers import EmailProvider
+from .utils.email_parsing import parse_sender
 
 
 class GmailService(EmailProvider):
@@ -167,7 +168,4 @@ class GmailService(EmailProvider):
 
     def _parse_sender(self, raw_sender: str) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""
-        if not raw_sender:
-            return "", ""
-        name, address = email_utils.parseaddr(raw_sender)
-        return name, address.lower() if address else ""
+        return parse_sender(raw_sender)

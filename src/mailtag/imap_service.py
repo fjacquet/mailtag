@@ -1,7 +1,6 @@
 import email
 import email.header
 import json
-import re
 import threading
 import time
 from contextlib import contextmanager
@@ -9,7 +8,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, TypeVar
 
-from bs4 import BeautifulSoup
 from imapclient import IMAPClient
 from loguru import logger
 
@@ -17,6 +15,7 @@ from mailtag.config import FastParseConfig, ImapConfig
 from mailtag.metrics import configure_metrics, log_metrics, timed
 from mailtag.models import Email
 from mailtag.providers import EmailProvider
+from mailtag.utils.email_parsing import extract_body_from_message, parse_sender
 
 from .retry import retry
 
@@ -423,106 +422,11 @@ class ImapService(EmailProvider):
 
     def _parse_sender(self, raw_sender) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""
-        # Handle None case
-        if raw_sender is None:
-            return "", ""
-
-        # Handle email.header.Header objects
-        if hasattr(email.header, "Header") and isinstance(raw_sender, email.header.Header):
-            raw_sender = str(raw_sender)
-        # Handle bytes objects
-        elif isinstance(raw_sender, bytes):
-            try:
-                raw_sender = raw_sender.decode("utf-8")
-            except UnicodeDecodeError:
-                try:
-                    raw_sender = raw_sender.decode("latin-1")
-                except Exception:
-                    return "", ""
-        # Ensure we have a string
-        elif not isinstance(raw_sender, str):
-            try:
-                raw_sender = str(raw_sender)
-            except Exception:
-                return "", ""
-
-        # Empty string check
-        if not raw_sender:
-            return "", ""
-
-        # Parse the sender string
-        match = re.match(r"(.+?)\s*<(.+?)>", raw_sender)
-        if match:
-            name, address = match.groups()
-            return name, address.lower()
-        return "", raw_sender.lower() if raw_sender else ""
-
-    def _decode_payload(self, part) -> str:
-        """
-        Decode email part payload with proper character encoding handling.
-        """
-        try:
-            payload = part.get_payload(decode=True)
-            if not payload:
-                return ""
-
-            # Try to get charset from the part
-            charset = part.get_content_charset() or "utf-8"
-
-            # Common charsets to try if the specified one fails
-            charsets = [charset, "utf-8", "latin-1", "iso-8859-1", "windows-1252"]
-
-            for cs in charsets:
-                try:
-                    return payload.decode(cs, errors="strict")
-                except (UnicodeDecodeError, LookupError):
-                    continue
-
-            # If all else fails, use replace to handle errors
-            return payload.decode("utf-8", errors="replace")
-
-        except Exception as e:
-            logger.warning(f"Error decoding email part: {e}")
-            return "[Error decoding content]"
+        return parse_sender(raw_sender)
 
     def _get_body_from_msg(self, msg) -> str:
         """
         Reads the body of a specific email message, prioritizing plain text over HTML.
         Handles various character encodings and malformed content.
         """
-        plain_text_body = ""
-        html_body = ""
-
-        if msg.is_multipart():
-            for part in msg.walk():
-                try:
-                    content_type = part.get_content_type()
-                    payload = self._decode_payload(part)
-
-                    if content_type == "text/plain" and not plain_text_body:
-                        plain_text_body = payload
-                    elif content_type == "text/html" and not html_body:
-                        html_body = payload
-                except Exception as e:
-                    logger.warning(f"Error processing email part: {e}")
-                    continue
-        else:
-            try:
-                plain_text_body = self._decode_payload(msg)
-            except Exception as e:
-                logger.warning(f"Error processing email: {e}")
-
-        # Return plain text if available, otherwise try HTML
-        if plain_text_body.strip():
-            return plain_text_body.strip()
-
-        if html_body:
-            try:
-                soup = BeautifulSoup(html_body, "html.parser")
-                return soup.get_text(separator="\n", strip=True)
-            except Exception as e:
-                logger.warning(f"Error parsing HTML content: {e}")
-                # If we can't parse the HTML, return it as is
-                return html_body.strip()
-
-        return ""
+        return extract_body_from_message(msg)
