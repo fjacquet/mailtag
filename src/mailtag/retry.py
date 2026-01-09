@@ -43,25 +43,12 @@ def retry(
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
-            # Get retry configuration from the first argument (self) if it has fast_parse_config
-            # This assumes the decorated method belongs to a class with self.fast_parse_config
-            config_max_retries = 3
-            config_retry_delay = 1.0
-            config_retry_backoff = 2.0
-            config_retry_jitter = 0.1
-
-            if args and hasattr(args[0], "fast_parse_config"):
-                config = args[0].fast_parse_config
-                config_max_retries = getattr(config, "max_retries", 3)
-                config_retry_delay = getattr(config, "retry_delay", 1.0)
-                config_retry_backoff = getattr(config, "retry_backoff", 2.0)
-                config_retry_jitter = getattr(config, "retry_jitter", 0.1)
-
-            # Use provided values or fall back to config values
-            _max_retries = max_retries if max_retries is not None else config_max_retries
-            _retry_delay = retry_delay if retry_delay is not None else config_retry_delay
-            _retry_backoff = retry_backoff if retry_backoff is not None else config_retry_backoff
-            _retry_jitter = retry_jitter if retry_jitter is not None else config_retry_jitter
+            # Use provided decorator parameters with sensible defaults
+            # These defaults match FastParseConfig defaults
+            _max_retries = max_retries if max_retries is not None else 3
+            _retry_delay = retry_delay if retry_delay is not None else 1.0
+            _retry_backoff = retry_backoff if retry_backoff is not None else 2.0
+            _retry_jitter = retry_jitter if retry_jitter is not None else 0.1
 
             retries = 0
             while True:
