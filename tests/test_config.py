@@ -4,6 +4,7 @@ import pytest
 
 from mailtag.config import (
     AppConfig,
+    _validate_config,
     load_config,
 )
 
@@ -84,3 +85,183 @@ ollama_model = "test-model"
     config_path.write_text(incomplete_config)
     with pytest.raises(RuntimeError, match="Failed to load or parse config file"):
         load_config(config_path)
+
+
+def test_validate_config_invalid_email():
+    """Tests that ValueError is raised for invalid email format."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="http://localhost:11434",
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="invalid-email",  # Invalid email format
+            password="password123",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    with pytest.raises(ValueError, match="Invalid email format"):
+        _validate_config(config)
+
+
+def test_validate_config_empty_password():
+    """Tests that ValueError is raised for empty password."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="http://localhost:11434",
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="test@example.com",
+            password="",  # Empty password
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    with pytest.raises(ValueError, match="IMAP password cannot be empty"):
+        _validate_config(config)
+
+
+def test_validate_config_invalid_api_base():
+    """Tests that ValueError is raised for invalid API base URL."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="not-a-url",  # Invalid URL (no http/https)
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="test@example.com",
+            password="password123",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    with pytest.raises(ValueError, match="Invalid API base URL"):
+        _validate_config(config)
+
+
+def test_validate_config_invalid_threshold():
+    """Tests that ValueError is raised for thresholds outside 0-1 range."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="http://localhost:11434",
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=1.5,  # Invalid: >1
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="test@example.com",
+            password="password123",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    with pytest.raises(ValueError, match="AI confidence threshold must be 0-1"):
+        _validate_config(config)
+
+
+def test_validate_config_template_placeholder_allowed():
+    """Tests that template placeholders like ${VAR} are allowed in API base."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="${OLLAMA_API_URL}",  # Template placeholder - should be allowed
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="test@example.com",
+            password="password123",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    # Should not raise any exception - template placeholders are allowed
+    _validate_config(config)
+
+
+def test_validate_config_valid():
+    """Tests that validation passes for a valid config."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(
+            ollama_model="test-model",
+            api_base="http://localhost:11434",
+        ),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="test@example.com",
+            password="password123",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    # Should not raise any exception
+    _validate_config(config)

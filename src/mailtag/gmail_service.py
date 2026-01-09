@@ -43,7 +43,7 @@ class GmailService(EmailProvider):
             # as it's based on HTTP requests with tokens.
             logger.info("Gmail service context exited.")
 
-    def _cache_labels(self):
+    def _cache_labels(self) -> None:
         """Caches all available user labels for quick lookup."""
         if not self.service:
             return
@@ -116,7 +116,7 @@ class GmailService(EmailProvider):
                 break
         return emails
 
-    def _get_body_from_payload(self, payload) -> str:
+    def _get_body_from_payload(self, payload: dict) -> str:
         """Extracts the text/plain body from the message payload."""
         body = ""
         if "parts" in payload:

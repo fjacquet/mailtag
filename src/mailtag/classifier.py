@@ -146,7 +146,7 @@ class Classifier:
         """
         Signal 3: Check for a high-confidence classification from the sender's history in the suggestion DB.
         """
-        sender_classifications = self.database.suggestion_db.get(email.sender_address)
+        sender_classifications = self.database.get_sender_classifications(email.sender_address)
         if not sender_classifications:
             return None
 
@@ -492,7 +492,7 @@ class Classifier:
             logger.info(f"Classified via History: {category}")
 
             # Calculate actual confidence from historical data
-            sender_classifications = self.database.suggestion_db.get(email.sender_address, {})
+            sender_classifications = self.database.get_sender_classifications(email.sender_address)
             total_count = sum(sender_classifications.values())
             confidence = sender_classifications.get(category, 0) / total_count if total_count > 0 else 0.0
 

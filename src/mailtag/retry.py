@@ -19,12 +19,12 @@ T = TypeVar("T")
 
 def retry(
     exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
-    max_retries: int = None,
-    retry_delay: float = None,
-    retry_backoff: float = None,
-    retry_jitter: float = None,
-    on_retry: Callable[[Exception, int], None] = None,
-):
+    max_retries: int | None = None,
+    retry_delay: float | None = None,
+    retry_backoff: float | None = None,
+    retry_jitter: float | None = None,
+    on_retry: Callable[[Exception, int], None] | None = None,
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator for retrying operations that may fail due to transient issues.
 
