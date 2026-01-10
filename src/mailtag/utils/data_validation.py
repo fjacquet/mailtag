@@ -47,7 +47,7 @@ def normalize_email(email: str) -> str:
                 else:
                     decoded_email += part
             email = decoded_email
-        except Exception as e:
+        except (UnicodeDecodeError, LookupError, ValueError, AttributeError) as e:
             logger.debug(f"Failed to decode RFC 2047 email header: {e}")
 
     return email.lower().strip()

@@ -50,14 +50,14 @@ def parse_sender(sender_raw) -> tuple[str, str]:
         except UnicodeDecodeError:
             try:
                 sender_raw = sender_raw.decode("latin-1")
-            except Exception:
+            except (UnicodeDecodeError, AttributeError):
                 logger.warning("Failed to decode sender bytes")
                 return "", ""
     # Ensure we have a string
     elif not isinstance(sender_raw, str):
         try:
             sender_raw = str(sender_raw)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             logger.warning(f"Failed to convert sender to string: {type(sender_raw)}")
             return "", ""
 
@@ -172,7 +172,7 @@ def extract_body_from_message(msg: email.message.Message) -> str:
                 elif content_type == "text/html" and not html_body:
                     html_body = decoded
 
-            except Exception as e:
+            except (UnicodeDecodeError, LookupError, ValueError, AttributeError, KeyError) as e:
                 logger.warning(f"Error processing email part ({content_type}): {e}")
                 continue
     else:
@@ -182,7 +182,7 @@ def extract_body_from_message(msg: email.message.Message) -> str:
             if payload:
                 charset = msg.get_content_charset()
                 plain_text_body = decode_payload(payload, charset)
-        except Exception as e:
+        except (UnicodeDecodeError, LookupError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"Error processing single-part email: {e}")
 
     # Return plain text if available
@@ -194,7 +194,7 @@ def extract_body_from_message(msg: email.message.Message) -> str:
         try:
             soup = BeautifulSoup(html_body, "html.parser")
             return soup.get_text(separator="\n", strip=True)
-        except Exception as e:
+        except (ValueError, AttributeError, TypeError) as e:
             logger.warning(f"Error parsing HTML content: {e}")
             # Return raw HTML as last resort
             return html_body.strip()

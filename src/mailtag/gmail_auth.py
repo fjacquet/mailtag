@@ -84,6 +84,6 @@ def get_gmail_service(credentials_file: str, token_file: str):
         service = build("gmail", "v1", credentials=creds)
         logger.info("Successfully built Gmail service.")
         return service
-    except Exception as e:
+    except (OSError, ValueError, KeyError, ConnectionError) as e:
         logger.error(f"Failed to build Gmail service: {e}")
         raise

@@ -398,7 +398,7 @@ class TestErrorHandling:
         """Test handling of LLM exceptions."""
         # Mock MLX components that raise an exception
         mock_llm = Mock()
-        mock_llm.classify.side_effect = Exception("LLM Error")
+        mock_llm.classify.side_effect = RuntimeError("LLM Error")
         classifier._mlx_llm = mock_llm
 
         with patch.object(classifier, "_init_mlx_components", return_value=True):

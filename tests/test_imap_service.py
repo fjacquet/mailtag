@@ -56,7 +56,7 @@ def test_connect_failure_raises_connection_error(
     imap_service: ImapService, mock_imap_client: MockImapClient, mocker: MockerFixture
 ):
     """Tests that a ConnectionError is raised on login failure."""
-    mocker.patch.object(mock_imap_client, "login", side_effect=Exception("Login failed"))
+    mocker.patch.object(mock_imap_client, "login", side_effect=ConnectionError("Login failed"))
     with pytest.raises(ConnectionError, match="IMAP connection failed"):
         with imap_service.connect():
             pass

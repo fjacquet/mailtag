@@ -7,7 +7,6 @@ Tests the full 3-pass classification strategy:
 """
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -241,7 +240,7 @@ class TestPass2DomainClassification:
 
         # Mock AI to avoid actual API call
         with patch.object(classifier, "_get_category_from_ai", return_value=("À Classer", 0.5)):
-            result = classifier.classify_email(email)
+            classifier.classify_email(email)
 
         # Assert - should skip domain classification and use AI
         assert METRICS.classification_metrics.signal_hits.get("domain_db", 0) == 0
