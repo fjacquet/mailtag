@@ -112,8 +112,13 @@ def decode_payload(payload: bytes, charset: str | None) -> str:
     encodings.extend(["utf-8", "latin-1", "iso-8859-1", "windows-1252"])
 
     # Remove duplicates while preserving order
-    seen = set()
-    encodings = [x for x in encodings if not (x in seen or seen.add(x))]
+    seen: set[str] = set()
+    unique_encodings = []
+    for x in encodings:
+        if x not in seen:
+            seen.add(x)
+            unique_encodings.append(x)
+    encodings = unique_encodings
 
     # Try each encoding
     for encoding in encodings:

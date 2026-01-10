@@ -3,6 +3,7 @@ import email.header
 import imaplib
 import json
 import threading
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -161,7 +162,7 @@ class ImapService(EmailProvider):
     @timed(operation_name="imap_batch_fetch")
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))
     def _batch_fetch(
-        self, uids: list[str | int], fetch_command: list[bytes], processor: callable
+        self, uids: list[str | int], fetch_command: list[bytes], processor: Callable[[dict], dict]
     ) -> dict[Any, Any]:
         """
         Helper method to fetch UIDs in batches and process the results.

@@ -126,7 +126,26 @@ indent-style = "space"
 # Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
 
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+check_untyped_defs = true
+
+# Relax strict mode for now - enable gradually
+disallow_untyped_defs = false
+disallow_any_generics = false
+disallow_subclassing_any = false
+
+# Ignore missing imports for third-party libraries
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "bandit>=1.9.2",
+    "mypy>=1.19.1",
 ]
