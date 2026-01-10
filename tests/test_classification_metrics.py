@@ -61,6 +61,7 @@ def mock_database():
     """Create a mock classification database."""
     db = Mock(spec=ClassificationDatabase)
     db.suggestion_db = {"sender@example.com": {"Finance/Banking": 9, "Shopping/Online": 1}}
+    db.get_sender_classifications = Mock(return_value={"Finance/Banking": 9, "Shopping/Online": 1})
     db.get_dominant_classification = Mock(return_value=None)
     db.update_suggestion = Mock()
     db.get_category_by_domain = Mock(return_value=None)
@@ -313,7 +314,7 @@ class TestClassifierMetricsIntegration:
         mock_folder_analyzer_class.return_value = mock_folder_analyzer
 
         mock_database.get_dominant_classification.return_value = None
-        mock_database.suggestion_db = {"test@example.com": {"Finance/Banking": 10, "Other": 1}}
+        mock_database.get_sender_classifications.return_value = {"Finance/Banking": 10, "Other": 1}
 
         # Reset global metrics
         METRICS.classification_metrics.reset()
