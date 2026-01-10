@@ -85,7 +85,7 @@ def load_non_commercial_domains() -> set[str]:
     except FileNotFoundError:
         logger.warning(f"Non-commercial domains file not found: {config_path}")
         return set()
-    except Exception as e:
+    except (OSError, PermissionError) as e:
         logger.error(f"Error loading non-commercial domains: {e}")
         return set()
 

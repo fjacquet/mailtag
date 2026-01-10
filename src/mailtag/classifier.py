@@ -26,10 +26,16 @@ class Classifier:
     """
 
     def __init__(self, config: AppConfig, database: ClassificationDatabase):
+        import threading
+
         self.config = config
         self.proposal_file = Path("proposals.log")
         self.database = database
         self.ai_cache = {}  # Simple in-memory cache for AI responses
+        
+        # Thread safety locks
+        self._mlx_lock = threading.RLock()  # Reentrant lock for MLX initialization
+        self._cache_lock = threading.Lock()  # Lock for ai_cache access
 
         # MLX components (lazy loaded)
         self._embedder: MLXEmbedder | None = None
@@ -48,65 +54,66 @@ class Classifier:
             logger.info(f"Using static classification schema with {len(self.categories)} categories")
 
     def _init_mlx_components(self) -> bool:
-        """Lazy initialize MLX components when first needed.
+        """Lazy initialize MLX components when first needed (thread-safe).
 
         Returns:
             True if initialization successful, False otherwise
         """
-        if self._mlx_initialized:
-            return self._semantic_router is not None
+        with self._mlx_lock:
+            if self._mlx_initialized:
+                return self._semantic_router is not None
 
-        self._mlx_initialized = True
+            self._mlx_initialized = True
 
-        if not self.config.mlx.enabled:
-            logger.debug("MLX classification is disabled in config")
-            return False
+            if not self.config.mlx.enabled:
+                logger.debug("MLX classification is disabled in config")
+                return False
 
-        try:
-            from .mlx_provider import MLXLLM, MLXEmbedder
-            from .semantic_router import SemanticRouter
+            try:
+                from .mlx_provider import MLXLLM, MLXEmbedder
+                from .semantic_router import SemanticRouter
 
-            # Initialize embedder
-            logger.info(f"Initializing MLX embedder with model: {self.config.mlx.embedding_model}")
-            self._embedder = MLXEmbedder(self.config.mlx.embedding_model)
+                # Initialize embedder
+                logger.info(f"Initializing MLX embedder with model: {self.config.mlx.embedding_model}")
+                self._embedder = MLXEmbedder(self.config.mlx.embedding_model)
 
-            # Initialize semantic router
-            self._semantic_router = SemanticRouter(
-                self._embedder,
-                score_threshold=self.config.mlx.score_threshold,
-            )
-
-            # Try to load pre-computed embeddings
-            embeddings_path = Path(self.config.mlx.embeddings_file)
-            if embeddings_path.exists():
-                if self._semantic_router.load_embeddings(embeddings_path):
-                    num_cats = self._semantic_router.num_categories
-                    logger.info(f"Loaded {num_cats} category embeddings from {embeddings_path}")
-                else:
-                    logger.warning(f"Failed to load embeddings from {embeddings_path}")
-            else:
-                logger.warning(
-                    f"No embeddings file found at {embeddings_path}. "
-                    "Run 'python scripts/build_category_embeddings.py' to generate."
+                # Initialize semantic router
+                self._semantic_router = SemanticRouter(
+                    self._embedder,
+                    score_threshold=self.config.mlx.score_threshold,
                 )
 
-            # Initialize LLM for fallback
-            logger.info(f"Initializing MLX LLM with model: {self.config.mlx.llm_model}")
-            self._mlx_llm = MLXLLM(
-                model_name=self.config.mlx.llm_model,
-                max_tokens=self.config.mlx.llm_max_tokens,
-                temperature=self.config.mlx.llm_temperature,
-            )
+                # Try to load pre-computed embeddings
+                embeddings_path = Path(self.config.mlx.embeddings_file)
+                if embeddings_path.exists():
+                    if self._semantic_router.load_embeddings(embeddings_path):
+                        num_cats = self._semantic_router.num_categories
+                        logger.info(f"Loaded {num_cats} category embeddings from {embeddings_path}")
+                    else:
+                        logger.warning(f"Failed to load embeddings from {embeddings_path}")
+                else:
+                    logger.warning(
+                        f"No embeddings file found at {embeddings_path}. "
+                        "Run 'python scripts/build_category_embeddings.py' to generate."
+                    )
 
-            logger.info("MLX components initialized successfully")
-            return True
+                # Initialize LLM for fallback
+                logger.info(f"Initializing MLX LLM with model: {self.config.mlx.llm_model}")
+                self._mlx_llm = MLXLLM(
+                    model_name=self.config.mlx.llm_model,
+                    max_tokens=self.config.mlx.llm_max_tokens,
+                    temperature=self.config.mlx.llm_temperature,
+                )
 
-        except ImportError as e:
-            logger.warning(f"MLX dependencies not available: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Failed to initialize MLX components: {e}")
-            return False
+                logger.info("MLX components initialized successfully")
+                return True
+
+            except ImportError as e:
+                logger.warning(f"MLX dependencies not available: {e}")
+                return False
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.error(f"Failed to initialize MLX components: {e}")
+                return False
 
     def _load_categories_from_schema(self) -> list[str]:
         """Loads classification categories from the YAML file (legacy method)."""
@@ -327,11 +334,12 @@ class Classifier:
             logger.warning("MLX LLM not initialized")
             return "(Model Error)"
 
-        # Check cache first
+        # Check cache first (thread-safe)
         cache_key = self._get_cache_key(email)
-        if cache_key in self.ai_cache:
-            logger.debug(f"Using cached AI response for {email.sender_address}")
-            return self.ai_cache[cache_key]
+        with self._cache_lock:
+            if cache_key in self.ai_cache:
+                logger.debug(f"Using cached AI response for {email.sender_address}")
+                return self.ai_cache[cache_key]
 
         # Truncate email body for better performance
         truncated_body = self._truncate_body(email.body)
@@ -435,8 +443,9 @@ class Classifier:
                         )
                         return "À Classer"
 
-                # Cache and return valid classification
-                self.ai_cache[cache_key] = category
+                # Cache and return valid classification (thread-safe)
+                with self._cache_lock:
+                    self.ai_cache[cache_key] = category
                 return category
 
             else:
@@ -445,7 +454,7 @@ class Classifier:
                 self._log_proposal(email, f"(empty response, confidence: {confidence:.2f})")
                 return "À Classer"
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Error calling MLX LLM: {e}")
             return "(Model Error)"
 

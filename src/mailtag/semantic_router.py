@@ -7,6 +7,7 @@ LLM inference.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,7 +64,7 @@ class SemanticRouter:
             self._build_embedding_matrix()
             logger.info(f"Loaded embeddings for {len(self.categories)} categories from {path}")
             return True
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"Failed to load embeddings from {path}: {e}")
             return False
 
@@ -83,7 +84,7 @@ class SemanticRouter:
             np.savez(path, **self.category_embeddings)
             logger.info(f"Saved embeddings for {len(self.categories)} categories to {path}")
             return True
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.error(f"Failed to save embeddings to {path}: {e}")
             return False
 

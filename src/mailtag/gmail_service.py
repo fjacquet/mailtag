@@ -35,7 +35,7 @@ class GmailService(EmailProvider):
             # Propagate import errors with a clear message
             logger.error(e)
             raise
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to connect to Gmail API: {e}")
             raise ConnectionError(f"Gmail connection failed: {e}") from e
         finally:
@@ -154,7 +154,7 @@ class GmailService(EmailProvider):
                 )
                 label_id_to_add = label["id"]
                 self._label_cache[label_id_to_add] = destination  # Update cache
-            except Exception as e:
+            except (KeyError, ValueError) as e:
                 logger.error(f"Could not create label '{destination}': {e}")
                 return
 
@@ -162,7 +162,7 @@ class GmailService(EmailProvider):
         try:
             self.service.users().messages().modify(userId="me", id=email_model.msg_id, body=body).execute()
             logger.info(f"Moved email {email_model.msg_id} to {destination}")
-        except Exception as e:
+        except (KeyError, ValueError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to move email {email_model.msg_id}: {e}")
 
     def _parse_sender(self, raw_sender: str) -> tuple[str, str]:

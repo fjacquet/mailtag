@@ -5,14 +5,22 @@ and AI fallback handling.
 """
 
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
+from unittest.mock import Mock, patch
 
 import pytest
 
 from mailtag.classifier import Classifier
-from mailtag.config import AppConfig, ClassifierConfig, FastParseConfig, GeneralConfig, GmailConfig, ImapConfig, LoggingConfig, MLXConfig
+from mailtag.config import (
+    AppConfig,
+    ClassifierConfig,
+    FastParseConfig,
+    GeneralConfig,
+    GmailConfig,
+    ImapConfig,
+    LoggingConfig,
+    MLXConfig,
+)
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
 from mailtag.utils.db_backup import backup_database, restore_database

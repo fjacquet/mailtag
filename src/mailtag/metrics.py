@@ -107,6 +107,12 @@ class ClassificationMetrics:
     errors: Counter = field(default_factory=Counter)
     processing_times: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
 
+    def __post_init__(self):
+        """Initialize thread safety lock."""
+        import threading
+
+        self._lock = threading.Lock()
+
     def record_classification(
         self,
         email_id: str,
@@ -115,7 +121,7 @@ class ClassificationMetrics:
         confidence: float | None = None,
         processing_time_ms: float = 0.0,
     ) -> None:
-        """Record a successful classification.
+        """Record a successful classification (thread-safe).
 
         Args:
             email_id: Unique email identifier
@@ -124,64 +130,83 @@ class ClassificationMetrics:
             confidence: Confidence score (0.0-1.0), if available
             processing_time_ms: Time taken to classify in milliseconds
         """
-        self.signal_hits[signal] += 1
-        self.category_distribution[category] += 1
+        with self._lock:
+            self.signal_hits[signal] += 1
+            self.category_distribution[category] += 1
 
-        if confidence is not None:
-            self.confidence_scores[signal].append(confidence)
+            if confidence is not None:
+                self.confidence_scores[signal].append(confidence)
 
-        if processing_time_ms > 0:
-            self.processing_times[signal].append(processing_time_ms)
+            if processing_time_ms > 0:
+                self.processing_times[signal].append(processing_time_ms)
 
     def record_error(self, error_type: str, context: str = "") -> None:
-        """Record a classification error.
+        """Record a classification error (thread-safe).
 
         Args:
             error_type: Type of error encountered
             context: Additional context (e.g., sender address)
         """
-        error_key = f"{error_type}:{context}" if context else error_type
-        self.errors[error_key] += 1
+        with self._lock:
+            error_key = f"{error_type}:{context}" if context else error_type
+            self.errors[error_key] += 1
 
     def get_signal_hit_rates(self) -> dict[str, float]:
-        """Calculate percentage of emails classified by each signal.
+        """Calculate percentage of emails classified by each signal (thread-safe).
 
         Returns:
             Dictionary mapping signal name to percentage
         """
-        total = sum(self.signal_hits.values())
-        if total == 0:
-            return {}
-        return {signal: (count / total) * 100 for signal, count in self.signal_hits.items()}
+        with self._lock:
+            total = sum(self.signal_hits.values())
+            if total == 0:
+                return {}
+            return {signal: (count / total) * 100 for signal, count in self.signal_hits.items()}
 
     def get_summary(self) -> dict:
-        """Get comprehensive metrics summary.
+        """Get comprehensive metrics summary (thread-safe).
 
         Returns:
             Dictionary with all classification metrics
         """
-        total_classified = sum(self.signal_hits.values())
+        with self._lock:
+            # Create deep copies to avoid read-during-write issues
+            signal_hits_copy = dict(self.signal_hits)
+            category_dist_copy = dict(self.category_distribution)
+            confidence_scores_copy = {k: list(v) for k, v in self.confidence_scores.items()}
+            processing_times_copy = {k: list(v) for k, v in self.processing_times.items()}
+            errors_copy = dict(self.errors)
+
+        # Compute statistics outside lock (using copies)
+        total_classified = sum(signal_hits_copy.values())
+        
+        # Compute hit rates from copy
+        signal_hit_rates = {}
+        if total_classified > 0:
+            signal_hit_rates = {
+                signal: (count / total_classified) * 100 for signal, count in signal_hits_copy.items()
+            }
 
         return {
             "total_classified": total_classified,
-            "signal_hit_rates": self.get_signal_hit_rates(),
-            "signal_counts": dict(self.signal_hits),
-            "top_categories": dict(self.category_distribution.most_common(10)),
+            "signal_hit_rates": signal_hit_rates,
+            "signal_counts": signal_hits_copy,
+            "top_categories": dict(Counter(category_dist_copy).most_common(10)),
             "avg_confidence_by_signal": {
                 signal: statistics.mean(scores) if scores else 0.0
-                for signal, scores in self.confidence_scores.items()
+                for signal, scores in confidence_scores_copy.items()
             },
             "min_confidence_by_signal": {
-                signal: min(scores) if scores else 0.0 for signal, scores in self.confidence_scores.items()
+                signal: min(scores) if scores else 0.0 for signal, scores in confidence_scores_copy.items()
             },
             "max_confidence_by_signal": {
-                signal: max(scores) if scores else 0.0 for signal, scores in self.confidence_scores.items()
+                signal: max(scores) if scores else 0.0 for signal, scores in confidence_scores_copy.items()
             },
             "avg_processing_time_ms": {
                 signal: statistics.mean(times) if times else 0.0
-                for signal, times in self.processing_times.items()
+                for signal, times in processing_times_copy.items()
             },
-            "errors": dict(self.errors.most_common()),
+            "errors": dict(Counter(errors_copy).most_common()),
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -253,12 +278,13 @@ class ClassificationMetrics:
         logger.log(log_level, "=" * 80)
 
     def reset(self) -> None:
-        """Reset all classification metrics."""
-        self.signal_hits.clear()
-        self.category_distribution.clear()
-        self.confidence_scores.clear()
-        self.errors.clear()
-        self.processing_times.clear()
+        """Reset all classification metrics (thread-safe)."""
+        with self._lock:
+            self.signal_hits.clear()
+            self.category_distribution.clear()
+            self.confidence_scores.clear()
+            self.errors.clear()
+            self.processing_times.clear()
 
 
 @dataclass
@@ -345,7 +371,7 @@ def timed(operation_name: str | None = None):
                 duration_ms = (time.time() - start_time) * 1000
                 METRICS.get_operation_metrics(op_name).record_success(duration_ms)
                 return result
-            except Exception:
+            except Exception:  # Intentionally broad - metrics decorator needs to catch all exceptions
                 # Record failed operation
                 duration_ms = (time.time() - start_time) * 1000
                 METRICS.get_operation_metrics(op_name).record_failure(duration_ms)

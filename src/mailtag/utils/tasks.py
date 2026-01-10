@@ -1,3 +1,4 @@
+import imaplib
 import json
 from collections import defaultdict
 from datetime import datetime
@@ -33,7 +34,7 @@ def _run_fast_parse_on_folder(
     logger.info(f"Starting Pass 1 on folder: {folder_name}")
     try:
         provider.client.select_folder(folder_name)
-    except Exception as e:
+    except (imaplib.IMAP4.error, KeyError, ValueError) as e:
         logger.warning(f"Could not select folder '{folder_name}'. It might not exist. Skipping. Error: {e}")
         return []
 
@@ -146,7 +147,7 @@ def _run_domain_classification_pass(
                     # Update suggestion database to learn from domain classification
                     database.update_suggestion(sender_address, category)
 
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, OSError) as e:
                     logger.error(f"Could not update database for email UID {uid}: {e}")
 
             # Batch move all emails from this domain
@@ -155,7 +156,7 @@ def _run_domain_classification_pass(
                     provider.batch_move_emails(domain_uids, category)
                     emails_moved += len(domain_uids)
                     logger.info(f"Moved {len(domain_uids)} emails from {domain} to {category}")
-                except Exception as e:
+                except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
                     logger.error(f"Could not move emails from domain {domain}: {e}")
                     uids_for_pass3.extend(domain_uids)
         else:
@@ -216,7 +217,7 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                                 "(Model Error)",
                             ]:
                                 provider.move_email(email, category)
-                        except Exception as e:
+                        except (KeyError, ValueError, TypeError, AttributeError) as e:
                             logger.error(f"Could not process email {email.msg_id}: {e}")
                 logger.info("Pass 3 complete.")
 
@@ -237,7 +238,7 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                         )
                         if not validate and category not in ["Unclassified", "À Classer"]:
                             provider.move_email(email, category)
-                    except Exception as e:
+                    except (KeyError, ValueError, TypeError, AttributeError) as e:
                         logger.error(f"Could not process email {email.msg_id}: {e}")
 
             logger.info("Analysis complete.")

@@ -1,8 +1,8 @@
 import email
 import email.header
+import imaplib
 import json
 import threading
-import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -34,6 +34,10 @@ class ImapService(EmailProvider):
         self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
         self.folder_cache_path = Path("data/imap_folders.json")
+        
+        # Thread management for metrics logging
+        self._metrics_stop_event = threading.Event()
+        self._metrics_thread: threading.Thread | None = None
 
         # Initialize metrics system
         configure_metrics(
@@ -45,21 +49,36 @@ class ImapService(EmailProvider):
             self._start_metrics_logging_thread()
 
     def _start_metrics_logging_thread(self):
-        """Start a background thread to periodically log metrics."""
+        """Start a background thread to periodically log metrics with proper lifecycle management."""
+        if self._metrics_thread and self._metrics_thread.is_alive():
+            return  # Already running
 
         def log_metrics_periodically():
-            while True:
-                # Sleep for the configured interval
-                time.sleep(self.fast_parse_config.metrics_log_interval_minutes * 60)
-                # Log metrics
+            """Log metrics at configured intervals until stopped."""
+            interval_seconds = self.fast_parse_config.metrics_log_interval_minutes * 60
+            while not self._metrics_stop_event.wait(timeout=interval_seconds):
+                try:
+                    log_metrics()
+                except Exception as e:
+                    logger.error(f"Metrics logging failed: {e}")
+                    # Continue running despite errors
 
-                log_metrics()
+        self._metrics_thread = threading.Thread(
+            target=log_metrics_periodically,
+            daemon=True,
+            name="metrics-logger"
+        )
+        self._metrics_thread.start()
+        interval_minutes = self.fast_parse_config.metrics_log_interval_minutes
+        logger.debug(f"Started metrics logging thread with {interval_minutes} minute interval")
 
-        # Create and start the thread as daemon so it doesn't block program exit
-        metrics_thread = threading.Thread(target=log_metrics_periodically, daemon=True, name="metrics-logger")
-        metrics_thread.start()
-        interval = self.fast_parse_config.metrics_log_interval_minutes
-        logger.debug(f"Started metrics logging thread with {interval} minute interval")
+    def _stop_metrics_thread(self):
+        """Stop the metrics logging thread gracefully."""
+        if self._metrics_stop_event:
+            self._metrics_stop_event.set()
+        if self._metrics_thread and self._metrics_thread.is_alive():
+            self._metrics_thread.join(timeout=5.0)  # Wait up to 5s
+            logger.debug("Metrics logging thread stopped")
 
     def is_connected(self) -> bool:
         """Checks if the mail client is connected."""
@@ -76,11 +95,14 @@ class ImapService(EmailProvider):
             self._connect_with_retry()
             logger.info(f"Successfully connected to IMAP server: {self.config.host}")
             yield self
-        except Exception as e:
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Failed to connect to IMAP server: {e}")
             self.client = None
             raise ConnectionError(f"IMAP connection failed: {e}") from e
         finally:
+            # Stop metrics thread before disconnecting
+            self._stop_metrics_thread()
+            
             if self.client:
                 self.client.logout()
                 logger.info("Disconnected from IMAP server.")
@@ -111,7 +133,7 @@ class ImapService(EmailProvider):
                                 return json.loads(content)
                             except json.JSONDecodeError as e:
                                 logger.warning(f"Invalid JSON in cache file: {e}. Refreshing from server.")
-            except Exception as e:
+            except (OSError, PermissionError) as e:
                 logger.warning(f"Error reading cache file: {e}. Refreshing from server.")
 
         # If we get here, we need to fetch from the server
@@ -167,7 +189,7 @@ class ImapService(EmailProvider):
                 # Process the batch results
                 batch_results = processor(response)
                 results.update(batch_results)
-            except Exception as e:
+            except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Error fetching batch {i // batch_size + 1}: {e}")
                 # Optionally, re-raise or continue with next batch
                 raise
@@ -194,7 +216,7 @@ class ImapService(EmailProvider):
                             part = part.decode("utf-8", errors="replace")
                     decoded_parts.append(str(part) if part else "")
                 return "".join(decoded_parts).strip()
-            except Exception as e:
+            except (UnicodeDecodeError, LookupError, ValueError) as e:
                 logger.warning(f"Error decoding header: {e}")
                 return str(header_value)
 
@@ -202,7 +224,7 @@ class ImapService(EmailProvider):
         if isinstance(header_value, bytes):
             try:
                 return header_value.decode("utf-8", errors="replace")
-            except Exception:
+            except (UnicodeDecodeError, AttributeError):
                 return str(header_value)
 
         # Handle other types
@@ -237,7 +259,7 @@ class ImapService(EmailProvider):
                     "subject": subject_header or "",
                 }
 
-            except Exception as e:
+            except (KeyError, ValueError, UnicodeDecodeError, AttributeError) as e:
                 logger.error(f"Could not parse headers for email {msg_id}: {e}")
                 # Log the actual data we received for debugging
                 if "data" in locals():
@@ -311,7 +333,7 @@ class ImapService(EmailProvider):
                     body=body,
                     labels=labels,
                 )
-            except Exception as e:
+            except (KeyError, ValueError, UnicodeDecodeError, AttributeError, TypeError) as e:
                 logger.error(f"Could not process email {msg_id}: {e}")
         return emails
 
@@ -385,7 +407,7 @@ class ImapService(EmailProvider):
             logger.info(f"Creating folder: {folder}")
             self.client.create_folder(folder)
             return True
-        except Exception as e:
+        except (imaplib.IMAP4.error, OSError) as e:
             logger.error(f"Failed to create folder {folder}: {e}")
             raise
 
@@ -416,7 +438,7 @@ class ImapService(EmailProvider):
 
             self.client.move([uid], folder)
             return True
-        except Exception as e:
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Failed to move email {uid} to folder {folder}: {e}")
             return False
 
