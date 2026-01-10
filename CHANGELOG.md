@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared email parsing utilities (`src/mailtag/utils/email_parsing.py`) to eliminate code duplication
 - Configuration validation on startup (email format, password, API URLs, thresholds)
 - `get_sender_classifications()` public method in `ClassificationDatabase` for proper encapsulation
+- **mypy type checking** configured with comprehensive type safety rules
 
 ### Changed
 - **BREAKING**: Removed insecure fallback configuration - application now fails fast on invalid config
@@ -47,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Thread safety**: All concurrent operations now use proper locking mechanisms
 - Code quality: Eliminated ~150 lines of duplicated email parsing code
 - Test coverage: Added 380+ lines of integration and error recovery tests
-- Type safety: Added missing type hints in 8+ locations
+- Type safety: Added missing type hints in 8+ locations, configured mypy with type checking rules
 - Documentation: Added security guide and changelog
 - Error handling: Graceful degradation for database corruption and network failures
 - Exception handling: Replaced 30 broad `except Exception` with specific exception types
