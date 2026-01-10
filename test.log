@@ -3560,3 +3560,133 @@
 2026-01-10 09:47:00 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
 2026-01-10 09:47:00 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
 2026-01-10 09:47:00 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:15 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2026-01-10 10:07:15 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:73 - Creating database backups...
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/sender_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/domain_classifications_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/validated_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_all_databases:68 - Backed up 3 database files to db/backups
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:cleanup_old_backups:127 - Cleaned up 3 old backup files
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:110 - Running classification for provider: MagicMock
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:110 - Running classification for provider: MagicMock
+2026-01-10 10:07:15 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:73 - Creating database backups...
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/sender_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/domain_classifications_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/validated_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_all_databases:68 - Backed up 3 database files to db/backups
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:cleanup_old_backups:127 - Cleaned up 2 old backup files
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:110 - Running classification for provider: MagicMock
+2026-01-10 10:07:15 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:73 - Creating database backups...
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/sender_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/domain_classifications_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_database:35 - Created backup: db/backups/validated_classification_db_20260110_100715.json
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:backup_all_databases:68 - Backed up 3 database files to db/backups
+2026-01-10 10:07:15 | INFO     | mailtag.utils.db_backup:cleanup_old_backups:127 - Cleaned up 2 old backup files
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:110 - Running classification for provider: MagicMock
+2026-01-10 10:07:15 | INFO     | main:start_classification_run:110 - Running classification for provider: MagicMock
+2026-01-10 10:07:15 | INFO     | mailtag.logging_config:setup_logging:30 - Logging initialized with level INFO
+2026-01-10 10:07:15 | ERROR    | mailtag.gmail_service:connect:36 - Google API dependencies are required for Gmail integration. Install them with 'pip install mailtag[gmail]'
+2026-01-10 10:07:15 | INFO     | mailtag.gmail_service:connect:44 - Gmail service context exited.
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: custom-model/name
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: custom/model
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | WARNING  | mailtag.mlx_provider:classify:227 - Failed to parse JSON from LLM response: Commerce/Amazon...
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: nomic-ai/nomic-embed-text-v1.5
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:34 - MLXEmbedder initialized with model: custom-model
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: mlx-community/Mistral-7B-Instruct-v0.3-4bit
+2026-01-10 10:07:15 | INFO     | mailtag.mlx_provider:__init__:133 - MLXLLM initialized with model: custom/model
+2026-01-10 10:07:15 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/3 for fails_twice after 0.01s: Failed
+2026-01-10 10:07:15 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/3 for fails_twice after 0.01s: Failed
+2026-01-10 10:07:15 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/2 for always_fails after 0.01s: Failed
+2026-01-10 10:07:15 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/2 for always_fails after 0.02s: Failed
+2026-01-10 10:07:15 | ERROR    | mailtag.retry:wrapper:60 - Max retries (2) exceeded for always_fails: Failed
+2026-01-10 10:07:15 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/3 for fails_once after 1.09s: Failed
+2026-01-10 10:07:16 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/3 for alternating_errors after 0.01s: Connection failed
+2026-01-10 10:07:16 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/3 for alternating_errors after 0.02s: Timeout
+2026-01-10 10:07:16 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/3 for track_delays after 0.10s: Failure 1
+2026-01-10 10:07:16 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/3 for track_delays after 0.20s: Failure 2
+2026-01-10 10:07:16 | WARNING  | mailtag.retry:wrapper:69 - Retry 3/3 for track_delays after 0.40s: Failure 3
+2026-01-10 10:07:17 | ERROR    | mailtag.retry:wrapper:60 - Max retries (3) exceeded for track_delays: Failure 4
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/2 for fails_twice after 0.01s: Attempt 0
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/2 for fails_twice after 0.02s: Attempt 1
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/2 for with_arguments after 0.01s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/1 for fails_once after 0.10s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/5 for fails_multiple_times after 0.01s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 2/5 for fails_multiple_times after 0.02s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 3/5 for fails_multiple_times after 0.04s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 4/5 for fails_multiple_times after 0.08s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 5/5 for fails_multiple_times after 0.16s: Failed
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/1 for custom_error after 0.01s: Custom error message
+2026-01-10 10:07:17 | ERROR    | mailtag.retry:wrapper:60 - Max retries (1) exceeded for custom_error: Custom error message
+2026-01-10 10:07:17 | WARNING  | mailtag.retry:wrapper:69 - Retry 1/2 for method_that_retries after 0.01s: Failed
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.9
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 3 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 3 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | WARNING  | mailtag.semantic_router:build_from_examples:112 - No examples for category 'Empty', skipping
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 1 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.5
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 3 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 3 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | WARNING  | mailtag.semantic_router:route:167 - No category embeddings loaded, cannot route
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 3 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 3 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 1 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 1 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:add_category:234 - Added category 'NewCat' with 1 examples
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | WARNING  | mailtag.semantic_router:add_category:223 - No examples provided for category 'Empty'
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:remove_category:251 - Removed category 'Cat1'
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:save_embeddings:85 - Saved embeddings for 2 categories to /var/folders/yf/l79_wd8x54702k3vntd015l80000gn/T/tmplmjfjqfa/embeddings.npz
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:load_embeddings:65 - Loaded embeddings for 2 categories from /var/folders/yf/l79_wd8x54702k3vntd015l80000gn/T/tmplmjfjqfa/embeddings.npz
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | WARNING  | mailtag.semantic_router:load_embeddings:57 - Embeddings file not found: /nonexistent/path.npz
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 3 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 3 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 3 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 3 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 1 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 1 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:108 - Building embeddings for 2 categories...
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:build_from_examples:126 - Built embeddings for 2 categories
+2026-01-10 10:07:17 | INFO     | mailtag.semantic_router:__init__:44 - SemanticRouter initialized with threshold: 0.75

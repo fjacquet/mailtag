@@ -7,7 +7,7 @@ name = "mailtag"
 version = "0.1.0"
 description = "A tool to automatically classify and tag emails."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 authors = [
     { name = "Frederic Jacquet", email = "fred.jacquet@gmail.com" },
@@ -99,8 +99,8 @@ exclude = [
 line-length = 110
 indent-width = 4
 
-# Assume Python 3.12.
-target-version = "py312"
+# Assume Python 3.13.
+target-version = "py313"
 
 [tool.ruff.lint]
 # Enable a broader set of rules for more comprehensive checks.
@@ -127,7 +127,7 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true
