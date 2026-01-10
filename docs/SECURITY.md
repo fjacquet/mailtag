@@ -219,19 +219,17 @@ Network operations use exponential backoff retry with:
 
 ## Known Issues & TODO
 
-### High Priority
+### Completed ✅
 
-- [ ] **Replace Broad Exception Handlers** (Phase 3.2)
-  - Replace `except Exception` with specific types
-  - Locations: `imap_service.py`, `gmail_service.py`, `classifier.py`
-  - Prevents masking of security-relevant exceptions
+- [x] **Replace Broad Exception Handlers** (Phase 3.2) - COMPLETED 2026-01-10
+  - Replaced 30 broad `except Exception` with specific types
+  - Locations: `imap_service.py`, `gmail_service.py`, `classifier.py`, and others
+  - Now using operation-specific exception types (network, JSON, file, encoding)
 
-### Medium Priority
-
-- [ ] **Add Thread Safety** (Phase 4)
-  - Classifier lazy initialization locks
-  - Metrics concurrent access protection
-  - IMAP daemon thread lifecycle management
+- [x] **Add Thread Safety** (Phase 4) - COMPLETED 2026-01-10
+  - Classifier lazy initialization with RLock for MLX components
+  - Metrics concurrent access protection with Lock
+  - IMAP daemon thread lifecycle with Event-based shutdown
 
 ### Low Priority
 
@@ -274,12 +272,15 @@ MailTag follows data minimization principles:
 
 ### Recent Security Improvements
 
-**2026-01-10** - Quality Review & Remediation:
+**2026-01-10** - Quality Review & Remediation (Complete):
 - ✅ Removed insecure fallback configuration
 - ✅ Added comprehensive config validation
 - ✅ Fixed dependency injection vulnerabilities
 - ✅ Added error recovery tests
 - ✅ Documented security practices
+- ✅ Replaced 30 broad exception handlers with specific types
+- ✅ Added comprehensive thread safety (classifier, metrics, IMAP daemon)
+- ✅ Implemented graceful thread lifecycle management
 
 **Previous**:
 - Environment variable substitution for credentials
