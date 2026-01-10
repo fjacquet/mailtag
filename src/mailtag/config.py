@@ -208,7 +208,8 @@ def _validate_config(config: AppConfig) -> None:
     # Validate thresholds (0-1 range)
     if not 0 <= config.classifier.historical_confidence_threshold <= 1:
         raise ValueError(
-            f"Historical confidence threshold must be 0-1, got: {config.classifier.historical_confidence_threshold}"
+            f"Historical confidence threshold must be 0-1, "
+            f"got: {config.classifier.historical_confidence_threshold}"
         )
 
     if not 0 <= config.classifier.ai_confidence_threshold <= 1:

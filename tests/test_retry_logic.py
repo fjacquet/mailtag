@@ -5,7 +5,6 @@ failure cases, exponential backoff, and callback execution.
 """
 
 import time
-from unittest.mock import MagicMock
 
 import pytest
 
