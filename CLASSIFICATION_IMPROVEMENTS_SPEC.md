@@ -12,6 +12,7 @@
 This specification outlines improvements to the MailTag email classification system based on a comprehensive analysis of the current AMSC (Adaptive Multi-Signal Classification) architecture. The improvements are prioritized into three tiers based on impact and effort, with an initial focus on measurement, confidence scoring, and database expansion.
 
 ### Current State
+
 - ✅ Sophisticated 5-signal hierarchical classification (AMSC)
 - ✅ Efficient 3-pass processing system for IMAP
 - ✅ Domain-based classification reducing AI calls by 80-90%
@@ -21,6 +22,7 @@ This specification outlines improvements to the MailTag email classification sys
 - ❌ No feedback loop for continuous improvement
 
 ### Success Metrics
+
 - **Accuracy**: Track classification accuracy per signal (baseline → target)
 - **Performance**: Reduce AI fallback rate from ~20% to <10%
 - **Quality**: Achieve >95% confidence on 80%+ of classifications
@@ -31,6 +33,7 @@ This specification outlines improvements to the MailTag email classification sys
 ## Implementation Tiers
 
 ### Tier 1: Foundation & Quick Wins (Week 1-2)
+
 **Goal**: Enable measurement and utilize existing infrastructure
 
 1. ✅ AI Confidence Scoring
@@ -39,20 +42,22 @@ This specification outlines improvements to the MailTag email classification sys
 4. ✅ Enhanced Email Body Utilization
 
 ### Tier 2: Intelligence & Features (Week 3-4)
+
 **Goal**: Improve classification quality through better features and prompts
 
-5. ⏳ Advanced Prompt Engineering
-6. ⏳ Feature Engineering (temporal, content, metadata)
-7. ⏳ Semantic Similarity Classification
-8. ⏳ User Feedback Loop
+1. ⏳ Advanced Prompt Engineering
+2. ⏳ Feature Engineering (temporal, content, metadata)
+3. ⏳ Semantic Similarity Classification
+4. ⏳ User Feedback Loop
 
 ### Tier 3: Advanced ML & Optimization (Future)
+
 **Goal**: Production ML system with continuous learning
 
-9. 🔮 Multi-Model Ensemble
-10. 🔮 Active Learning System
-11. 🔮 Category Optimization
-12. 🔮 Real-Time Accuracy Dashboard
+1. 🔮 Multi-Model Ensemble
+2. 🔮 Active Learning System
+3. 🔮 Category Optimization
+4. 🔮 Real-Time Accuracy Dashboard
 
 ---
 
@@ -61,6 +66,7 @@ This specification outlines improvements to the MailTag email classification sys
 ### 1. AI Confidence Scoring
 
 #### Current State
+
 - Configuration exists: `ai_confidence_threshold = 0.98` in `config.toml`
 - AI model returns only category name (no confidence)
 - No uncertainty handling beyond "À Classer" for parse errors
@@ -186,12 +192,14 @@ request_ai_reasoning = true  # New: request explanation from AI
 ```
 
 #### Testing Requirements
+
 - ✅ Unit test: JSON parsing with valid/invalid responses
 - ✅ Integration test: Full classification with confidence scoring
 - ✅ Edge cases: Malformed JSON, missing fields, out-of-range confidence
 - ✅ Backward compatibility: Legacy string responses still work
 
 #### Success Criteria
+
 - All AI classifications include confidence score
 - Low-confidence emails (<0.85) route to "À Classer"
 - Confidence distribution tracked in metrics
@@ -202,6 +210,7 @@ request_ai_reasoning = true  # New: request explanation from AI
 ### 2. Classification Metrics System
 
 #### Current State
+
 - Excellent performance metrics (timing, memory, call counts)
 - Zero classification quality metrics
 - No signal effectiveness tracking
@@ -443,12 +452,14 @@ def run_classification_with_metrics(provider: EmailProvider, classifier: EmailCl
 ```
 
 #### Testing Requirements
+
 - ✅ Unit tests for ClassificationMetrics methods
 - ✅ Integration test: Full classification run with metrics
 - ✅ Verify metrics export format
 - ✅ Test signal hit rate calculations
 
 #### Success Criteria
+
 - Every classification recorded with signal type
 - Metrics summary generated after each run
 - JSON export includes all required fields
@@ -459,6 +470,7 @@ def run_classification_with_metrics(provider: EmailProvider, classifier: EmailCl
 ### 3. Domain Database Expansion
 
 #### Current State
+
 - 58 commercial domains in `db/domain_classifications.json`
 - Pass 3 manual matching files contain uncategorized commercial domains
 - ~20% of emails still fall through to AI
@@ -695,6 +707,7 @@ if __name__ == '__main__':
 ```
 
 #### Workflow
+
 1. Run `python src/main.py analyze-domains`
 2. Review `data/domain_candidates.json`
 3. For each candidate, add `suggested_category` field
@@ -702,12 +715,14 @@ if __name__ == '__main__':
 5. Re-run classification to measure impact
 
 #### Testing Requirements
+
 - ✅ Unit test: Domain extraction from email addresses
 - ✅ Unit test: Non-commercial domain filtering
 - ✅ Integration test: Full analysis pipeline
 - ✅ Verify JSON export format
 
 #### Success Criteria
+
 - Identify 50+ new commercial domains from Pass 3 files
 - Reduce AI fallback rate by 50%+
 - Domain DB grows from 58 to 150+ entries
@@ -717,6 +732,7 @@ if __name__ == '__main__':
 ### 4. Enhanced Email Body Utilization
 
 #### Current State
+
 - Email body truncated to 500 characters
 - Simple truncation loses important context
 - Headers and footers waste token budget
@@ -847,6 +863,7 @@ max_body_chars = 1500  # New: configurable body truncation
 ```
 
 #### Testing Requirements
+
 - ✅ Unit tests for smart_truncate with various email formats
 - ✅ Test signature removal
 - ✅ Test keyword extraction
@@ -854,6 +871,7 @@ max_body_chars = 1500  # New: configurable body truncation
 - ✅ Integration test: Classification accuracy improvement
 
 #### Success Criteria
+
 - Extract 1500 chars vs 500 chars (3x more context)
 - Remove signatures and boilerplate
 - Preserve high-signal sentences
@@ -974,6 +992,7 @@ password = "${IMAP_PASSWORD}"
 ### Unit Tests
 
 **New test files:**
+
 - `tests/test_classification_metrics.py` - Metrics system
 - `tests/test_domain_analyzer.py` - Domain analysis
 - `tests/test_text_utils.py` - Smart truncation
@@ -982,17 +1001,20 @@ password = "${IMAP_PASSWORD}"
 ### Integration Tests
 
 **Updated test files:**
+
 - `tests/test_classifier.py` - Add confidence scoring tests
 - `tests/test_tasks.py` - Add metrics reporting tests
 
 ### Test Data
 
 **New fixtures:**
+
 - `tests/fixtures/ai_responses.json` - Sample AI JSON responses
 - `tests/fixtures/email_bodies.txt` - Various email formats for truncation tests
 - `tests/fixtures/pass3_sample.json` - Sample Pass 3 data
 
 ### Coverage Goals
+
 - Maintain 80%+ overall coverage
 - 100% coverage for new metrics code
 - 90%+ coverage for AI response parsing
@@ -1002,22 +1024,26 @@ password = "${IMAP_PASSWORD}"
 ## Rollout Plan
 
 ### Phase 1: Development (Week 1)
+
 - [ ] Day 1-2: Implement AI confidence scoring + tests
 - [ ] Day 3-4: Implement classification metrics + tests
 - [ ] Day 5: Code review + refinement
 
 ### Phase 2: Domain Expansion (Week 2)
+
 - [ ] Day 1-2: Implement domain analyzer + tests
 - [ ] Day 3: Run analysis on existing Pass 3 files
 - [ ] Day 4-5: Manual review + domain DB update
 
 ### Phase 3: Testing & Validation (Week 2)
+
 - [ ] Integration testing with real email data
 - [ ] Performance regression testing
 - [ ] Metrics validation
 - [ ] Documentation updates
 
 ### Phase 4: Deployment
+
 - [ ] Merge to main branch
 - [ ] Run on production data
 - [ ] Generate first metrics report
@@ -1028,6 +1054,7 @@ password = "${IMAP_PASSWORD}"
 ## Success Metrics & KPIs
 
 ### Baseline (Current State)
+
 - AI fallback rate: ~20% (estimated)
 - No confidence tracking
 - No classification quality metrics
@@ -1035,6 +1062,7 @@ password = "${IMAP_PASSWORD}"
 - Body usage: 500 chars
 
 ### Target (After Tier 1)
+
 - AI fallback rate: <10% (50% reduction)
 - Confidence tracking: 100% of AI classifications
 - Signal hit rates: Measured and tracked
@@ -1042,6 +1070,7 @@ password = "${IMAP_PASSWORD}"
 - Body usage: 1500 chars (3x improvement)
 
 ### Monitoring
+
 - Weekly classification metrics reports
 - Monthly accuracy audits
 - Quarterly domain DB review
@@ -1052,21 +1081,25 @@ password = "${IMAP_PASSWORD}"
 ## Risks & Mitigation
 
 ### Risk 1: AI Model Not Returning JSON
+
 **Impact**: Medium  
 **Probability**: Medium  
 **Mitigation**: Fallback to legacy string parsing, monitor parse error rate
 
 ### Risk 2: Performance Degradation from Longer Prompts
+
 **Impact**: Low  
 **Probability**: Medium  
 **Mitigation**: Benchmark before/after, adjust max_body_chars if needed
 
 ### Risk 3: Incorrect Domain Categorization
+
 **Impact**: Medium  
 **Probability**: Low  
 **Mitigation**: Manual review workflow, easy rollback via git
 
 ### Risk 4: Metrics Overhead
+
 **Impact**: Low  
 **Probability**: Low  
 **Mitigation**: Performance tests, optional metrics disabling
@@ -1076,14 +1109,17 @@ password = "${IMAP_PASSWORD}"
 ## Dependencies
 
 ### Code Dependencies
+
 - No new external packages required
 - Uses existing: litellm, loguru, pydantic
 
 ### Configuration Dependencies
+
 - Requires updated config.toml
 - Backward compatible with old configs
 
 ### Data Dependencies
+
 - Existing Pass 3 manual matching files
 - Existing domain classifications DB
 
@@ -1092,6 +1128,7 @@ password = "${IMAP_PASSWORD}"
 ## Documentation Updates
 
 ### Files to Update
+
 - [x] `CLASSIFICATION_IMPROVEMENTS_SPEC.md` (this file)
 - [ ] `CLAUDE.md` - Add Tier 1 improvements description
 - [ ] `README.md` - Add new CLI commands
@@ -1099,6 +1136,7 @@ password = "${IMAP_PASSWORD}"
 - [ ] `docs/domain_analysis.md` - New file for domain workflow
 
 ### Code Documentation
+
 - Add docstrings to all new functions
 - Update existing docstrings where behavior changes
 - Add inline comments for complex logic
@@ -1108,12 +1146,14 @@ password = "${IMAP_PASSWORD}"
 ## Future Work (Tier 2 & 3)
 
 ### Tier 2 Preview (Week 3-4)
+
 - Advanced prompt engineering with few-shot examples
 - Feature engineering (temporal, content, metadata)
 - Semantic similarity classification
 - User feedback loop
 
 ### Tier 3 Preview (Future)
+
 - Multi-model ensemble
 - Active learning system
 - Category optimization
@@ -1128,6 +1168,7 @@ See separate specifications for Tier 2 and Tier 3 when ready to proceed.
 ### A. File Changes Checklist
 
 **New Files:**
+
 - [ ] `src/mailtag/utils/text_utils.py`
 - [ ] `src/mailtag/utils/domain_analyzer.py`
 - [ ] `scripts/update_domain_db.py`
@@ -1139,6 +1180,7 @@ See separate specifications for Tier 2 and Tier 3 when ready to proceed.
 - [ ] `tests/fixtures/email_bodies.txt`
 
 **Modified Files:**
+
 - [ ] `src/mailtag/classifier.py` - AI confidence, metrics integration
 - [ ] `src/mailtag/metrics.py` - Add ClassificationMetrics class
 - [ ] `src/mailtag/utils/tasks.py` - Add metrics reporting

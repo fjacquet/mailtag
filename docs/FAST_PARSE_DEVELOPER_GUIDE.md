@@ -58,7 +58,7 @@ def get_classification_by_new_method(self, email_data: dict) -> Optional[str]:
     return classification_result
 ```
 
-2. **Integrate with the Two-Pass System**:
+1. **Integrate with the Two-Pass System**:
 
 ```python
 # In _run_fast_parse_on_folder or a similar orchestration function
@@ -97,7 +97,7 @@ def _get_body_from_msg(self, msg) -> str:
                 return self._process_your_format(payload)
 ```
 
-2. **Add a Processing Method for the New Format**:
+1. **Add a Processing Method for the New Format**:
 
 ```python
 def _process_your_format(self, content: str) -> str:
@@ -130,7 +130,7 @@ def _get_optimal_batch_size(self, uids: list) -> int:
     return 100  # Default batch size
 ```
 
-2. **Update the Batching Method**:
+1. **Update the Batching Method**:
 
 ```python
 def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable) -> dict[Any, Any]:
@@ -155,7 +155,7 @@ import concurrent.futures
 from typing import List, Dict, Any, Union, Callable
 ```
 
-2. **Implement Concurrent Batch Processing**:
+1. **Implement Concurrent Batch Processing**:
 
 ```python
 def _concurrent_batch_fetch(
@@ -265,7 +265,7 @@ class TestImapService(unittest.TestCase):
         self.assertEqual(result["1"]["subject"], "Test Email")
 ```
 
-2. **Run Tests**:
+1. **Run Tests**:
 
 ```bash
 # Run all tests
@@ -327,7 +327,7 @@ class TestImapIntegration(unittest.TestCase):
         self.assertIsInstance(pass2_count, int)
 ```
 
-2. **Run Integration Tests**:
+1. **Run Integration Tests**:
 
 ```bash
 # Set environment variables
@@ -346,10 +346,12 @@ python -m unittest tests.integration.test_imap_integration
 #### 1. "Too long argument" Error
 
 **Symptoms**:
+
 - Error message: `imaplib.error: command FETCH failed: BAD [b'Too long argument']`
 - Occurs when fetching large batches of emails
 
 **Solutions**:
+
 - Reduce the batch size in `FastParseConfig`
 - Check if the UIDs are being properly batched
 - Verify that the `_batch_fetch` method is being used correctly
@@ -357,10 +359,12 @@ python -m unittest tests.integration.test_imap_integration
 #### 2. Connection Timeouts
 
 **Symptoms**:
+
 - Error message: `socket.timeout: timed out`
 - Connection drops during long operations
 
 **Solutions**:
+
 - Implement connection refresh logic
 - Add retry mechanism for operations
 - Check network stability and firewall settings
@@ -390,10 +394,12 @@ def _with_connection_retry(self, operation, max_retries=3):
 #### 3. Memory Issues
 
 **Symptoms**:
+
 - High memory usage
 - Process crashes with `MemoryError`
 
 **Solutions**:
+
 - Process emails in smaller batches
 - Implement streaming for large emails
 - Add explicit garbage collection
@@ -426,10 +432,12 @@ def _process_large_mailbox(self, uids):
 #### 4. Character Encoding Issues
 
 **Symptoms**:
+
 - `UnicodeDecodeError` when processing emails
 - Garbled text in email content
 
 **Solutions**:
+
 - Use more robust decoding in `_decode_payload`
 - Add support for additional character encodings
 - Implement fallback decoding strategies
@@ -437,10 +445,12 @@ def _process_large_mailbox(self, uids):
 #### 5. HTML Parsing Failures
 
 **Symptoms**:
+
 - Error messages from BeautifulSoup
 - Missing or incomplete content from HTML emails
 
 **Solutions**:
+
 - Update BeautifulSoup parser options
 - Add better error handling for HTML parsing
 - Consider alternative HTML parsing libraries
@@ -694,6 +704,7 @@ jobs:
 This developer guide provides a comprehensive reference for working with the Fast Parse feature in the Mailtag project. By following these guidelines, you can effectively extend, test, and troubleshoot the system while maintaining code quality and consistency.
 
 For additional information, refer to the following documents:
+
 - `FAST_PARSE_IMPLEMENTATION.md`: Overview of the Fast Parse implementation
 - `FAST_PARSE_BATCHING.md`: Details on the batching system
 - `FAST_PARSE_HEADER_PROCESSING.md`: Information on header parsing

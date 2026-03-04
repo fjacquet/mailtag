@@ -31,6 +31,7 @@ def get_full_emails(self, uids: list[str | int]) -> list[Email]:
 ```
 
 This method:
+
 - Converts string UIDs to integers as required by IMAPClient
 - Uses the `RFC822` command to fetch the complete email content
 - Leverages the batching system to handle large UID lists
@@ -81,6 +82,7 @@ def _process_full_emails(self, response: dict[int, dict[bytes, bytes]]) -> dict[
 ```
 
 This method:
+
 - Iterates through each message in the IMAP response
 - Uses `email.message_from_bytes` to parse the raw email data
 - Extracts headers using the same methods as the header processing system
@@ -136,6 +138,7 @@ def _get_body_from_msg(self, msg) -> str:
 ```
 
 This method:
+
 - Handles both multipart and single-part messages
 - Prioritizes plain text content over HTML
 - Uses a dedicated method to decode payloads with proper character encoding
@@ -178,6 +181,7 @@ def _decode_payload(self, part) -> str:
 ```
 
 This method:
+
 - Gets the decoded payload using `get_payload(decode=True)`
 - Attempts to determine the character encoding from the email part
 - Tries multiple common character encodings if the specified one fails
@@ -244,6 +248,7 @@ if html_body:
 ### Content Type Prioritization
 
 The system prioritizes plain text over HTML for better performance:
+
 - Plain text requires less processing
 - HTML parsing with BeautifulSoup can be resource-intensive
 - This approach ensures the most efficient processing path is taken when possible
@@ -251,6 +256,7 @@ The system prioritizes plain text over HTML for better performance:
 ### Memory Efficiency
 
 The system is designed to be memory efficient by:
+
 - Processing one email at a time
 - Avoiding unnecessary data duplication
 - Using streaming parsers where possible
@@ -258,6 +264,7 @@ The system is designed to be memory efficient by:
 ## Error Handling
 
 The body processing system includes robust error handling:
+
 - Part-level error handling to prevent a single part failure from affecting the entire email
 - Graceful fallbacks for decoding errors
 - Detailed logging of processing errors

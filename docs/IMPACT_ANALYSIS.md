@@ -7,6 +7,7 @@ This document outlines the impact of implementing the "Enhanced Classification E
 The "Enhanced Classification Engine" is a significant architectural evolution, moving from a single-signal (AI model) to a multi-signal classification strategy. This new approach, named Adaptive Multi-Signal Classification (AMSC), prioritizes data from more reliable sources (validated classifications, email server labels, historical data) before falling back to the AI model. This improves accuracy, reduces cost, and increases reliability.
 
 This refactoring also introduced:
+
 - A three-entry-point architecture (CLI, Streamlit, Webhook).
 - A dual-database system for AI suggestions and validated classifications.
 - The use of `click` for a more modern CLI.

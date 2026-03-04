@@ -2,6 +2,7 @@ Dossiers
 Archive
 Deleted Messages
 Factures
+
 - Apple
 - Bitdefender
 - Cumulus
@@ -37,6 +38,7 @@ Later
 MyHeritage
 
 News
+
 - 24 heures
 - BonASavoir
 - Cookomix

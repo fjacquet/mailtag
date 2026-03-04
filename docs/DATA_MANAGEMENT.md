@@ -23,6 +23,7 @@ python src/main.py db-stats
 ```
 
 **Output includes:**
+
 - Number of entries in each database
 - High-confidence sender entries (10+ occurrences)
 - Unique categories in domain database
@@ -47,6 +48,7 @@ python src/main.py cleanup --dry-run
 ```
 
 **What gets cleaned:**
+
 - `pass3_manual_matching_*.json` files older than threshold
 - Duplicate files from same day (keeps first and last)
 
@@ -66,6 +68,7 @@ python src/main.py prune-db --dry-run
 ```
 
 **Why prune?**
+
 - Single-occurrence entries provide low classification signal
 - Reduces database size and lookup time
 - Improves signal-to-noise ratio
@@ -179,6 +182,7 @@ issues = validate_sender_classifications(Path("db/sender_classification_db.json"
 ```
 
 **Detects:**
+
 - Malformed domains (trailing `>`, invalid format)
 - Empty categories
 - Sender addresses needing normalization
@@ -210,6 +214,7 @@ normalize_domain("Example.COM>")  # → "example.com"
 ```
 
 **Normalization rules:**
+
 - Strip angle brackets `< >`
 - Decode RFC 2047 encoded headers
 - Convert to lowercase
@@ -264,6 +269,7 @@ print(f"Files per day: {stats['files_by_date']}")
 ### "File not found" errors
 
 If `validated_classification_db.json` is missing:
+
 ```bash
 echo "{}" > db/validated_classification_db.json
 ```
@@ -271,6 +277,7 @@ echo "{}" > db/validated_classification_db.json
 ### Malformed domain entries
 
 Run the fix command:
+
 ```python
 from mailtag.utils.data_validation import fix_domain_classifications
 fix_domain_classifications(Path("db/domain_classifications.json"))
@@ -279,6 +286,7 @@ fix_domain_classifications(Path("db/domain_classifications.json"))
 ### Pass3 files accumulating
 
 Enable regular cleanup:
+
 ```bash
 # Add to crontab or scheduled task
 python src/main.py cleanup --max-age 30

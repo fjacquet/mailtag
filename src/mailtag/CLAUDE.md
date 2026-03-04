@@ -5,6 +5,7 @@ Core package for email classification and organization.
 ## Key Modules
 
 ### Classification Engine
+
 - **classifier.py** - `Classifier` class implementing AMSC (Adaptive Multi-Signal Classification)
   - `classify_email()` - Main entry point, tries 5 signals in priority order
   - `_get_category_from_validated_db()` - Signal 1: Validated mappings (100% confidence)
@@ -15,6 +16,7 @@ Core package for email classification and organization.
   - `export_metrics()` / `log_metrics_summary()` - Classification analytics
 
 ### Database Layer
+
 - **database.py** - `ClassificationDatabase` class managing 3 JSON databases
   - `update_suggestion()` - Record AI suggestions
   - `promote_to_validated()` - Move to validated DB
@@ -22,6 +24,7 @@ Core package for email classification and organization.
   - All lookups use lowercase-normalized emails/domains
 
 ### Email Providers
+
 - **providers.py** - `EmailProvider` abstract base class
   - `connect()` - Context manager for connection lifecycle
   - `get_emails()` - Fetch emails with filters
@@ -38,6 +41,7 @@ Core package for email classification and organization.
   - Label management via Gmail API
 
 ### Supporting Modules
+
 - **config.py** - Configuration dataclasses with env var substitution
 - **models.py** - `Email` Pydantic model
 - **metrics.py** - Performance metrics collection
@@ -47,6 +51,7 @@ Core package for email classification and organization.
 - **gmail_auth.py** - OAuth flow for Gmail
 
 ## Design Patterns
+
 - Provider pattern for email backends
 - Context managers for connections
 - Batch operations over individual calls

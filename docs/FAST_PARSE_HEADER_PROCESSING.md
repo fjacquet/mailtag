@@ -70,6 +70,7 @@ def _process_email_headers(self, response: dict[int, dict[bytes, bytes]]) -> dic
 ```
 
 This method:
+
 - Iterates through each message in the IMAP response
 - Uses the `HeaderParser` from the `email.parser` module to parse the raw header data
 - Extracts and processes the From and Subject headers
@@ -139,8 +140,9 @@ def _parse_sender(self, sender_string: str) -> tuple[str, str]:
 ```
 
 This method:
+
 - Uses `email.utils.parseaddr` to extract name and email address
-- Handles various sender formats like "Name <email@example.com>" or just "email@example.com"
+- Handles various sender formats like "Name <email@example.com>" or just "<email@example.com>"
 - Provides fallback handling for malformed sender strings
 - Returns a tuple of (sender_name, sender_address)
 

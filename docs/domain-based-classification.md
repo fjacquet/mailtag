@@ -43,12 +43,14 @@ Many emails come from the same domains (newsletters, services, notifications). I
 ### Examples
 
 **Commercial Domains (Domain-based classification applies):**
+
 - All emails from `@todoist.com` → `Services/Professional/Todoist`
 - All emails from `@ifolor.ch` → `Services/Online/ifolor`
 - All emails from `@fnac.com` → `Services/Online/FNAC`
 - All emails from `@bloomberg.com` → `Finance/Online/Bloomberg`
 
 **Non-Commercial Domains (Skip to Pass 3 - AI classification):**
+
 - Emails from `@gmail.com` → Individual AI classification (no domain rule)
 - Emails from `@yahoo.com` → Individual AI classification (no domain rule)
 - Emails from `@outlook.com` → Individual AI classification (no domain rule)
@@ -57,7 +59,9 @@ Many emails come from the same domains (newsletters, services, notifications). I
 ## Implementation Requirements
 
 ### Non-Commercial Domains Configuration
+
 Personal email providers are excluded from domain-based classification:
+
 ```yaml
 # data/non_commercial_domains.yaml
 non_commercial_domains:
@@ -71,6 +75,7 @@ non_commercial_domains:
 ### Database Schema
 
 Need to store domain → category mappings (excluding non-commercial domains):
+
 ```json
 {
   "domain_classifications": {
@@ -145,6 +150,7 @@ Personal email domains (gmail.com, yahoo.com) host millions of different users
 Domain classification might become outdated
 
 **Mitigation**: Allow manual override and periodic review of domain mappings
+
 ### Risk: New Subdomains
 
 New subdomains might not match existing domain rules

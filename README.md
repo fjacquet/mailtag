@@ -22,17 +22,20 @@ The `src/main.py` script provides a command-line interface to:
 ## Installation
 
 1. Clone the repository:
+
     ```bash
     git clone https://github.com/fjacquet/mailtag.git
     cd mailtag
     ```
 
 2. Install the dependencies:
+
     ```bash
     uv pip install -e ".[dev]"
     ```
 
    To enable Gmail integration, install the optional Google API libraries:
+
     ```bash
     uv pip install -e ".[gmail]"
     # or with pip

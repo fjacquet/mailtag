@@ -40,7 +40,7 @@ def refresh_imap_folders(imap_service: ImapService) -> None:
         raise RuntimeError(f"Cannot proceed without fresh IMAP folder structure: {e}")
 ```
 
-2. Add this function call to the application startup sequence in `main.py`:
+1. Add this function call to the application startup sequence in `main.py`:
 
 ```python
 def main():

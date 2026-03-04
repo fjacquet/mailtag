@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - **Thread safety** for concurrent email processing (classifier, metrics, IMAP daemon)
 - Thread-safe lazy initialization for MLX components with RLock
 - Thread-safe AI cache with concurrent read/write protection
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **mypy type checking** configured with comprehensive type safety rules
 
 ### Changed
+
 - **BREAKING**: Removed insecure fallback configuration - application now fails fast on invalid config
 - Retry decorator uses explicit parameters instead of fragile introspection
 - Email parsing consolidated from IMAP and Gmail services into shared utility module
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Application exits with clear error messages on configuration failures
 
 ### Fixed
+
 - Linting issues in config.py, gmail_service.py, and test files
 - Encapsulation violations where code directly accessed `database.suggestion_db`
 - Dependency injection in retry decorator (removed args[0] introspection)
@@ -38,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mock configuration in test_classification_metrics.py for `get_sender_classifications`
 
 ### Security
+
 - **CRITICAL**: Removed fallback config that created insecure default credentials
 - Added validation to reject empty passwords and invalid email formats
 - Added URL format validation for API endpoints
@@ -45,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive security documentation with best practices and recommendations
 
 ### Improved
+
 - **Thread safety**: All concurrent operations now use proper locking mechanisms
 - Code quality: Eliminated ~150 lines of duplicated email parsing code
 - Test coverage: Added 380+ lines of integration and error recovery tests
@@ -54,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exception handling: Replaced 30 broad `except Exception` with specific exception types
 
 ### Testing
+
 - 264 passing core tests (100% pass rate)
 - 84% overall code coverage (up from 75%)
 - New test suites:
@@ -65,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Previous Releases]
 
 ### Notable Features
+
 - Multi-signal classification strategy (AMSC) with 5 prioritized signals
 - Three-pass IMAP processing (headers → domain → AI) for efficiency
 - AI confidence scoring with JSON responses and configurable thresholds
@@ -84,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Quality Metrics
 
 **Before Remediation**:
+
 - Test count: 264 tests
 - Coverage: 75%
 - Linting: Multiple issues
@@ -94,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exception handling: 30 broad handlers
 
 **After Remediation** (2026-01-10):
+
 - Test count: 264 tests (100% passing)
 - Coverage: 84% (+9%)
 - Linting: All checks passing ✅
@@ -106,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Development
 
 **Recent Commits**:
+
 1. Quick wins: encapsulation, type hints, config validation
 2. Eliminate code duplication with email_parsing utility
 3. Fix dependency injection in retry decorator

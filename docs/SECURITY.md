@@ -11,16 +11,19 @@ MailTag is a single-user email classification tool that handles sensitive creden
 ### Credential Storage
 
 **IMAP Credentials**:
+
 - Stored in `config.toml` with environment variable substitution
 - Use `.env` file for sensitive credentials (never commit to git)
 - Password should use environment variable: `${IMAP_PASSWORD}`
 
 **Gmail OAuth**:
+
 - Uses OAuth 2.0 flow with refresh tokens
 - Tokens stored in `token.json` (automatically managed)
 - Credentials file downloaded from Google Cloud Console
 
 **Recommended File Permissions**:
+
 ```bash
 # Restrict access to configuration and credentials
 chmod 600 config.toml
@@ -45,16 +48,19 @@ MailTag validates configuration on startup (as of v0.2.0):
 ### Database Files
 
 All classification databases are JSON files stored in `db/`:
+
 - `sender_classification_db.json` - AI suggestions and historical patterns
 - `validated_classification_db.json` - Manually validated classifications
 - `domain_classifications.json` - Domain-level rules
 
 **Automatic Backups**:
+
 - Created in `db/backups/` at start of each run
 - Rotates to keep 10 most recent backups
 - Enables recovery from accidental corruption
 
 **No Sensitive Email Content**:
+
 - Databases store only sender addresses and categories
 - No email bodies, subjects, or personal content stored
 - Email parsing utilities handle temporary data in memory only
@@ -62,16 +68,19 @@ All classification databases are JSON files stored in `db/`:
 ### Email Processing
 
 **Pass 1 (Headers Only)**:
+
 - Fetches only sender and subject headers
 - No body content retrieved for validated senders
 - Minimizes data exposure for known senders
 
 **Pass 3 (AI Classification)**:
+
 - Email bodies sent to AI model (Ollama/Gemini/OpenRouter)
 - Body content truncated to 1500 characters maximum
 - Signatures automatically removed before AI processing
 
 **Local AI Option**:
+
 - Use Ollama for completely local AI processing
 - No data leaves your machine
 - Full privacy for email content
@@ -81,11 +90,13 @@ All classification databases are JSON files stored in `db/`:
 ### Retry Logic
 
 Network operations use exponential backoff retry with:
+
 - Configurable max retries (default: 3)
 - Exponential backoff (default: 2.0x multiplier)
 - Random jitter to prevent thundering herd
 
 **Prevents**:
+
 - Accidental DDoS of your own mail server
 - Connection exhaustion from rapid retries
 - Predictable retry patterns
@@ -93,11 +104,13 @@ Network operations use exponential backoff retry with:
 ### IMAP/Gmail Connections
 
 **IMAP**:
+
 - SSL/TLS encryption required (port 993)
 - Connections use context managers for automatic cleanup
 - Idle connections properly closed
 
 **Gmail**:
+
 - OAuth 2.0 with refresh tokens
 - HTTPS only for API calls
 - Automatic token refresh handled securely
@@ -107,11 +120,13 @@ Network operations use exponential backoff retry with:
 ### Input Validation
 
 **Email Parsing**:
+
 - Handles malformed email headers gracefully
 - Decodes RFC 2047 encoded headers safely
 - Fallback encodings prevent crashes on invalid UTF-8
 
 **File Operations**:
+
 - All file paths use Path objects (prevents path traversal)
 - Database loading handles corrupted JSON gracefully
 - Automatic fallback to empty database on corruption
@@ -119,6 +134,7 @@ Network operations use exponential backoff retry with:
 ### Error Handling
 
 **Current Status** (as of 2026-01-10):
+
 - ✅ Config validation with early failure
 - ✅ Database corruption recovery
 - ✅ Network retry logic
@@ -127,12 +143,14 @@ Network operations use exponential backoff retry with:
 ### Logging
 
 **Security Considerations**:
+
 - Uses `loguru` for structured logging
 - No credential logging (passwords never appear in logs)
 - Email addresses logged for classification tracking (review if PII concerns)
 - Log files stored in `logs/` directory
 
 **Recommendations**:
+
 - Review log retention policy for PII compliance
 - Consider hashing email addresses in logs if required
 - Rotate logs regularly (configure in logging setup)
@@ -142,11 +160,13 @@ Network operations use exponential backoff retry with:
 ### API Keys
 
 **Environment Variables**:
+
 - `GEMINI_API_KEY` - For Google Gemini
 - `OPENROUTER_API_KEY` - For OpenRouter
 - `OLLAMA_API_URL` - For Ollama (usually localhost)
 
 **Never**:
+
 - Commit API keys to git
 - Share API keys in issue reports
 - Log API keys (automatically excluded by loguru)
@@ -154,12 +174,14 @@ Network operations use exponential backoff retry with:
 ### Model Responses
 
 **Validation**:
+
 - AI responses parsed as JSON with validation
 - Confidence scores validated (0-1 range)
 - Invalid responses route to "À Classer" (unclassified)
 - No arbitrary code execution from model responses
 
 **Low Confidence Handling**:
+
 - Responses below threshold (default 0.85) rejected
 - Fallback to manual classification folder
 - Prevents misclassification from uncertain AI
@@ -169,6 +191,7 @@ Network operations use exponential backoff retry with:
 ### Immediate Actions
 
 1. **Set Secure File Permissions**:
+
    ```bash
    chmod 600 config.toml .env data/gmail/*.json
    ```
@@ -190,6 +213,7 @@ Network operations use exponential backoff retry with:
    - Test restore procedure periodically
 
 2. **Update Dependencies**:
+
    ```bash
    uv sync -U  # Update to latest compatible versions
    uv run pip list --outdated  # Check for security updates
@@ -255,6 +279,7 @@ If you discover a security vulnerability in MailTag:
 ### GDPR Considerations
 
 If processing email addresses from EU users:
+
 - Email addresses are personal data under GDPR
 - Stored locally in JSON databases
 - Consider implementing data retention policy
@@ -263,6 +288,7 @@ If processing email addresses from EU users:
 ### Data Minimization
 
 MailTag follows data minimization principles:
+
 - Only stores sender addresses and categories
 - No email content persisted to disk
 - Temporary body content discarded after classification
@@ -273,6 +299,7 @@ MailTag follows data minimization principles:
 ### Recent Security Improvements
 
 **2026-01-10** - Quality Review & Remediation (Complete):
+
 - ✅ Removed insecure fallback configuration
 - ✅ Added comprehensive config validation
 - ✅ Fixed dependency injection vulnerabilities
@@ -283,6 +310,7 @@ MailTag follows data minimization principles:
 - ✅ Implemented graceful thread lifecycle management
 
 **Previous**:
+
 - Environment variable substitution for credentials
 - OAuth 2.0 for Gmail authentication
 - SSL/TLS for IMAP connections

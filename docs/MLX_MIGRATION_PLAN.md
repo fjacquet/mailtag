@@ -40,20 +40,24 @@ llm_confidence = 0.85
 ## Gains Attendus
 
 ### Performance
+
 - **5-6x plus rapide** pour la classification AI
 - **Classification instantanée** via embeddings (nouveau signal)
 - **32% mémoire économisée** vs Ollama
 
 ### Simplicité
+
 - **Pas de serveur Ollama** à démarrer/maintenir
 - Configuration unifiée dans `config.toml`
 - Dépendances Python uniquement
 
 ### Coût
+
 - **0 API calls** = gratuit
 - Exécution 100% locale
 
 ### Flexibilité
+
 - Changement de modèle via config uniquement
 - Support des modèles mlx-community (1000+)
 
@@ -73,9 +77,11 @@ llm_confidence = 0.85
 ## Plan d'Implémentation
 
 ### Phase 1: Infrastructure MLX
+
 **Fichiers à créer:**
 
 1. `src/mailtag/mlx_provider.py`
+
    ```python
    class MLXEmbedder:
        """Génère embeddings avec nomic-embed-text-v1.5"""
@@ -89,6 +95,7 @@ llm_confidence = 0.85
    ```
 
 2. `src/mailtag/config.py` - Ajouter:
+
    ```python
    @dataclass
    class MLXConfig:
@@ -100,9 +107,11 @@ llm_confidence = 0.85
    ```
 
 ### Phase 2: Semantic Router
+
 **Fichiers à créer:**
 
-3. `src/mailtag/semantic_router.py`
+1. `src/mailtag/semantic_router.py`
+
    ```python
    class SemanticRouter:
        """Classification par similarité sémantique"""
@@ -113,24 +122,27 @@ llm_confidence = 0.85
        def load_embeddings(self, path: Path)
    ```
 
-4. `scripts/build_category_embeddings.py`
+2. `scripts/build_category_embeddings.py`
    - Charge `db/validated_classification_db.json`
    - Génère embeddings par catégorie (centroïde des exemples)
    - Sauvegarde dans `data/category_embeddings.npz`
 
 ### Phase 3: Intégration Classifier
+
 **Fichier à modifier:**
 
-5. `src/mailtag/classifier.py`
+1. `src/mailtag/classifier.py`
    - Supprimer import litellm
    - Ajouter `_get_category_from_semantic_router()` (Signal 5)
    - Modifier `_get_category_from_ai()` pour utiliser `MLXLLM` (Signal 6)
    - Lazy loading des modèles MLX
 
 ### Phase 4: Configuration
+
 **Fichiers à modifier:**
 
-6. `config.toml` - Ajouter section:
+1. `config.toml` - Ajouter section:
+
    ```toml
    [mlx]
    enabled = true
@@ -140,7 +152,8 @@ llm_confidence = 0.85
    llm_confidence = 0.85
    ```
 
-7. `pyproject.toml` - Modifier dépendances:
+2. `pyproject.toml` - Modifier dépendances:
+
    ```toml
    dependencies = [
        # Remplacer litellm par:
@@ -152,10 +165,11 @@ llm_confidence = 0.85
    ```
 
 ### Phase 5: Tests
+
 **Fichiers à créer:**
 
-8. `tests/test_mlx_provider.py`
-9. `tests/test_semantic_router.py`
+1. `tests/test_mlx_provider.py`
+2. `tests/test_semantic_router.py`
 
 ---
 
@@ -190,6 +204,7 @@ llm_confidence = 0.85
 ### Génération des Embeddings Catégories
 
 Le script `build_category_embeddings.py`:
+
 ```python
 # 1. Charge validated_db
 validated_db = load("db/validated_classification_db.json")

@@ -9,6 +9,7 @@ MailTag is a Python-based email automation tool that classifies and organizes em
 ## Development Commands
 
 ### Environment Setup
+
 ```bash
 # Install dependencies (includes dev tools)
 uv pip install -e ".[dev]"
@@ -25,6 +26,7 @@ uv sync -U
 MailTag supports multiple AI providers as drop-in replacements via `.env` configuration:
 
 #### Option 1: Ollama (Local AI - Free)
+
 ```bash
 # Start Ollama with optimized settings
 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 OLLAMA_NUM_CTX=8192 ollama serve
@@ -35,11 +37,13 @@ OLLAMA_API_URL=http://localhost:11434
 ```
 
 **Ollama Settings:**
+
 - `OLLAMA_FLASH_ATTENTION=1`: Enables flash attention for faster inference
 - `OLLAMA_KV_CACHE_TYPE=q4_0`: Uses 4-bit quantized KV cache to reduce memory usage
 - `OLLAMA_NUM_CTX=8192`: Sets context window to 8192 tokens (prevents prompt truncation)
 
 #### Option 2: Google Gemini (Cloud AI - Fast & Affordable)
+
 ```bash
 # In your .env file:
 MODEL=gemini/gemini-2.5-flash
@@ -50,12 +54,14 @@ API_BASE=  # Leave empty for Gemini
 ```
 
 **Available Gemini Models:**
+
 - `gemini/gemini-2.5-flash` (recommended - latest, fastest)
 - `gemini/gemini-2.5-flash-lite-preview-09-2025` (cheaper, lighter)
 - `gemini/gemini-1.5-flash`
 - `gemini/gemini-1.5-pro`
 
 #### Option 3: OpenRouter (Multi-provider Cloud)
+
 ```bash
 # In your .env file:
 MODEL=openai/gpt-4o-mini
@@ -66,6 +72,7 @@ API_BASE=https://openrouter.ai/api/v1
 **Switching between providers:** Simply update the `MODEL` variable in your `.env` file and restart the application. No code changes needed!
 
 ### Testing
+
 ```bash
 # Run all tests with coverage
 uv run pytest --cov --cov-branch --cov-report=xml
@@ -81,6 +88,7 @@ uv run pytest tests/test_database.py::test_function_name
 ```
 
 ### Linting and Formatting
+
 ```bash
 # Check code with ruff linter
 uv run ruff check .
@@ -102,6 +110,7 @@ uv run yamlfix .
 ```
 
 ### Running the Application
+
 ```bash
 # CLI entry point - run classification on all providers
 python src/main.py run --provider all
@@ -150,6 +159,7 @@ The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical
 Each signal can definitively classify an email, stopping further evaluation. Only unclassified emails proceed to the next signal.
 
 **Recent Improvements (2025-11-22)**:
+
 - **AI Confidence Scoring**: AI now returns JSON with category, confidence (0-1.0), and reasoning. Classifications below threshold (0.85) route to "À Classer"
 - **Classification Metrics**: Comprehensive tracking of signal hit rates, category distribution, confidence scores, and processing times
 - **Smart Text Processing**: Email bodies intelligently truncated from 500→1500 chars with signature removal and keyword preservation
@@ -174,11 +184,13 @@ The codebase uses a provider pattern (`src/mailtag/providers.py`):
 - `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication
 
 All providers implement:
+
 - `connect()`: Context manager for connection lifecycle
 - `get_emails()`: Fetch emails with optional filters
 - `move_email()`: Move single email to destination folder/label
 
 IMAP additionally supports:
+
 - `batch_move_emails()`: Efficient bulk move operations
 - `get_email_headers()`: Fetch headers without full body
 - `get_folder_hierarchy()`: Retrieve and cache folder structure
@@ -207,6 +219,7 @@ Configuration loaded from `config.toml` with environment variable substitution:
 - `logging`: Level and file path
 
 Create a `.env` file for local development with:
+
 ```
 IMAP_USER=your-email@example.com
 IMAP_PASSWORD=your-password
@@ -223,6 +236,7 @@ Two modes controlled by `general.use_imap_folders_for_classification`:
 ### Email Model
 
 Pydantic model at `src/mailtag/models.py`:
+
 ```python
 class Email(BaseModel):
     msg_id: str               # Unique identifier
@@ -250,6 +264,7 @@ See [docs/DATA_MANAGEMENT.md](docs/DATA_MANAGEMENT.md) for detailed data managem
 ### Classification Metrics (NEW)
 
 After running classification, the system now tracks:
+
 - **Signal Hit Rates**: Percentage of emails classified by each signal (validated_db, server_labels, historical_db, domain_db, ai_model)
 - **Category Distribution**: Top 10 most-used categories
 - **Confidence Scores**: Average, min, max confidence per signal
@@ -257,6 +272,7 @@ After running classification, the system now tracks:
 - **Error Tracking**: AI uncertainties, model errors, and other issues
 
 Export metrics with:
+
 ```python
 from mailtag.classifier import Classifier
 classifier.export_metrics(Path("data/metrics"))  # Exports to JSON
@@ -264,6 +280,7 @@ classifier.log_metrics_summary("INFO")  # Logs formatted summary
 ```
 
 Metrics are automatically tracked during classification and can be reviewed to:
+
 - Identify which signals are most effective
 - Detect classification bottlenecks
 - Monitor AI model performance
