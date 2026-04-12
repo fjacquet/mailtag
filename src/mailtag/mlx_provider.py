@@ -211,8 +211,9 @@ class MLXLLM:
                 kv_bits=8,
                 verbose=False,
             )
-        except TypeError:
-            # Fallback for mlx-lm versions that don't support kv_bits
+        except (TypeError, NotImplementedError):
+            # Fallback: kv_bits not supported by mlx-lm version or model architecture
+            logger.debug("KV cache quantization not available, falling back without kv_bits")
             response = generate_fn(
                 self.model,
                 self.tokenizer,
