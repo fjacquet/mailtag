@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-12
+
 ### Added
 
 - **Gemma 4 E4B model** as default MLX LLM, replacing Mistral 7B Instruct v0.3 (see ADR-002)
@@ -15,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Config loader helper `_dataclass_from_dict()` to eliminate duplicated defaults
 - ADR documentation (`docs/ADR-001-mlx-migration.md`, `docs/ADR-002-gemma4-model-switch.md`)
 - Product Requirements Document (`docs/PRD.md`)
+- **Batch semantic routing** via `route_batch()` for Signal 5 embeddings
+- **Batch IMAP moves** accumulated by category in Pass 3
+- **Deferred database writes** with dirty-flag pattern and `flush()` for batch I/O
+- **Cached LLM prompt prefix** to avoid rebuilding ~600-900 token category list per call
+- **Pass 1→2 header forwarding** to eliminate duplicate IMAP fetch
+- **Folder existence caching** in IMAP `batch_move_emails`
+- **psutil.Process throttling** (5s interval) for memory metrics
+- **Buffered proposal writes** with `flush_proposals()`
+- KV cache quantization (`kv_bits=8`) with graceful fallback for unsupported models
 
 ### Changed
 
@@ -26,11 +37,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python target upgraded to 3.13 (requires-python >= 3.13)
 - Updated all dependencies via `uv sync -U`
 - CLAUDE.md rewritten: corrected signal count (5→6), added MLX Provider section, trimmed stale content
+- `classifier.min_count` default reduced from 10 → 5 for faster historical DB matches
+- `fast_parse.batch_size` increased from 100 → 500 for larger IMAP batches
+- All database mutation methods now use `threading.RLock` for thread safety
+- Tests migrated from `unittest.mock` to `pytest-mock` (`mocker` fixture)
 
 ### Fixed
 
 - Gemma 4 thinking mode consuming entire token budget before producing JSON output
 - JSON regex in `classify()` now handles nested braces correctly
+- Broken f-strings in `tasks.py` log messages (Pass 2 count, Top senders)
+- `restore_database()` argument order in error recovery tests
+- Gmail classification path now flushes proposals and database on completion
+- KV cache quantization fallback catches `NotImplementedError` for unsupported model architectures
 
 ## [0.2.0] - 2026-01-10
 
