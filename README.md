@@ -3,6 +3,10 @@
 MailTag is a Python-based email automation tool that classifies and organizes emails using on-device AI. It supports both IMAP and Gmail, using a 6-signal classification strategy with MLX-powered local inference on Apple Silicon.
 
 [![CI Tests and Checks](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/fjacquet/mailtag)](https://github.com/fjacquet/mailtag/releases)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/fjacquet/mailtag/branch/maincd/graph/badge.svg)](https://codecov.io/gh/fjacquet/mailtag)
 
 ## How It Works
 

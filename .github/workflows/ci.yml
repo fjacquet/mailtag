@@ -2,9 +2,9 @@
 name: CI Tests and Checks
 on:
   push:
-    branches: [main]
+    branches: [main, maincd]
   pull_request:
-    branches: [main]
+    branches: [main, maincd]
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,22 +12,22 @@ permissions:
 jobs:
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: create env file
+        uses: actions/checkout@v4
+      - name: Create env file
         run: |
           touch .env
-          echo BASE_URL=${{ secrets.BASE_URL }} >> .env    
-          echo RAPIDAPI_KEY=${{ secrets.RAPIDAPI_KEY }} >> .env    
-          echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env    
-          echo OPENAI_MODEL_NAME=${{ secrets.OPENAI_MODEL_NAME }} >> .env    
-          echo MAIL=${{ secrets.MAIL }} >> .env    
+          echo BASE_URL=${{ secrets.BASE_URL }} >> .env
+          echo RAPIDAPI_KEY=${{ secrets.RAPIDAPI_KEY }} >> .env
+          echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env
+          echo OPENAI_MODEL_NAME=${{ secrets.OPENAI_MODEL_NAME }} >> .env
+          echo MAIL=${{ secrets.MAIL }} >> .env
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.13'
       - name: Install the latest version of uv and activate the environment
         uses: astral-sh/setup-uv@v6
         with:
