@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Gemma 4 E4B model** as default MLX LLM, replacing Mistral 7B Instruct v0.3 (see ADR-002)
+- Thinking mode suppression for Gemma 4 via `enable_thinking=False` in `apply_chat_template`
+- Response parsing strips `<|channel>thought...<channel|>` blocks as safety net
+- Config loader helper `_dataclass_from_dict()` to eliminate duplicated defaults
+- ADR documentation (`docs/ADR-001-mlx-migration.md`, `docs/ADR-002-gemma4-model-switch.md`)
+- Product Requirements Document (`docs/PRD.md`)
+
+### Changed
+
+- Default MLX LLM model: `mlx-community/Mistral-7B-Instruct-v0.3-4bit` → `mlx-community/gemma-4-e4b-it-OptiQ-4bit`
+- `llm_max_tokens` reduced from 256 → 128 (JSON classification responses are <80 tokens)
+- `FastParseConfig` fields now all have defaults (no required fields), enabling dict unpacking in loader
+- Config TOML loader uses `_dataclass_from_dict()` instead of manual `.get()` calls with duplicated defaults
+- `config.toml` is now the single source of truth for model names (dataclass defaults are fallbacks only)
+- Python target upgraded to 3.13 (requires-python >= 3.13)
+- Updated all dependencies via `uv sync -U`
+- CLAUDE.md rewritten: corrected signal count (5→6), added MLX Provider section, trimmed stale content
+
+### Fixed
+
+- Gemma 4 thinking mode consuming entire token budget before producing JSON output
+- JSON regex in `classify()` now handles nested braces correctly
+
+## [0.2.0] - 2026-01-10
+
+### Added
+
 - **Thread safety** for concurrent email processing (classifier, metrics, IMAP daemon)
 - Thread-safe lazy initialization for MLX components with RLock
 - Thread-safe AI cache with concurrent read/write protection
@@ -48,84 +75,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration now fails immediately rather than silently using insecure defaults
 - Comprehensive security documentation with best practices and recommendations
 
-### Improved
+## [0.1.0] - Initial Release
 
-- **Thread safety**: All concurrent operations now use proper locking mechanisms
-- Code quality: Eliminated ~150 lines of duplicated email parsing code
-- Test coverage: Added 380+ lines of integration and error recovery tests
-- Type safety: Added missing type hints in 8+ locations, configured mypy with type checking rules
-- Documentation: Added security guide and changelog
-- Error handling: Graceful degradation for database corruption and network failures
-- Exception handling: Replaced 30 broad `except Exception` with specific exception types
-
-### Testing
-
-- 264 passing core tests (100% pass rate)
-- 84% overall code coverage (up from 75%)
-- New test suites:
-  - `tests/integration/test_full_classification_workflow.py` - 11 integration tests
-  - `tests/test_retry_logic.py` - 17 retry decorator tests (100% coverage of retry.py)
-  - `tests/test_error_recovery.py` - 10 error recovery tests
-- Thread safety verified with concurrent test execution
-
-## [Previous Releases]
-
-### Notable Features
-
-- Multi-signal classification strategy (AMSC) with 5 prioritized signals
-- Three-pass IMAP processing (headers → domain → AI) for efficiency
+- 6-signal classification strategy (AMSC): validated DB → server labels → historical DB → domain rules → semantic router → MLX LLM
+- Three-pass IMAP processing (headers → domain → AI)
 - AI confidence scoring with JSON responses and configurable thresholds
-- MLX support for Apple Silicon optimized on-device AI
+- MLX on-device inference for Apple Silicon (embeddings + LLM)
 - Comprehensive metrics tracking (signal hit rates, category distribution, processing times)
-- Domain analysis tools to identify commercial domains for database expansion
-- Automatic database backups with rotation (keeps 10 most recent)
-- Smart text processing with signature removal and intelligent truncation
-- Data management CLI commands (cleanup, consolidation, stats, pruning)
-- Support for Ollama, Gemini, and OpenRouter AI providers
+- Domain analysis tools for database expansion
+- Automatic database backups with rotation (10 most recent)
+- Data management CLI (cleanup, consolidation, stats, pruning)
 - Gmail OAuth and IMAP authentication
 - Dynamic folder-based classification with live IMAP structure
 - Email filter generation for server-side rules
 
 ---
 
-## Quality Metrics
-
-**Before Remediation**:
-
-- Test count: 264 tests
-- Coverage: 75%
-- Linting: Multiple issues
-- Security: Fallback config with insecure defaults
-- Code duplication: ~150 lines duplicated
-- Type coverage: Incomplete
-- Thread safety: None
-- Exception handling: 30 broad handlers
-
-**After Remediation** (2026-01-10):
-
-- Test count: 264 tests (100% passing)
-- Coverage: 84% (+9%)
-- Linting: All checks passing ✅
-- Security: Secure config validation ✅
-- Code duplication: Eliminated ✅
-- Type coverage: Comprehensive type hints ✅
-- Thread safety: Complete (RLock, Lock, Event-based) ✅
-- Exception handling: Specific exception types ✅
-
-## Development
-
-**Recent Commits**:
-
-1. Quick wins: encapsulation, type hints, config validation
-2. Eliminate code duplication with email_parsing utility
-3. Fix dependency injection in retry decorator
-4. Add retry logic tests (100% coverage)
-5. Add integration tests for 3-pass workflow
-6. Add error recovery tests
-7. Documentation and security updates
-8. Replace broad exception handlers (30 instances)
-9. Add comprehensive thread safety (classifier, metrics, IMAP daemon)
-
----
-
-For detailed changes, see the [commit history](https://github.com/your-repo/mailtag/commits/main).
+For detailed changes, see the [commit history](https://github.com/fjacquet/mailtag/commits/main).

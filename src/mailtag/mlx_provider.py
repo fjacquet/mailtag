@@ -114,7 +114,7 @@ class MLXLLM:
 
     def __init__(
         self,
-        model_name: str = "mlx-community/Mistral-7B-Instruct-v0.3-4bit",
+        model_name: str = "mlx-community/gemma-4-e4b-it-OptiQ-4bit",
         max_tokens: int = 256,
         temperature: float = 0.2,
     ):
@@ -173,9 +173,17 @@ class MLXLLM:
         # Apply chat template if available
         if hasattr(self.tokenizer, "apply_chat_template"):
             messages = [{"role": "user", "content": prompt}]
-            formatted_prompt = self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            # Disable thinking mode to get direct JSON output
+            try:
+                formatted_prompt = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                # Fallback for tokenizers that don't support enable_thinking
+                formatted_prompt = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True,
+                )
         else:
             formatted_prompt = prompt
 
@@ -207,8 +215,11 @@ class MLXLLM:
 
         response = self.generate(prompt)
 
-        # Try to parse JSON response
-        json_match = re.search(r"\{[^}]+\}", response, re.DOTALL)
+        # Strip thinking blocks from response (Gemma 4: <|channel>thought...<channel|>)
+        response = re.sub(r"<\|channel>thought.*?<channel\|>", "", response, count=1, flags=re.DOTALL)
+
+        # Try to parse JSON response (allow nested braces)
+        json_match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", response, re.DOTALL)
         if json_match:
             try:
                 result = json.loads(json_match.group(0))

@@ -45,10 +45,10 @@ class GmailConfig:
 
 @dataclass
 class FastParseConfig:
-    batch_size: int
-    folder_cache_ttl_hours: int
-    unclassified_folder_name: str
-    junk_folder_name: str
+    batch_size: int = 500
+    folder_cache_ttl_hours: int = 24
+    unclassified_folder_name: str = "Unclassified"
+    junk_folder_name: str = "Junk"
     max_retries: int = 3
     retry_delay: float = 1.0
     retry_backoff: float = 2.0
@@ -68,7 +68,7 @@ class MLXConfig:
     score_threshold: float = 0.75
     embeddings_file: str = "data/category_embeddings.npz"
     # LLM Fallback (Signal 6) - text generation
-    llm_model: str = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+    llm_model: str = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
     llm_confidence: float = 0.85
     llm_max_tokens: int = 256
     llm_temperature: float = 0.2
@@ -83,6 +83,11 @@ class AppConfig:
     gmail: GmailConfig
     fast_parse: FastParseConfig
     mlx: MLXConfig
+
+
+def _dataclass_from_dict(cls, data: dict):
+    """Create a dataclass from a dict, ignoring unknown keys and using dataclass defaults for missing ones."""
+    return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
 def load_config(path: Path) -> AppConfig:
@@ -111,32 +116,8 @@ def load_config(path: Path) -> AppConfig:
             if not imap_password:
                 raise ValueError("IMAP_PASSWORD not found in environment or config file.")
 
-            fast_parse_data = data.get("fast_parse", {})
-            fast_parse_config = FastParseConfig(
-                batch_size=fast_parse_data.get("batch_size", 500),
-                folder_cache_ttl_hours=fast_parse_data.get("folder_cache_ttl_hours", 24),
-                unclassified_folder_name=fast_parse_data.get("unclassified_folder_name", "Unclassified"),
-                junk_folder_name=fast_parse_data.get("junk_folder_name", "Junk"),
-                max_retries=fast_parse_data.get("max_retries", 3),
-                retry_delay=fast_parse_data.get("retry_delay", 1.0),
-                retry_backoff=fast_parse_data.get("retry_backoff", 2.0),
-                retry_jitter=fast_parse_data.get("retry_jitter", 0.1),
-                metrics_enabled=fast_parse_data.get("metrics_enabled", True),
-                metrics_log_level=fast_parse_data.get("metrics_log_level", "DEBUG"),
-                metrics_log_interval_minutes=fast_parse_data.get("metrics_log_interval_minutes", 10),
-            )
-
-            mlx_data = data.get("mlx", {})
-            mlx_config = MLXConfig(
-                enabled=mlx_data.get("enabled", True),
-                embedding_model=mlx_data.get("embedding_model", "nomic-ai/nomic-embed-text-v1.5"),
-                score_threshold=mlx_data.get("score_threshold", 0.75),
-                embeddings_file=mlx_data.get("embeddings_file", "data/category_embeddings.npz"),
-                llm_model=mlx_data.get("llm_model", "mlx-community/Mistral-7B-Instruct-v0.3-4bit"),
-                llm_confidence=mlx_data.get("llm_confidence", 0.85),
-                llm_max_tokens=mlx_data.get("llm_max_tokens", 256),
-                llm_temperature=mlx_data.get("llm_temperature", 0.2),
-            )
+            fast_parse_config = _dataclass_from_dict(FastParseConfig, data.get("fast_parse", {}))
+            mlx_config = _dataclass_from_dict(MLXConfig, data.get("mlx", {}))
 
             return AppConfig(
                 general=GeneralConfig(

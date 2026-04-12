@@ -137,7 +137,7 @@ class TestMLXLLM:
         from mailtag.mlx_provider import MLXLLM
 
         llm = MLXLLM()
-        assert llm.model_name == "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+        assert llm.model_name == "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
         assert llm.max_tokens == 256
         assert llm.temperature == 0.2
         assert llm._model is None

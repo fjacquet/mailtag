@@ -4,166 +4,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MailTag is a Python-based email automation tool that classifies and organizes emails using AI. It supports both IMAP and Gmail, using a multi-signal classification strategy that prioritizes efficiency and accuracy.
+MailTag is a Python-based email automation tool that classifies and organizes emails using AI. It supports both IMAP and Gmail, using a 6-signal classification strategy that prioritizes efficiency and accuracy. Runs on Apple Silicon via MLX for local inference.
 
 ## Development Commands
 
 ### Environment Setup
 
 ```bash
-# Install dependencies (includes dev tools)
-uv pip install -e ".[dev]"
-
-# Install with Gmail support
-uv pip install -e ".[gmail]"
-
 # Sync dependencies (updates to latest compatible versions)
-uv sync -U
+uv sync -U --all-extras
 ```
 
 ### AI Model Configuration
 
-MailTag supports multiple AI providers as drop-in replacements via `.env` configuration:
+Two AI paths coexist — the **MLX local path** (Signals 5+6, configured in `config.toml [mlx]`) and the **cloud/Ollama path** (configured via `.env`):
 
-#### Option 1: Ollama (Local AI - Free)
-
-```bash
-# Start Ollama with optimized settings
-OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q4_0 OLLAMA_NUM_CTX=8192 ollama serve
-
-# In your .env file:
-MODEL=ollama_chat/qwen3-vl:8b-instruct
-OLLAMA_API_URL=http://localhost:11434
-```
-
-**Ollama Settings:**
-
-- `OLLAMA_FLASH_ATTENTION=1`: Enables flash attention for faster inference
-- `OLLAMA_KV_CACHE_TYPE=q4_0`: Uses 4-bit quantized KV cache to reduce memory usage
-- `OLLAMA_NUM_CTX=8192`: Sets context window to 8192 tokens (prevents prompt truncation)
-
-#### Option 2: Google Gemini (Cloud AI - Fast & Affordable)
-
-```bash
-# In your .env file:
-MODEL=gemini/gemini-2.5-flash
-GEMINI_API_KEY=your-api-key-from-aistudio.google.com
-API_BASE=  # Leave empty for Gemini
-
-# Get your API key from: https://aistudio.google.com/apikey
-```
-
-**Available Gemini Models:**
-
-- `gemini/gemini-2.5-flash` (recommended - latest, fastest)
-- `gemini/gemini-2.5-flash-lite-preview-09-2025` (cheaper, lighter)
-- `gemini/gemini-1.5-flash`
-- `gemini/gemini-1.5-pro`
-
-#### Option 3: OpenRouter (Multi-provider Cloud)
-
-```bash
-# In your .env file:
-MODEL=openai/gpt-4o-mini
-OPENROUTER_API_KEY=your-openrouter-api-key
-API_BASE=https://openrouter.ai/api/v1
-```
-
-**Switching between providers:** Simply update the `MODEL` variable in your `.env` file and restart the application. No code changes needed!
+- **MLX (default for classification)**: Embedding model + LLM set in `config.toml` under `[mlx]`. Currently uses `nomic-ai/nomic-embed-text-v1.5` for embeddings and `mlx-community/gemma-4-e4b-it-OptiQ-4bit` for LLM fallback.
+- **Cloud/Ollama**: Set `MODEL` in `.env` (e.g., `gemini/gemini-2.5-flash`, `ollama_chat/gemma3n`). Used for the litellm-based classification path.
 
 ### Testing
 
 ```bash
-# Run all tests with coverage
-uv run pytest --cov --cov-branch --cov-report=xml
-
-# Run tests without coverage (faster for development)
-uv run pytest
-
-# Run specific test file
-uv run pytest tests/test_database.py
-
-# Run specific test function
-uv run pytest tests/test_database.py::test_function_name
+uv run pytest                                      # Run all tests
+uv run pytest --cov --cov-branch --cov-report=xml  # With coverage
+uv run pytest tests/test_database.py               # Single file
+uv run pytest tests/test_database.py::test_func    # Single test
 ```
 
 ### Linting and Formatting
 
 ```bash
-# Check code with ruff linter
-uv run ruff check .
-
-# Auto-fix linting issues
-uv run ruff check . --fix
-
-# Check formatting
-uv run ruff format --check .
-
-# Auto-format code
-uv run ruff format .
-
-# Check YAML files
-uv run yamllint .
-
-# Auto-fix YAML files
-uv run yamlfix .
+uv run ruff check . --fix   # Lint + auto-fix
+uv run ruff format .        # Auto-format
+uv run yamllint .           # Check YAML
+uv run yamlfix .            # Fix YAML
 ```
 
 ### Running the Application
 
 ```bash
-# CLI entry point - run classification on all providers
-python src/main.py run --provider all
-
-# Run on specific provider
-python src/main.py run --provider imap
-python src/main.py run --provider gmail
-
-# Validation mode (read-only, no email moves)
-python src/main.py run --provider all --validate
-
-# Generate email filters
-python src/main.py filters
-
-# Analyze Pass 3 files to find domain candidates (NEW)
-python src/main.py analyze-domains --output data/domain_candidates.json --min-emails 5 --top 50
-
-# Update domain database from reviewed candidates
-python scripts/update_domain_db.py
-
-# Data management commands
-python src/main.py cleanup          # Remove old pass3 files (default: 30 days)
-python src/main.py cleanup --consolidate  # Also remove duplicate files per day
-python src/main.py db-stats         # Show database statistics and health check
-python src/main.py prune-db         # Remove low-confidence sender entries
-
-# Streamlit UI (alternative interface)
-streamlit run src/streamlit_app.py
-
-# FastAPI webhook server
-python src/webhook.py
+python src/main.py run --provider all              # Classify all providers
+python src/main.py run --provider imap --validate  # Read-only validation mode
+python src/main.py filters                         # Generate email filters
+python src/main.py analyze-domains --output data/domain_candidates.json
+python src/main.py db-stats                        # Database health check
+python src/main.py cleanup --consolidate           # Remove old pass3 files
 ```
 
 ## Architecture
 
 ### Multi-Signal Classification Strategy (AMSC)
 
-The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical approach with 5 signals, evaluated in priority order:
+The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical approach with 6 signals, evaluated in priority order:
 
-1. **Validated Database** - Manually validated sender classifications (highest confidence, 100%)
-2. **Server-Side Labels** - Existing IMAP folders or Gmail labels that match known categories (95% confidence)
-3. **Historical Database** - High-confidence classifications based on sender history (90%+ confidence, 10+ occurrences by default)
-4. **Domain Classification** - Commercial domain-based rules (90% confidence, skips non-commercial domains like gmail.com, yahoo.com)
-5. **AI Model** - Fallback to Ollama LLM via litellm with confidence scoring (configurable threshold: 0.85)
+1. **Validated Database** - Manually validated sender classifications (100% confidence)
+2. **Server-Side Labels** - Existing IMAP folders or Gmail labels matching known categories (95%)
+3. **Historical Database** - Sender history with high-confidence patterns (90%+, 10+ occurrences)
+4. **Domain Classification** - Commercial domain-based rules (90%, skips gmail.com/yahoo.com etc.)
+5. **Semantic Router** - MLX embedding-based classification via `nomic-embed-text-v1.5` (configurable score threshold)
+6. **MLX LLM** - Fallback to local LLM (currently Gemma 4 E4B) returning JSON with `{category, confidence, reason}`. Below-threshold classifications (0.85) route to "À Classer"
 
-Each signal can definitively classify an email, stopping further evaluation. Only unclassified emails proceed to the next signal.
-
-**Recent Improvements (2025-11-22)**:
-
-- **AI Confidence Scoring**: AI now returns JSON with category, confidence (0-1.0), and reasoning. Classifications below threshold (0.85) route to "À Classer"
-- **Classification Metrics**: Comprehensive tracking of signal hit rates, category distribution, confidence scores, and processing times
-- **Smart Text Processing**: Email bodies intelligently truncated from 500→1500 chars with signature removal and keyword preservation
-- **Domain Analysis Tools**: New `analyze-domains` command to identify commercial domains from Pass 3 files for database expansion
+Each signal can definitively classify an email, stopping further evaluation.
 
 ### Three-Pass Processing System (IMAP Only)
 
@@ -207,84 +108,32 @@ All databases use lowercase normalization for sender addresses and domains to en
 
 **Automatic Backups**: Databases are backed up to `db/backups/` once at the start of each classification run. Keeps 10 most recent backups per database.
 
+### MLX Provider Architecture
+
+`src/mailtag/mlx_provider.py` provides two classes for Apple Silicon inference:
+
+- **MLXEmbedder** - Generates embeddings via `sentence-transformers` for the Semantic Router (Signal 5)
+- **MLXLLM** - Text generation via `mlx-lm` for classification fallback (Signal 6). Uses `apply_chat_template` with `enable_thinking=False` for Gemma 4 models (prevents thinking tokens from consuming the token budget). Response parsing strips any residual `<|channel>thought...<channel|>` blocks before extracting JSON.
+
+Both use lazy loading — models are only loaded on first use.
+
 ### Configuration System
 
-Configuration loaded from `config.toml` with environment variable substitution:
+Two config sources:
 
-- `general`: Ollama model, API base URL, folder classification mode
-- `classifier`: Confidence thresholds and minimum counts
-- `imap`: Server settings (supports `${IMAP_USER}`, `${IMAP_PASSWORD}` env vars)
-- `gmail`: OAuth credentials paths
-- `fast_parse`: Batch sizes, retry configuration, metrics settings
-- `logging`: Level and file path
-
-Create a `.env` file for local development with:
-
-```
-IMAP_USER=your-email@example.com
-IMAP_PASSWORD=your-password
-OLLAMA_API_URL=http://localhost:11434
-```
+- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.)
 
 ### Dynamic vs Static Classification
 
-Two modes controlled by `general.use_imap_folders_for_classification`:
+Controlled by `general.use_imap_folders_for_classification`:
 
-- **Dynamic Mode (default)**: Uses live IMAP folder structure from `data/imap_folders.json` as classification categories. AI can suggest new subfolders under existing parents. Folder structure is refreshed at startup.
-- **Static Mode**: Uses fixed categories from `data/classification_schema.yml` (legacy YAML-based schema).
+- **Dynamic Mode (default)**: Uses live IMAP folder structure from `data/imap_folders.json` as categories. Refreshed at startup.
+- **Static Mode**: Uses fixed categories from `data/classification_schema.yml` (legacy).
 
-### Email Model
+### Metrics
 
-Pydantic model at `src/mailtag/models.py`:
-
-```python
-class Email(BaseModel):
-    msg_id: str               # Unique identifier
-    sender_address: str       # Email address
-    sender_name: str          # Display name
-    subject: str              # Subject line
-    body: str                 # Full email body
-    labels: list[str]         # Existing server-side labels/folders
-```
-
-### Utilities
-
-- `src/mailtag/utils/domain_utils.py`: Domain extraction, normalization, and non-commercial domain detection with caching
-- `src/mailtag/utils/domain_analyzer.py`: Analyze Pass 3 files to identify commercial domain candidates for classification DB
-- `src/mailtag/utils/text_utils.py`: Intelligent email body processing (smart truncation, signature removal, keyword extraction)
-- `src/mailtag/utils/data_cleanup.py`: Pass3 file cleanup and consolidation utilities
-- `src/mailtag/utils/db_backup.py`: Database backup/restore with automatic rotation
-- `src/mailtag/utils/data_validation.py`: Email/domain normalization and database validation
-- `src/mailtag/retry.py`: Retry logic with exponential backoff for transient failures
-- `src/mailtag/metrics.py`: Performance metrics collection and reporting (extended with classification quality metrics)
-- `src/mailtag/folder_analyzer.py`: IMAP folder hierarchy analysis and category extraction
-
-See [docs/DATA_MANAGEMENT.md](docs/DATA_MANAGEMENT.md) for detailed data management documentation.
-
-### Classification Metrics (NEW)
-
-After running classification, the system now tracks:
-
-- **Signal Hit Rates**: Percentage of emails classified by each signal (validated_db, server_labels, historical_db, domain_db, ai_model)
-- **Category Distribution**: Top 10 most-used categories
-- **Confidence Scores**: Average, min, max confidence per signal
-- **Processing Times**: Average time per signal in milliseconds
-- **Error Tracking**: AI uncertainties, model errors, and other issues
-
-Export metrics with:
-
-```python
-from mailtag.classifier import Classifier
-classifier.export_metrics(Path("data/metrics"))  # Exports to JSON
-classifier.log_metrics_summary("INFO")  # Logs formatted summary
-```
-
-Metrics are automatically tracked during classification and can be reviewed to:
-
-- Identify which signals are most effective
-- Detect classification bottlenecks
-- Monitor AI model performance
-- Track category usage patterns
+Classification metrics are automatically tracked per signal (hit rates, confidence scores, processing times, errors). Export via `classifier.export_metrics(Path("data/metrics"))` or log with `classifier.log_metrics_summary("INFO")`.
 
 ## Key Patterns and Conventions
 
@@ -300,14 +149,147 @@ Metrics are automatically tracked during classification and can be reviewed to:
 
 - Tests use `pytest` with `pytest-mock` for mocking
 - `conftest.py` provides common fixtures
-- `tests/test_missing_google_deps.py` validates graceful handling when Gmail dependencies are missing
 - Mock email data generated using `faker` library
-- CI runs on Python 3.10 (minimum) but project requires Python 3.12+ locally
+- Coverage configured in `pyproject.toml` via `addopts`
 
 ## Code Style
 
 - Line length: 110 characters (configured in ruff)
-- Target: Python 3.12
+- Target: Python 3.13 (requires-python >= 3.13)
 - Uses modern Python features: type hints, union types with `|`, match statements
 - Ruff linter rules: pycodestyle, Pyflakes, flake8-bugbear, isort, pyupgrade
 - Underscore-prefixed variables allowed for intentionally unused variables
+
+<!-- rtk-instructions v2 -->
+# RTK (Rust Token Killer) - Token-Optimized Commands
+
+## Golden Rule
+
+**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
+
+**Important**: Even in command chains with `&&`, use `rtk`:
+```bash
+# ❌ Wrong
+git add . && git commit -m "msg" && git push
+
+# ✅ Correct
+rtk git add . && rtk git commit -m "msg" && rtk git push
+```
+
+## RTK Commands by Workflow
+
+### Build & Compile (80-90% savings)
+```bash
+rtk cargo build         # Cargo build output
+rtk cargo check         # Cargo check output
+rtk cargo clippy        # Clippy warnings grouped by file (80%)
+rtk tsc                 # TypeScript errors grouped by file/code (83%)
+rtk lint                # ESLint/Biome violations grouped (84%)
+rtk prettier --check    # Files needing format only (70%)
+rtk next build          # Next.js build with route metrics (87%)
+```
+
+### Test (90-99% savings)
+```bash
+rtk cargo test          # Cargo test failures only (90%)
+rtk vitest run          # Vitest failures only (99.5%)
+rtk playwright test     # Playwright failures only (94%)
+rtk test <cmd>          # Generic test wrapper - failures only
+```
+
+### Git (59-80% savings)
+```bash
+rtk git status          # Compact status
+rtk git log             # Compact log (works with all git flags)
+rtk git diff            # Compact diff (80%)
+rtk git show            # Compact show (80%)
+rtk git add             # Ultra-compact confirmations (59%)
+rtk git commit          # Ultra-compact confirmations (59%)
+rtk git push            # Ultra-compact confirmations
+rtk git pull            # Ultra-compact confirmations
+rtk git branch          # Compact branch list
+rtk git fetch           # Compact fetch
+rtk git stash           # Compact stash
+rtk git worktree        # Compact worktree
+```
+
+Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
+
+### GitHub (26-87% savings)
+```bash
+rtk gh pr view <num>    # Compact PR view (87%)
+rtk gh pr checks        # Compact PR checks (79%)
+rtk gh run list         # Compact workflow runs (82%)
+rtk gh issue list       # Compact issue list (80%)
+rtk gh api              # Compact API responses (26%)
+```
+
+### JavaScript/TypeScript Tooling (70-90% savings)
+```bash
+rtk pnpm list           # Compact dependency tree (70%)
+rtk pnpm outdated       # Compact outdated packages (80%)
+rtk pnpm install        # Compact install output (90%)
+rtk npm run <script>    # Compact npm script output
+rtk npx <cmd>           # Compact npx command output
+rtk prisma              # Prisma without ASCII art (88%)
+```
+
+### Files & Search (60-75% savings)
+```bash
+rtk ls <path>           # Tree format, compact (65%)
+rtk read <file>         # Code reading with filtering (60%)
+rtk grep <pattern>      # Search grouped by file (75%)
+rtk find <pattern>      # Find grouped by directory (70%)
+```
+
+### Analysis & Debug (70-90% savings)
+```bash
+rtk err <cmd>           # Filter errors only from any command
+rtk log <file>          # Deduplicated logs with counts
+rtk json <file>         # JSON structure without values
+rtk deps                # Dependency overview
+rtk env                 # Environment variables compact
+rtk summary <cmd>       # Smart summary of command output
+rtk diff                # Ultra-compact diffs
+```
+
+### Infrastructure (85% savings)
+```bash
+rtk docker ps           # Compact container list
+rtk docker images       # Compact image list
+rtk docker logs <c>     # Deduplicated logs
+rtk kubectl get         # Compact resource list
+rtk kubectl logs        # Deduplicated pod logs
+```
+
+### Network (65-70% savings)
+```bash
+rtk curl <url>          # Compact HTTP responses (70%)
+rtk wget <url>          # Compact download output (65%)
+```
+
+### Meta Commands
+```bash
+rtk gain                # View token savings statistics
+rtk gain --history      # View command history with savings
+rtk discover            # Analyze Claude Code sessions for missed RTK usage
+rtk proxy <cmd>         # Run command without filtering (for debugging)
+rtk init                # Add RTK instructions to CLAUDE.md
+rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
+```
+
+## Token Savings Overview
+
+| Category | Commands | Typical Savings |
+|----------|----------|-----------------|
+| Tests | vitest, playwright, cargo test | 90-99% |
+| Build | next, tsc, lint, prettier | 70-87% |
+| Git | status, log, diff, add, commit | 59-80% |
+| GitHub | gh pr, gh run, gh issue | 26-87% |
+| Package Managers | pnpm, npm, npx | 70-90% |
+| Files | ls, read, grep, find | 60-75% |
+| Infrastructure | docker, kubectl | 85% |
+| Network | curl, wget | 65-70% |
+
+Overall average: **60-90% token reduction** on common development operations.
+<!-- /rtk-instructions -->

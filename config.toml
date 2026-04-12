@@ -2,8 +2,8 @@
 
 [general]
 # The name of the Ollama model to use for classification.
-ollama_model = "ollama_chat/gemma3n"
-
+# ollama_model = "ollama_chat/gemma3n"
+ollama_model = "ollama_chat/gemma4:e4b"
 # The base URL for the Ollama API.
 api_base = "${OLLAMA_API_URL}"
 
@@ -76,10 +76,11 @@ embeddings_file = "data/category_embeddings.npz"
 
 # LLM Fallback (Signal 6) - text generation when semantic routing fails
 # MLX-compatible model from mlx-community
-llm_model = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+# llm_model = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
 # Confidence threshold for LLM classification
 llm_confidence = 0.85
 # Maximum tokens to generate
-llm_max_tokens = 256
+llm_max_tokens = 128
 # Temperature for generation (lower = more deterministic)
 llm_temperature = 0.2

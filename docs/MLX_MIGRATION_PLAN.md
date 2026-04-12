@@ -1,11 +1,15 @@
 # Plan: Migration vers MLX pour MailTag
 
+## Statut
+
+**Implémenté.** Voir [ADR-001](ADR-001-mlx-migration.md) et [ADR-002](ADR-002-gemma4-model-switch.md) pour les décisions architecturales.
+
 ## Décisions Prises
 
 - **Architecture:** Option C - Hybride (Embeddings MLX + LLM MLX fallback)
 - **Fallback litellm:** Non - MLX uniquement (projet Mac-only)
 - **Embedding:** `nomic-embed-text-v1.5` (précis, contexte long, bon en français)
-- **LLM:** `Mistral-7B-Instruct-v0.3-4bit` (équilibré, fiable)
+- **LLM:** `gemma-4-e4b-it-OptiQ-4bit` (remplace Mistral-7B depuis avril 2026 — meilleur JSON structuré, français, RAM similaire)
 
 ---
 

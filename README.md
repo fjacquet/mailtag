@@ -1,135 +1,82 @@
 # MailTag
 
-MailTag is a Python-based email automation tool that classifies and organizes your emails. It supports both IMAP and Gmail, allowing you to connect to your email account, classify emails using a local AI model (via Ollama), and automatically move them to a specified folder or label.
+MailTag is a Python-based email automation tool that classifies and organizes emails using on-device AI. It supports both IMAP and Gmail, using a 6-signal classification strategy with MLX-powered local inference on Apple Silicon.
 
 [![CI Tests and Checks](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml)
 
 ## How It Works
 
-The `src/main.py` script provides a command-line interface to:
+MailTag classifies emails through 6 prioritized signals:
 
-1. **Connect to Your Email**: It can connect to an IMAP server or your Gmail account.
-2. **Fetch Emails**: It fetches emails from your inbox, with optional filters for subject, sender, and status.
-3. **Classify Emails**: For each email, it uses the configured Ollama model to classify it into a category based on your `classification_schema.yml`.
-4. **Move Emails**: It moves classified emails to a specified destination folder (for IMAP) or label (for Gmail).
-5. **Generate Filters**: It can also generate a `mailfilter.xml` file from your classification database, which can be imported into Gmail.
+1. **Validated Database** — manually confirmed sender→category mappings (100% confidence)
+2. **Server-Side Labels** — existing IMAP folders or Gmail labels (95%)
+3. **Historical Database** — sender history patterns (90%+)
+4. **Domain Classification** — commercial domain rules (90%)
+5. **Semantic Router** — MLX embedding similarity via `nomic-embed-text-v1.5` (configurable threshold)
+6. **MLX LLM** — local Gemma 4 E4B model returning JSON `{category, confidence, reason}` (0.85 threshold)
+
+Each signal stops evaluation when it classifies an email. IMAP uses a 3-pass system (headers → domains → full body + AI) for efficiency.
 
 ## Prerequisites
 
-- Python 3.12+
-- Ollama with the model specified in `config.toml` pulled (e.g., `ollama pull gemma3`)
+- Python 3.13+
+- macOS with Apple Silicon (MLX requires Metal)
 
 ## Installation
 
-1. Clone the repository:
-
-    ```bash
-    git clone https://github.com/fjacquet/mailtag.git
-    cd mailtag
-    ```
-
-2. Install the dependencies:
-
-    ```bash
-    uv pip install -e ".[dev]"
-    ```
-
-   To enable Gmail integration, install the optional Google API libraries:
-
-    ```bash
-    uv pip install -e ".[gmail]"
-    # or with pip
-    pip install "mailtag[gmail]"
-    ```
+```bash
+git clone https://github.com/fjacquet/mailtag.git
+cd mailtag
+uv sync -U --all-extras
+```
 
 ## Configuration
 
-The application is configured via the `config.toml` file.
+Configuration uses two sources:
 
-### General Configuration
+- **`config.toml`** — main config (IMAP/Gmail settings, classifier thresholds, MLX models, logging)
+- **`.env`** — secrets and cloud AI provider selection
 
-- `general.ollama_model`: The name of the Ollama model to use for classification.
-- `logging.level`: The logging level (e.g., `INFO`, `DEBUG`).
-- `logging.file`: The path to the log file.
+### Required `.env` variables
 
-### IMAP Configuration
+```bash
+IMAP_USER=your-email@example.com
+IMAP_PASSWORD=your-password
+# Optional: cloud AI provider (MODEL defaults to MLX local inference)
+# MODEL=gemini/gemini-2.5-flash
+# GEMINI_API_KEY=your-key
+```
 
-To use the IMAP provider, add an `[imap]` section to your `config.toml`:
+### MLX Models (config.toml)
 
 ```toml
-[imap]
-host = "your-imap-server.com"
-user = "your-email@example.com"
+[mlx]
+embedding_model = "nomic-ai/nomic-embed-text-v1.5"    # Signal 5: Semantic Router
+llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit" # Signal 6: LLM fallback
+llm_confidence = 0.85
+llm_max_tokens = 128
 ```
 
-You also need to set the `IMAP_PASSWORD` environment variable. You can do this by creating a `.env` file in the project root:
+### Gmail Setup
 
-```
-IMAP_PASSWORD="your-password"
-```
-
-### Gmail Configuration
-
-To use the Gmail provider, you need to enable the Gmail API and get a `credentials.json` file.
-
-Gmail support requires extra dependencies. Ensure you've installed them via `pip install "mailtag[gmail]"` or `uv pip install -e ".[gmail]"` before continuing.
-
-1. **Enable the Gmail API**:
-   - Go to the [Google Cloud Console](https://console.cloud.google.com/).
-   - Create a new project or select an existing one.
-   - In the navigation menu, go to **APIs & Services > Library**.
-   - Search for "Gmail API" and enable it.
-
-2. **Create OAuth 2.0 Credentials**:
-   - Go to **APIs & Services > Credentials**.
-   - Click **Create Credentials > OAuth client ID**.
-   - Select **Desktop app** as the application type.
-   - Click **Create**.
-   - Download the JSON file and save it as `credentials.json` in the project root.
-
-Once you have your `credentials.json` file, add a `[gmail]` section to your `config.toml`:
-
-```toml
-[gmail]
-credentials_file = "credentials.json"
-token_file = "token.json"
-```
-
-The first time you run the script with the `gmail` provider, you will be prompted to authorize the application. A `token.json` file will be created to store your credentials for future runs.
+Requires OAuth credentials from the [Google Cloud Console](https://console.cloud.google.com/) — enable Gmail API, create OAuth Desktop credentials, save as `credentials.json`. See `config.toml` `[gmail]` section.
 
 ## Usage
 
-The script is run from the command line.
-
-### Classify and Move Emails
-
 ```bash
-python src/main.py --provider <imap|gmail> [options]
-```
-
-**Arguments:**
-
-- `--provider`: The email provider to use (`imap` or `gmail`).
-- `--destination`: The destination folder (for IMAP) or label (for Gmail) to move emails to. Defaults to `Processed`.
-- `--subject`: Filter emails by subject (case-insensitive).
-- `--sender`: Filter emails by sender (case-insensitive).
-- `--status`: Filter emails by status (`SEEN` or `UNSEEN`).
-
-**Example:**
-
-```bash
-python src/main.py --provider gmail --destination "My Label" --subject "Invoice"
-```
-
-### Generate Filters
-
-To generate a `mailfilter.xml` file from your classification database:
-
-```bash
-python src/main.py --generate-filters
+python src/main.py run --provider all              # Classify all providers
+python src/main.py run --provider imap             # IMAP only
+python src/main.py run --provider imap --validate  # Read-only (no moves)
+python src/main.py filters                         # Generate email filters
+python src/main.py analyze-domains                 # Find domain candidates
+python src/main.py db-stats                        # Database health check
+python src/main.py cleanup --consolidate           # Remove old pass3 files
 ```
 
 ## Data and Database
 
-- `data/classification_schema.yml`: Defines the categories for email classification.
-- `db/sender_classification_db.json`: Stores the classification history for each sender.
+- `db/validated_classification_db.json`: Manually validated sender→category mappings (Signal 1)
+- `db/sender_classification_db.json`: AI suggestions and historical patterns (Signal 3)
+- `db/domain_classifications.json`: Domain-level classification rules (Signal 4)
+- `data/category_embeddings.npz`: Pre-computed category embeddings for semantic routing (Signal 5)
+- `data/imap_folders.json`: Cached IMAP folder structure (refreshed at startup)
