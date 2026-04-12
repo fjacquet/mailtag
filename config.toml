@@ -14,7 +14,7 @@ ai_confidence_threshold = 0.85
 # The confidence threshold required for a historical sender-based classification to be used.
 historical_confidence_threshold = 0.9
 # The minimum number of times a sender must be classified before pre-classification is used.
-min_count = 10
+min_count = 5
 # AI model context window size (tokens). Increase if you have many categories (169+ folders).
 # 2048 = basic, 4096 = moderate, 8192 = large category lists, 16384 = very large
 num_ctx = 8192
@@ -38,7 +38,7 @@ token_file = "token.json"
 
 [fast_parse]
 # The number of emails to fetch in the first pass.
-batch_size = 100
+batch_size = 500
 # The time-to-live for the folder hierarchy cache in hours.
 folder_cache_ttl_hours = 24
 # The designated folder for emails the AI cannot confidently classify.

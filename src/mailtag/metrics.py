@@ -81,10 +81,19 @@ class MemoryMetrics:
     current_rss_mb: float = 0
     last_updated: datetime | None = None
 
+    _process: psutil.Process | None = None
+    _last_update_time: float = 0.0
+    _throttle_interval: float = 5.0  # seconds
+
     def update(self) -> None:
-        """Update memory metrics with current process memory usage."""
-        process = psutil.Process()
-        current_rss = process.memory_info().rss / (1024 * 1024)  # Convert to MB
+        """Update memory metrics with current process memory usage (throttled to every 5s)."""
+        now = time.time()
+        if now - self._last_update_time < self._throttle_interval:
+            return
+        self._last_update_time = now
+        if self._process is None:
+            self._process = psutil.Process()
+        current_rss = self._process.memory_info().rss / (1024 * 1024)  # Convert to MB
         self.current_rss_mb = current_rss
         self.peak_rss_mb = max(self.peak_rss_mb, current_rss)
         self.last_updated = datetime.now()
@@ -300,9 +309,10 @@ class MetricsRegistry:
     def __post_init__(self):
         """Initialize memory metrics if not already set."""
         if self.memory_metrics is None and self.enabled:
-            process = psutil.Process()
-            initial_rss = process.memory_info().rss / (1024 * 1024)  # Convert to MB
+            proc = psutil.Process()
+            initial_rss = proc.memory_info().rss / (1024 * 1024)  # Convert to MB
             self.memory_metrics = MemoryMetrics(initial_rss_mb=initial_rss)
+            self.memory_metrics._process = proc
             self.memory_metrics.update()
 
     def get_operation_metrics(self, operation_name: str) -> OperationMetrics:
@@ -333,9 +343,10 @@ class MetricsRegistry:
         self.operation_metrics.clear()
         self.classification_metrics.reset()
         if self.enabled:
-            process = psutil.Process()
-            initial_rss = process.memory_info().rss / (1024 * 1024)
+            proc = psutil.Process()
+            initial_rss = proc.memory_info().rss / (1024 * 1024)
             self.memory_metrics = MemoryMetrics(initial_rss_mb=initial_rss)
+            self.memory_metrics._process = proc
             self.memory_metrics.update()
 
 

@@ -130,15 +130,21 @@ class MLXLLM:
         self.temperature = temperature
         self._model = None
         self._tokenizer = None
+        self._generate_fn = None
+        self._sampler = None
         logger.info(f"MLXLLM initialized with model: {model_name}")
 
     def _load_model(self):
-        """Lazy load the model and tokenizer."""
+        """Lazy load the model, tokenizer, sampler, and generate function."""
         if self._model is None:
             logger.info(f"Loading LLM model: {self.model_name}")
+            from mlx_lm import generate as mlx_generate
             from mlx_lm import load
+            from mlx_lm.sample_utils import make_sampler
 
             self._model, self._tokenizer = load(self.model_name)
+            self._generate_fn = mlx_generate
+            self._sampler = make_sampler(temp=self.temperature)
             logger.info("LLM model loaded successfully")
 
     @property
@@ -164,9 +170,6 @@ class MLXLLM:
         Returns:
             Generated text response
         """
-        from mlx_lm import generate
-        from mlx_lm.sample_utils import make_sampler
-
         max_tokens = max_tokens or self.max_tokens
         temperature = temperature or self.temperature
 
@@ -187,17 +190,37 @@ class MLXLLM:
         else:
             formatted_prompt = prompt
 
-        # Create sampler with temperature (new API)
-        sampler = make_sampler(temp=temperature)
+        # Use cached sampler if temperature matches, otherwise create new one
+        if self._sampler is not None and temperature == self.temperature:
+            sampler = self._sampler
+        else:
+            from mlx_lm.sample_utils import make_sampler
+            sampler = make_sampler(temp=temperature)
 
-        response = generate(
-            self.model,
-            self.tokenizer,
-            prompt=formatted_prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
-            verbose=False,
-        )
+        generate_fn = self._generate_fn
+        if generate_fn is None:
+            from mlx_lm import generate as generate_fn
+
+        try:
+            response = generate_fn(
+                self.model,
+                self.tokenizer,
+                prompt=formatted_prompt,
+                max_tokens=max_tokens,
+                sampler=sampler,
+                kv_bits=8,
+                verbose=False,
+            )
+        except TypeError:
+            # Fallback for mlx-lm versions that don't support kv_bits
+            response = generate_fn(
+                self.model,
+                self.tokenizer,
+                prompt=formatted_prompt,
+                max_tokens=max_tokens,
+                sampler=sampler,
+                verbose=False,
+            )
 
         return response.strip()
 

@@ -40,6 +40,9 @@ class ImapService(EmailProvider):
         self._metrics_stop_event = threading.Event()
         self._metrics_thread: threading.Thread | None = None
 
+        # Cache for verified folder existence (avoids repeated IMAP LIST calls)
+        self._verified_folders: set[str] = set()
+
         # Initialize metrics system
         configure_metrics(
             enabled=self.fast_parse_config.metrics_enabled, log_level=self.fast_parse_config.metrics_log_level
@@ -382,8 +385,10 @@ class ImapService(EmailProvider):
         if not self.client:
             raise ConnectionError("Not connected to IMAP server.")
 
-        if not self.client.folder_exists(destination):
-            self._create_folder_with_retry(destination)
+        if destination not in self._verified_folders:
+            if not self.client.folder_exists(destination):
+                self._create_folder_with_retry(destination)
+            self._verified_folders.add(destination)
 
         self._move_emails_with_retry(uids, destination)
         logger.info(f"Moved {len(uids)} emails to {destination}")

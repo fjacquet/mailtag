@@ -43,6 +43,12 @@ class Classifier:
         self._mlx_llm: MLXLLM | None = None
         self._mlx_initialized = False
 
+        # Cached prompt prefix (static category list portion of LLM prompt)
+        self._llm_prompt_prefix: str | None = None
+
+        # Buffered proposal writes
+        self._proposal_buffer: list[str] = []
+
         # Use either folder analyzer or static schema based on configuration
         if config.general.use_imap_folders_for_classification:
             self.folder_analyzer = FolderAnalyzer()
@@ -314,6 +320,51 @@ class Classifier:
 
         return category
 
+    def _build_llm_prompt_prefix(self) -> str:
+        """Build and cache the static portion of the LLM prompt (category list + instructions).
+
+        This avoids regenerating ~600-900 tokens of static text per email.
+        """
+        if self._llm_prompt_prefix is not None:
+            return self._llm_prompt_prefix
+
+        json_instructions = (
+            "IMPORTANT: Réponds en format JSON structuré:\n"
+            "{\n"
+            '  "category": "NomExactCategorie",\n'
+            '  "confidence": 0.95,\n'
+            '  "reason": "brève explication (optionnel)"\n'
+            "}\n\n"
+            "- confidence: score entre 0.0 et 1.0 (0.0 = incertain, 1.0 = très confiant)\n"
+            "- reason: pourquoi cette catégorie (1 phrase courte, optionnel)\n\n"
+            "N'invente PAS de nouvelles catégories qui ne sont pas dans la liste."
+        )
+
+        if self.folder_analyzer:
+            all_folders = self.folder_analyzer.get_all_categories()
+            parent_folders = self.folder_analyzer.get_parent_folders()
+            category_list = "\n".join([f"- {cat}" for cat in sorted(all_folders)])
+
+            self._llm_prompt_prefix = (
+                "Classe dans une des catégories suivantes (la plus spécifique possible):\n"
+                f"{category_list}\n\n"
+                "Si aucune catégorie n'existe, propose un sous-dossier: 'Parent/NewSub'\n"
+                f"Parents valides: {', '.join(sorted(parent_folders))}\n\n"
+                "- category: nom exact ou 'Parent/NewSub' pour nouveau sous-dossier\n"
+                f"{json_instructions}"
+            )
+        else:
+            category_list = "\n".join([f"- {cat}" for cat in self.categories])
+
+            self._llm_prompt_prefix = (
+                "Classe dans une catégorie de la liste suivante:\n"
+                f"{category_list}\n\n"
+                "- category: nom exact de la liste ci-dessus\n"
+                f"{json_instructions}"
+            )
+
+        return self._llm_prompt_prefix
+
     def _get_category_from_ai(self, email: Email) -> str:
         """
         Signal 6: Fallback to the MLX LLM for classification with confidence scoring.
@@ -344,54 +395,13 @@ class Classifier:
         # Truncate email body for better performance
         truncated_body = self._truncate_body(email.body)
 
-        if self.folder_analyzer:
-            # Use dynamic folder structure
-            all_folders = self.folder_analyzer.get_all_categories()
-            parent_folders = self.folder_analyzer.get_parent_folders()
-
-            # Create a more concise list for the prompt
-            category_list = "\n".join([f"- {cat}" for cat in sorted(all_folders)])
-
-            prompt = (
-                f"Sujet: {email.subject}\n"
-                f"De: {sender}\n"
-                f"Corps: {truncated_body}\n\n"
-                "Classe dans une des catégories suivantes (la plus spécifique possible):\n"
-                f"{category_list}\n\n"
-                "Si aucune catégorie n'existe, propose un sous-dossier: 'Parent/NewSub'\n"
-                f"Parents valides: {', '.join(sorted(parent_folders))}\n\n"
-                "IMPORTANT: Réponds en format JSON structuré:\n"
-                "{\n"
-                '  "category": "NomExactCategorie",\n'
-                '  "confidence": 0.95,\n'
-                '  "reason": "brève explication (optionnel)"\n'
-                "}\n\n"
-                "- category: nom exact ou 'Parent/NewSub' pour nouveau sous-dossier\n"
-                "- confidence: score entre 0.0 et 1.0 (0.0 = incertain, 1.0 = très confiant)\n"
-                "- reason: pourquoi cette catégorie (1 phrase courte, optionnel)\n\n"
-                "N'invente PAS de nouvelles catégories qui ne sont pas dans la liste."
-            )
-        else:
-            # Legacy behavior using static schema
-            category_list = "\n".join([f"- {cat}" for cat in self.categories])
-
-            prompt = (
-                f"Sujet: {email.subject}\n"
-                f"De: {sender}\n"
-                f"Corps: {truncated_body}\n\n"
-                "Classe dans une catégorie de la liste suivante:\n"
-                f"{category_list}\n\n"
-                "IMPORTANT: Réponds en format JSON structuré:\n"
-                "{\n"
-                '  "category": "NomExactCategorie",\n'
-                '  "confidence": 0.95,\n'
-                '  "reason": "brève explication (optionnel)"\n'
-                "}\n\n"
-                "- category: nom exact de la liste ci-dessus\n"
-                "- confidence: score entre 0.0 et 1.0 (0.0 = incertain, 1.0 = très confiant)\n"
-                "- reason: pourquoi cette catégorie (1 phrase courte, optionnel)\n\n"
-                "N'invente PAS de nouvelles catégories qui ne sont pas dans la liste."
-            )
+        # Build prompt: per-email header + cached static suffix
+        prompt = (
+            f"Sujet: {email.subject}\n"
+            f"De: {sender}\n"
+            f"Corps: {truncated_body}\n\n"
+            f"{self._build_llm_prompt_prefix()}"
+        )
 
         try:
             # Use MLX LLM classify method
@@ -569,16 +579,142 @@ class Classifier:
         return category
 
     def _log_proposal(self, email: Email, proposal: str):
-        """Logs a classification proposal to a file."""
+        """Buffer a classification proposal for later flushing."""
         sender = (
             f"{email.sender_name} <{email.sender_address}>" if email.sender_name else email.sender_address
         )
+        entry = (
+            "=" * 80 + "\n"
+            f"From: {sender}\n"
+            f"Subject: {email.subject}\n"
+            f"Proposed Category: {proposal}\n"
+            f"Body:\n{email.body}\n\n"
+        )
+        self._proposal_buffer.append(entry)
+
+    def flush_proposals(self) -> None:
+        """Write buffered proposals to disk and clear the buffer."""
+        if not self._proposal_buffer:
+            return
         with self.proposal_file.open("a", encoding="utf-8") as f:
-            f.write("=" * 80 + "\n")
-            f.write(f"From: {sender}\n")
-            f.write(f"Subject: {email.subject}\n")
-            f.write(f"Proposed Category: {proposal}\n")
-            f.write(f"Body:\n{email.body}\n\n")
+            f.writelines(self._proposal_buffer)
+        self._proposal_buffer.clear()
+
+    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
+        """Classify a batch of emails, using batch embeddings for Signal 5.
+
+        Emails that pass Signals 1-4 are classified individually.
+        Remaining emails get batch-encoded for Signal 5 (semantic router).
+        Emails still unclassified fall through to Signal 6 (LLM) individually.
+
+        Args:
+            emails: List of Email objects to classify
+
+        Returns:
+            List of category strings, one per input email
+        """
+        results: list[str | None] = [None] * len(emails)
+        pending_indices: list[int] = []
+
+        # Signals 1-4: fast lookups (no batching needed)
+        for i, email_obj in enumerate(emails):
+            start_time = time.perf_counter()
+
+            category = self._get_category_from_validated_db(email_obj)
+            if category:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                METRICS.classification_metrics.record_classification(
+                    email_id=email_obj.msg_id, signal="validated_db",
+                    category=category, confidence=1.0, processing_time_ms=elapsed_ms,
+                )
+                results[i] = category
+                continue
+
+            category = self._get_category_from_labels(email_obj)
+            if category:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                self.database.update_suggestion(email_obj.sender_address, category)
+                METRICS.classification_metrics.record_classification(
+                    email_id=email_obj.msg_id, signal="server_labels",
+                    category=category, confidence=0.95, processing_time_ms=elapsed_ms,
+                )
+                results[i] = category
+                continue
+
+            category = self._get_category_from_history(email_obj)
+            if category:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                sender_cls = self.database.get_sender_classifications(email_obj.sender_address)
+                total = sum(sender_cls.values())
+                conf = sender_cls.get(category, 0) / total if total > 0 else 0.0
+                METRICS.classification_metrics.record_classification(
+                    email_id=email_obj.msg_id, signal="historical_db",
+                    category=category, confidence=conf, processing_time_ms=elapsed_ms,
+                )
+                results[i] = category
+                continue
+
+            category = self._get_category_from_domain(email_obj)
+            if category:
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                self.database.update_suggestion(email_obj.sender_address, category)
+                METRICS.classification_metrics.record_classification(
+                    email_id=email_obj.msg_id, signal="domain_db",
+                    category=category, confidence=0.90, processing_time_ms=elapsed_ms,
+                )
+                results[i] = category
+                continue
+
+            pending_indices.append(i)
+
+        # Signal 5: batch semantic routing
+        has_router = (
+            self._init_mlx_components()
+            and self._semantic_router
+            and self._semantic_router.num_categories > 0
+        )
+        if pending_indices and has_router:
+            query_texts = []
+            for i in pending_indices:
+                e = emails[i]
+                sender_text = e.sender_name or e.sender_address or "Unknown"
+                qt = f"Email from {sender_text}: {e.subject}"
+                if e.body:
+                    tb = self._truncate_body(e.body, max_chars=500)
+                    if tb:
+                        qt += f"\n{tb}"
+                query_texts.append(qt)
+
+            batch_start = time.perf_counter()
+            batch_results = self._semantic_router.route_batch(query_texts)
+            batch_elapsed_ms = (time.perf_counter() - batch_start) * 1000
+            still_pending: list[int] = []
+
+            for idx, (cat, score) in zip(pending_indices, batch_results, strict=True):
+                if cat and cat in self.categories:
+                    self.database.update_suggestion(emails[idx].sender_address, cat)
+                    METRICS.classification_metrics.record_classification(
+                        email_id=emails[idx].msg_id, signal="semantic_router",
+                        category=cat, confidence=score,
+                        processing_time_ms=batch_elapsed_ms / len(pending_indices),
+                    )
+                    results[idx] = cat
+                else:
+                    still_pending.append(idx)
+
+            pending_indices = still_pending
+
+        # Signal 6: LLM fallback (sequential)
+        for i in pending_indices:
+            category = self._get_category_from_ai(emails[i])
+            if category not in ["À Classer", "(Model Error)"]:
+                self.database.update_suggestion(emails[i].sender_address, category)
+            results[i] = category
+
+        self.flush_proposals()
+
+        # Ensure no None results
+        return [r if r is not None else "À Classer" for r in results]
 
     def export_metrics(self, output_dir: Path = Path("data/metrics")) -> Path:
         """Export classification metrics to JSON file.

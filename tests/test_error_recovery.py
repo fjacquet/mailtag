@@ -6,9 +6,9 @@ and AI fallback handling.
 
 import json
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
 
 import pytest
+from pytest_mock import MockerFixture
 
 from mailtag.classifier import Classifier
 from mailtag.config import (
@@ -23,7 +23,7 @@ from mailtag.config import (
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
-from mailtag.utils.db_backup import backup_database, restore_database
+from mailtag.utils.db_backup import backup_database, cleanup_old_backups, restore_database
 
 
 @pytest.fixture
@@ -119,8 +119,8 @@ class TestDatabaseCorruption:
         # Corrupt original
         db_path.write_text("{ corrupted }")
 
-        # Restore from backup
-        restore_database(db_path, backup_path)
+        # Restore from backup (args: source backup, destination db)
+        restore_database(backup_path, db_path)
 
         # Assert - data restored correctly
         restored_data = json.loads(db_path.read_text())
@@ -141,8 +141,9 @@ class TestDatabaseCorruption:
             old_backup = backup_dir / f"sender_classification_db_{timestamp}.json"
             old_backup.write_text(json.dumps({}))
 
-        # Act - create new backup (triggers rotation)
+        # Act - create new backup then run rotation
         backup_database(db_path)
+        cleanup_old_backups(backup_dir, keep_count=10)
 
         # Assert - only keeps 10 most recent
         backups = list(backup_dir.glob("sender_classification_db_*.json"))
@@ -217,20 +218,10 @@ class TestNetworkFailureRecovery:
 
 
 class TestAIFallback:
-    """Test AI model failure handling."""
+    """Test AI model failure handling via MLX LLM."""
 
-    @patch("mailtag.classifier.FolderAnalyzer")
-    @patch("mailtag.classifier.litellm")
-    def test_ai_error_routes_to_unclassified(
-        self, mock_litellm, mock_folder_analyzer_class, test_config, tmp_path
-    ):
-        """Test AI errors route email to unclassified folder."""
-        # Arrange
-        mock_folder_analyzer = Mock()
-        mock_folder_analyzer.get_all_categories.return_value = ["À Classer"]
-        mock_folder_analyzer_class.return_value = mock_folder_analyzer
-
-        # Create empty databases
+    def _make_db(self, tmp_path):
+        """Helper to create empty databases."""
         db_path = tmp_path / "db"
         db_path.mkdir()
         suggestion_db = db_path / "sender_classification_db.json"
@@ -241,14 +232,22 @@ class TestAIFallback:
         validated_db.write_text(json.dumps({}))
         domain_db.write_text(json.dumps({}))
 
-        database = ClassificationDatabase(
+        return ClassificationDatabase(
             suggestion_db_path=suggestion_db,
             validated_db_path=validated_db,
             domain_db_path=domain_db,
         )
 
-        # Mock AI error
-        mock_litellm.completion.side_effect = RuntimeError("Model timeout")
+    def test_ai_error_routes_to_unclassified(
+        self, mocker: MockerFixture, test_config, tmp_path
+    ):
+        """Test AI errors route email to (Model Error)."""
+        mock_folder_analyzer = mocker.Mock()
+        mock_folder_analyzer.get_all_categories.return_value = ["À Classer"]
+        mock_folder_analyzer.get_parent_folders.return_value = []
+        mocker.patch("mailtag.classifier.FolderAnalyzer", return_value=mock_folder_analyzer)
+
+        database = self._make_db(tmp_path)
 
         email = Email(
             msg_id="test-123",
@@ -259,52 +258,31 @@ class TestAIFallback:
             labels=[],
         )
 
-        # Act
         classifier = Classifier(test_config, database)
+
+        # Mock MLX components: semantic router (no match) + LLM (error)
+        mock_router = mocker.Mock()
+        mock_router.num_categories = 0
+        classifier._semantic_router = mock_router
+        mock_llm = mocker.Mock()
+        mock_llm.classify.side_effect = RuntimeError("Model timeout")
+        classifier._mlx_llm = mock_llm
+        classifier._mlx_initialized = True
+
         result = classifier.classify_email(email)
+        assert result == "(Model Error)"
 
-        # Assert - falls back to unclassified
-        assert result == "À Classer"
-
-    @patch("mailtag.classifier.FolderAnalyzer")
-    @patch("mailtag.classifier.litellm")
     def test_low_confidence_routes_to_unclassified(
-        self, mock_litellm, mock_folder_analyzer_class, test_config, tmp_path
+        self, mocker: MockerFixture, test_config, tmp_path
     ):
-        """Test low confidence AI results route to unclassified."""
-        # Arrange
-        mock_folder_analyzer = Mock()
+        """Test low confidence AI results route to À Classer."""
+        mock_folder_analyzer = mocker.Mock()
         mock_folder_analyzer.get_all_categories.return_value = ["À Classer", "Finance/Banking"]
-        mock_folder_analyzer_class.return_value = mock_folder_analyzer
+        mock_folder_analyzer.get_parent_folders.return_value = ["Finance"]
+        mock_folder_analyzer.is_valid_parent_folder.return_value = False
+        mocker.patch("mailtag.classifier.FolderAnalyzer", return_value=mock_folder_analyzer)
 
-        # Create empty databases
-        db_path = tmp_path / "db"
-        db_path.mkdir()
-        suggestion_db = db_path / "sender_classification_db.json"
-        validated_db = db_path / "validated_classification_db.json"
-        domain_db = db_path / "domain_classifications.json"
-
-        suggestion_db.write_text(json.dumps({}))
-        validated_db.write_text(json.dumps({}))
-        domain_db.write_text(json.dumps({}))
-
-        database = ClassificationDatabase(
-            suggestion_db_path=suggestion_db,
-            validated_db_path=validated_db,
-            domain_db_path=domain_db,
-        )
-
-        # Mock low confidence AI response
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "category": "Finance/Banking",
-            "confidence": 0.7,  # Below threshold of 0.85
-            "reasoning": "Unclear content",
-        })
-        mock_litellm.completion.return_value = mock_response
+        database = self._make_db(tmp_path)
 
         email = Email(
             msg_id="test-123",
@@ -315,48 +293,30 @@ class TestAIFallback:
             labels=[],
         )
 
-        # Act
         classifier = Classifier(test_config, database)
-        result = classifier.classify_email(email)
 
-        # Assert - routes to unclassified due to low confidence
+        # Mock MLX components: semantic router (no match) + LLM (low confidence)
+        mock_router = mocker.Mock()
+        mock_router.num_categories = 0
+        classifier._semantic_router = mock_router
+        mock_llm = mocker.Mock()
+        mock_llm.classify.return_value = ("Finance/Banking", 0.7, "Unclear content")
+        classifier._mlx_llm = mock_llm
+        classifier._mlx_initialized = True
+
+        result = classifier.classify_email(email)
         assert result == "À Classer"
 
-    @patch("mailtag.classifier.FolderAnalyzer")
-    @patch("mailtag.classifier.litellm")
     def test_invalid_json_response_routes_to_unclassified(
-        self, mock_litellm, mock_folder_analyzer_class, test_config, tmp_path
+        self, mocker: MockerFixture, test_config, tmp_path
     ):
-        """Test invalid JSON from AI routes to unclassified."""
-        # Arrange
-        mock_folder_analyzer = Mock()
+        """Test invalid JSON from AI routes to À Classer."""
+        mock_folder_analyzer = mocker.Mock()
         mock_folder_analyzer.get_all_categories.return_value = ["À Classer"]
-        mock_folder_analyzer_class.return_value = mock_folder_analyzer
+        mock_folder_analyzer.get_parent_folders.return_value = []
+        mocker.patch("mailtag.classifier.FolderAnalyzer", return_value=mock_folder_analyzer)
 
-        # Create empty databases
-        db_path = tmp_path / "db"
-        db_path.mkdir()
-        suggestion_db = db_path / "sender_classification_db.json"
-        validated_db = db_path / "validated_classification_db.json"
-        domain_db = db_path / "domain_classifications.json"
-
-        suggestion_db.write_text(json.dumps({}))
-        validated_db.write_text(json.dumps({}))
-        domain_db.write_text(json.dumps({}))
-
-        database = ClassificationDatabase(
-            suggestion_db_path=suggestion_db,
-            validated_db_path=validated_db,
-            domain_db_path=domain_db,
-        )
-
-        # Mock invalid JSON response
-        from unittest.mock import MagicMock
-
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Not valid JSON at all"
-        mock_litellm.completion.return_value = mock_response
+        database = self._make_db(tmp_path)
 
         email = Email(
             msg_id="test-123",
@@ -367,9 +327,16 @@ class TestAIFallback:
             labels=[],
         )
 
-        # Act
         classifier = Classifier(test_config, database)
-        result = classifier.classify_email(email)
 
-        # Assert - falls back to unclassified
+        # Mock MLX components: semantic router (no match) + LLM (invalid JSON)
+        mock_router = mocker.Mock()
+        mock_router.num_categories = 0
+        classifier._semantic_router = mock_router
+        mock_llm = mocker.Mock()
+        mock_llm.classify.return_value = ("", 0.5, "JSON parsing failed")
+        classifier._mlx_llm = mock_llm
+        classifier._mlx_initialized = True
+
+        result = classifier.classify_email(email)
         assert result == "À Classer"

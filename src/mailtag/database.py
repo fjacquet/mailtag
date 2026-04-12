@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 from collections import defaultdict
 from pathlib import Path
 
@@ -36,6 +37,11 @@ class ClassificationDatabase:
         self.suggestion_db = self._load(self.suggestion_db_path)
         self.validated_db = self._load(self.validated_db_path)
         self.domain_db = self._load_domain_db()
+
+        # Deferred write support
+        self._lock = threading.RLock()
+        self._suggestion_dirty = False
+        self._domain_dirty = False
 
     def _load(self, db_path: Path) -> defaultdict:
         """Loads a database from a JSON file."""
@@ -83,21 +89,26 @@ class ClassificationDatabase:
             json.dump(self.domain_db, f, indent=2, ensure_ascii=False)
 
     def update_suggestion(self, sender_address: str, category: str) -> None:
-        """Updates the occurrence count for a sender-category pair in the suggestion database."""
+        """Updates the occurrence count for a sender-category pair in the suggestion database.
+
+        Write is deferred — call flush() to persist.
+        """
         normalized = _normalize_email(sender_address)
-        self.suggestion_db[normalized][category] += 1
-        self._save_suggestion_db()
+        with self._lock:
+            self.suggestion_db[normalized][category] += 1
+            self._suggestion_dirty = True
 
     def promote_to_validated(self, sender_address: str, category: str) -> None:
         """Promotes a classification from the suggestion DB to the validated DB."""
         normalized = _normalize_email(sender_address)
-        # Remove from suggestion DB
-        if normalized in self.suggestion_db:
-            del self.suggestion_db[normalized]
-            self._save_suggestion_db()
-        # Add to validated DB
-        self.validated_db[normalized] = {category: 1}
-        self._save_validated_db()
+        with self._lock:
+            # Remove from suggestion DB
+            if normalized in self.suggestion_db:
+                del self.suggestion_db[normalized]
+                self._save_suggestion_db()
+            # Add to validated DB
+            self.validated_db[normalized] = {category: 1}
+            self._save_validated_db()
 
     def get_classification_count(self, sender_address: str, category: str) -> int:
         """Gets the classification count for a sender-category pair from the suggestion DB."""
@@ -147,13 +158,16 @@ class ClassificationDatabase:
     def store_domain_classification(self, domain: str, category: str) -> None:
         """Stores a domain classification in the database.
 
+        Write is deferred — call flush() to persist.
+
         Args:
             domain: Domain to classify (e.g., 'todoist.com')
             category: Category to assign (e.g., 'Services/Professional/Todoist')
         """
         normalized_domain = normalize_domain(domain)
-        self.domain_db[normalized_domain] = category
-        self._save_domain_db()
+        with self._lock:
+            self.domain_db[normalized_domain] = category
+            self._domain_dirty = True
         logger.debug(f"Stored domain classification: {normalized_domain} -> {category}")
 
     def get_all_domain_mappings(self) -> dict[str, str]:
@@ -199,6 +213,18 @@ class ClassificationDatabase:
         normalized_domain = normalize_domain(domain)
         return normalized_domain in self.domain_db
 
+    def flush(self) -> None:
+        """Persist all dirty databases to disk (thread-safe)."""
+        with self._lock:
+            if self._suggestion_dirty:
+                self._save_suggestion_db()
+                self._suggestion_dirty = False
+                logger.debug("Flushed suggestion database")
+            if self._domain_dirty:
+                self._save_domain_db()
+                self._domain_dirty = False
+                logger.debug("Flushed domain database")
+
     def remove_domain_classification(self, domain: str) -> bool:
         """Removes a domain classification.
 
@@ -209,9 +235,10 @@ class ClassificationDatabase:
             True if domain was removed, False if not found
         """
         normalized_domain = normalize_domain(domain)
-        if normalized_domain in self.domain_db:
-            del self.domain_db[normalized_domain]
-            self._save_domain_db()
-            logger.debug(f"Removed domain classification: {normalized_domain}")
-            return True
-        return False
+        with self._lock:
+            if normalized_domain in self.domain_db:
+                del self.domain_db[normalized_domain]
+                self._save_domain_db()
+                logger.debug(f"Removed domain classification: {normalized_domain}")
+                return True
+            return False

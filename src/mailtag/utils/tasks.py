@@ -18,7 +18,7 @@ Provider = ImapService | GmailService
 
 def _run_fast_parse_on_folder(
     provider: ImapService, database: ClassificationDatabase, folder_name: str, validate: bool
-) -> list[str]:
+) -> tuple[list[str], dict[str, dict[str, str]]]:
     """
     Runs the fast parse (Pass 1) on a specific folder.
 
@@ -29,22 +29,23 @@ def _run_fast_parse_on_folder(
         validate: A boolean indicating if it's a dry run.
 
     Returns:
-        A list of UIDs that were not classified and should be processed in Pass 2.
+        Tuple of (UIDs for Pass 2, headers dict for reuse in Pass 2).
     """
     logger.info(f"Starting Pass 1 on folder: {folder_name}")
     try:
         provider.client.select_folder(folder_name)
     except (imaplib.IMAP4.error, KeyError, ValueError) as e:
         logger.warning(f"Could not select folder '{folder_name}'. It might not exist. Skipping. Error: {e}")
-        return []
+        return [], {}
 
     all_uids = provider.client.search()
     if not all_uids:
         logger.info(f"No emails to process in {folder_name}.")
-        return []
+        return [], {}
 
     logger.info(f"Found {len(all_uids)} emails in {folder_name}.")
     uids_to_process_pass2 = []
+    pass2_headers: dict[str, dict[str, str]] = {}
 
     for i in range(0, len(all_uids), provider.fast_parse_config.batch_size):
         batch_uids = all_uids[i : i + provider.fast_parse_config.batch_size]
@@ -62,6 +63,7 @@ def _run_fast_parse_on_folder(
                 emails_to_move[classification].append(uid)
             else:
                 uids_to_process_pass2.append(uid)
+                pass2_headers[uid] = header_data
 
         for classification, uids in emails_to_move.items():
             if not validate:
@@ -69,11 +71,15 @@ def _run_fast_parse_on_folder(
 
     moved_count = len(all_uids) - len(uids_to_process_pass2)
     logger.info(f"Pass 1 on {folder_name} complete. {moved_count} emails moved.")
-    return uids_to_process_pass2
+    return uids_to_process_pass2, pass2_headers
 
 
 def _run_domain_classification_pass(
-    provider: ImapService, database: ClassificationDatabase, uids_to_process: list[str], validate: bool
+    provider: ImapService,
+    database: ClassificationDatabase,
+    uids_to_process: list[str],
+    validate: bool,
+    prefetched_headers: dict[str, dict[str, str]] | None = None,
 ) -> list[str]:
     """
     Runs the domain-based classification (Pass 2) on remaining emails.
@@ -84,6 +90,7 @@ def _run_domain_classification_pass(
         database: The classification database.
         uids_to_process: List of UIDs from Pass 1 that need further processing.
         validate: A boolean indicating if it's a dry run.
+        prefetched_headers: Headers already fetched in Pass 1 (avoids duplicate IMAP fetch).
 
     Returns:
         A list of UIDs that still need AI classification (Pass 3).
@@ -93,8 +100,12 @@ def _run_domain_classification_pass(
     if not uids_to_process:
         return []
 
-    # Get email headers for domain analysis
-    headers = provider.get_email_headers(uids_to_process)
+    # Reuse headers from Pass 1 if available, otherwise fetch
+    if prefetched_headers and len(prefetched_headers) == len(uids_to_process):
+        headers = prefetched_headers
+        logger.debug("Reusing headers from Pass 1 (skipping duplicate IMAP fetch)")
+    else:
+        headers = provider.get_email_headers(uids_to_process)
 
     # Group emails by domain
     domain_groups = defaultdict(list)
@@ -168,7 +179,7 @@ def _run_domain_classification_pass(
 
     logger.info(
         f"Pass 2 complete. Moved {emails_moved} emails via domain rules."
-        + " {len(uids_for_pass3)} emails remain for Pass 3."
+        + f" {len(uids_for_pass3)} emails remain for Pass 3."
     )
     return uids_for_pass3
 
@@ -186,14 +197,20 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                 junk_folder = provider.fast_parse_config.junk_folder_name
                 if junk_folder:
                     _run_fast_parse_on_folder(provider, database, junk_folder, validate)
+                    database.flush()
 
                 # --- Fast Parse (Pass 1) on INBOX ---
-                uids_to_process_pass2 = _run_fast_parse_on_folder(provider, database, "INBOX", validate)
+                uids_to_process_pass2, pass2_headers = _run_fast_parse_on_folder(
+                    provider, database, "INBOX", validate
+                )
+                database.flush()
 
                 # --- Pass 2: Domain-based classification ---
                 uids_to_process_pass3 = _run_domain_classification_pass(
-                    provider, database, uids_to_process_pass2, validate
+                    provider, database, uids_to_process_pass2, validate,
+                    prefetched_headers=pass2_headers,
                 )
+                database.flush()
 
                 # --- Pass 3: AI classification for remaining emails ---
                 logger.info(
@@ -205,20 +222,31 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                     # Dump email addresses for manual matching
                     _dump_pass3_emails_for_manual_matching(full_emails)
 
-                    for email in full_emails:
+                    # Batch classify: uses batch embeddings for Signal 5
+                    categories = classifier.classify_emails_batch(full_emails)
+
+                    # Accumulate moves by category for batch IMAP operations
+                    moves: dict[str, list[str]] = {}
+                    for email_obj, category in zip(full_emails, categories, strict=True):
+                        logger.info(
+                            f'Email "{email_obj.subject}" from {email_obj.sender_address}'
+                            f" -> Category: {category}"
+                        )
+                        if not validate and category not in [
+                            "Unclassified",
+                            "À Classer",
+                            "(Model Error)",
+                        ]:
+                            moves.setdefault(category, []).append(email_obj.msg_id)
+
+                    # Execute batch moves per category
+                    for category, uids in moves.items():
                         try:
-                            category = classifier.classify_email(email)
-                            logger.info(
-                                f'Email "{email.subject}" from {email.sender_address} -> Category: {category}'
-                            )
-                            if not validate and category not in [
-                                "Unclassified",
-                                "À Classer",
-                                "(Model Error)",
-                            ]:
-                                provider.move_email(email, category)
-                        except (KeyError, ValueError, TypeError, AttributeError) as e:
-                            logger.error(f"Could not process email {email.msg_id}: {e}")
+                            provider.batch_move_emails(uids, category)
+                        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+                            logger.error(f"Could not batch-move {len(uids)} emails to {category}: {e}")
+
+                    database.flush()
                 logger.info("Pass 3 complete.")
 
             else:  # Original logic for Gmail or other providers
@@ -240,6 +268,9 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                             provider.move_email(email, category)
                     except (KeyError, ValueError, TypeError, AttributeError) as e:
                         logger.error(f"Could not process email {email.msg_id}: {e}")
+
+                classifier.flush_proposals()
+                database.flush()
 
             logger.info("Analysis complete.")
 
@@ -304,5 +335,5 @@ def _dump_pass3_emails_for_manual_matching(emails):
     logger.info(f"Dumped {len(emails)} emails from {len(sender_data)} unique senders to {dump_file}")
     logger.info(
         "Top senders: "
-        + "{', '.join([f'{addr} ({len(samples)})' for addr, samples in list(sender_data.items())[:5]])}"
+        + f"{', '.join([f'{addr} ({len(samples)})' for addr, samples in list(sender_data.items())[:5]])}"
     )

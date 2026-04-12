@@ -63,6 +63,9 @@ def test_update_suggestion_db(db_paths):
     db.update_suggestion("sender@example.com", "Finance/Bloomberg")
     assert db.get_classification_count("sender@example.com", "Finance/Bloomberg") == 2
 
+    # Flush deferred writes before checking persistence
+    db.flush()
+
     # Verify persistence
     assert db_paths["suggestion"].exists()
     saved_data = json.loads(db_paths["suggestion"].read_text(encoding="utf-8"))
