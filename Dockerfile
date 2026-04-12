@@ -10,20 +10,16 @@ WORKDIR /app
 # Copy dependency files first for layer caching
 COPY pyproject.toml uv.lock ./
 
-# Create override file to exclude Apple Silicon-only MLX dependencies
-RUN printf '%s\n' \
-    'mlx>=0.0.0  ; sys_platform == "never"' \
-    'mlx-lm>=0.0.0  ; sys_platform == "never"' \
-    'sentence-transformers>=0.0.0  ; sys_platform == "never"' \
-    'einops>=0.0.0  ; sys_platform == "never"' \
-    > /tmp/overrides.txt
+# Remove Apple Silicon-only MLX dependencies and re-lock without them
+RUN sed -i '/^\s*"mlx>=/d; /^\s*"mlx-lm>=/d; /^\s*"sentence-transformers>=/d; /^\s*"einops>=/d; /^\s*# MLX dependencies/d' pyproject.toml \
+    && rm uv.lock
 
 # Install runtime deps only (no dev, no MLX)
-RUN uv sync --no-dev --no-install-project --override /tmp/overrides.txt
+RUN uv sync --no-dev --no-install-project
 
 # Copy source and install the project itself
 COPY src/ src/
-RUN uv sync --no-dev --no-editable --override /tmp/overrides.txt
+RUN uv sync --no-dev --no-editable
 
 # Stage 2: Runtime
 FROM python:3.13-slim
