@@ -1,0 +1,77 @@
+site_name: MailTag
+site_url: https://fjacquet.github.io/mailtag/
+site_description: AI-powered email classification and organization
+repo_url: https://github.com/fjacquet/mailtag
+repo_name: fjacquet/mailtag
+docs_dir: docs-site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - Usage: getting-started/usage.md
+  - Architecture:
+      - Classification Strategy: architecture/classification.md
+      - Three-Pass Processing: architecture/three-pass.md
+      - MLX Provider: architecture/mlx-provider.md
+      - Design Principles: architecture/design-principles.md
+  - API Reference:
+      - Classifier: api/classifier.md
+      - Database: api/database.md
+      - MLX Provider: api/mlx-provider.md
+      - Semantic Router: api/semantic-router.md
+      - Models: api/models.md
+  - ADRs:
+      - "ADR-001: MLX Migration": adrs/adr-001-mlx-migration.md
+      - "ADR-002: Gemma 4 Model Switch": adrs/adr-002-gemma4-model-switch.md
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 2
+            members_order: source
+            docstring_style: google
+
+markdown_extensions:
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
