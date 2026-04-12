@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mailtag"
-version = "0.3.0"
+version = "1.0.0"
 description = "A tool to automatically classify and tag emails."
 readme = "README.md"
 requires-python = ">=3.13"
@@ -37,6 +37,10 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "numpy>=1.24.0",
     "einops>=0.8.1",
+    # Webhook API server
+    "uvicorn[standard]>=0.34.0",
+    # Cloud/Ollama AI fallback (used when MLX is unavailable, e.g. Docker)
+    "litellm>=1.40.0",
 ]
 
 [project.optional-dependencies]

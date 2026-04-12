@@ -1,16 +1,12 @@
-#!/usr/bin/env python3
-
 """
-Webhook entry point for the mailtag email classification script.
+Webhook entry point for the MailTag email classification API.
+
+Usage:
+    uvicorn webhook:app --reload
+    # or (preferred)
+    python src/main.py serve
 """
 
-from fastapi import FastAPI
+from mailtag.api import create_app
 
-app = FastAPI()
-
-
-@app.post("/webhook")
-async def webhook():
-    """Webhook endpoint to trigger email classification."""
-    # This is a placeholder for the webhook logic.
-    return {"message": "Webhook received"}
+app = create_app()

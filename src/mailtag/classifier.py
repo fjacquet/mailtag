@@ -32,7 +32,7 @@ class Classifier:
         self.proposal_file = Path("proposals.log")
         self.database = database
         self.ai_cache = {}  # Simple in-memory cache for AI responses
-        
+
         # Thread safety locks
         self._mlx_lock = threading.RLock()  # Reentrant lock for MLX initialization
         self._cache_lock = threading.Lock()  # Lock for ai_cache access
@@ -367,23 +367,20 @@ class Classifier:
 
     def _get_category_from_ai(self, email: Email) -> str:
         """
-        Signal 6: Fallback to the MLX LLM for classification with confidence scoring.
+        Signal 6: Fallback to AI classification with confidence scoring.
+        Uses MLX LLM when available (Apple Silicon), otherwise falls back to litellm
+        (Ollama, Gemini, OpenRouter, etc.) for Docker/cloud deployments.
         """
         sender = (
             f"{email.sender_name} <{email.sender_address}>"
             if email.sender_name
             else email.sender_address or "Unknown"
         )
-        logger.debug(f"Using MLX LLM classification for email from {sender}")
 
-        # Ensure MLX is initialized
-        if not self._init_mlx_components():
-            logger.warning("MLX LLM not available")
-            return "(Model Error)"
-
-        if self._mlx_llm is None:
-            logger.warning("MLX LLM not initialized")
-            return "(Model Error)"
+        # Try MLX first; if disabled/unavailable, fall back to litellm
+        if not self._init_mlx_components() or self._mlx_llm is None:
+            logger.debug(f"MLX unavailable, using litellm for {sender}")
+            return self._get_category_from_litellm(email, sender)
 
         # Check cache first (thread-safe)
         cache_key = self._get_cache_key(email)
@@ -467,6 +464,86 @@ class Classifier:
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Error calling MLX LLM: {e}")
             return "(Model Error)"
+
+    def _get_category_from_litellm(self, email: Email, sender: str) -> str:
+        """Fallback AI classification via litellm (Ollama, Gemini, OpenRouter, etc.).
+
+        Used when MLX is unavailable (Docker, Linux, or mlx.enabled=false).
+        """
+        import json as json_mod
+
+        # Check cache first (thread-safe)
+        cache_key = self._get_cache_key(email)
+        with self._cache_lock:
+            if cache_key in self.ai_cache:
+                logger.debug(f"Using cached AI response for {email.sender_address}")
+                return self.ai_cache[cache_key]
+
+        truncated_body = self._truncate_body(email.body)
+        prompt_prefix = self._build_llm_prompt_prefix()
+
+        user_content = f"Sujet: {email.subject}\nDe: {sender}\nCorps: {truncated_body}\n\n{prompt_prefix}"
+
+        try:
+            import litellm
+
+            model = self.config.general.ollama_model
+            api_base = self.config.general.api_base or None
+
+            response = litellm.completion(
+                model=model,
+                api_base=api_base,
+                messages=[{"role": "user", "content": user_content}],
+                temperature=self.config.mlx.llm_temperature,
+                max_tokens=self.config.mlx.llm_max_tokens,
+                num_retries=2,
+            )
+
+            raw = response.choices[0].message.content.strip()
+
+            # Strip markdown fences if present
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+            result = json_mod.loads(raw)
+            category = result.get("category", "").strip()
+            confidence = float(result.get("confidence", 0.0))
+            reason = result.get("reason", "")
+
+        except ImportError:
+            logger.error("litellm not installed — cannot classify without MLX")
+            return "(Model Error)"
+        except Exception as e:
+            logger.error(f"litellm classification error: {e}")
+            return "(Model Error)"
+
+        if not category:
+            logger.debug("litellm returned empty category")
+            self._log_proposal(email, f"(empty response, confidence: {confidence:.2f})")
+            return "À Classer"
+
+        logger.debug(f"litellm classification: category='{category}', confidence={confidence:.2f}")
+
+        # Check confidence threshold
+        confidence_threshold = self.config.mlx.llm_confidence
+        if confidence < confidence_threshold:
+            logger.info(
+                f"litellm confidence {confidence:.2f} below threshold "
+                f"{confidence_threshold:.2f}, routing to 'À Classer'"
+            )
+            self._log_proposal(email, f"{category} (confidence: {confidence:.2f}, reason: {reason})")
+            return "À Classer"
+
+        # Validate category exists
+        if category not in self.categories:
+            logger.warning(f"litellm suggested invalid category: '{category}'")
+            self._log_proposal(email, f"{category} (confidence: {confidence:.2f}, reason: {reason})")
+            return "À Classer"
+
+        # Cache and return
+        with self._cache_lock:
+            self.ai_cache[cache_key] = category
+        return category
 
     def classify_email(self, email: Email) -> str:
         """
@@ -624,8 +701,11 @@ class Classifier:
             if category:
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
                 METRICS.classification_metrics.record_classification(
-                    email_id=email_obj.msg_id, signal="validated_db",
-                    category=category, confidence=1.0, processing_time_ms=elapsed_ms,
+                    email_id=email_obj.msg_id,
+                    signal="validated_db",
+                    category=category,
+                    confidence=1.0,
+                    processing_time_ms=elapsed_ms,
                 )
                 results[i] = category
                 continue
@@ -635,8 +715,11 @@ class Classifier:
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
                 self.database.update_suggestion(email_obj.sender_address, category)
                 METRICS.classification_metrics.record_classification(
-                    email_id=email_obj.msg_id, signal="server_labels",
-                    category=category, confidence=0.95, processing_time_ms=elapsed_ms,
+                    email_id=email_obj.msg_id,
+                    signal="server_labels",
+                    category=category,
+                    confidence=0.95,
+                    processing_time_ms=elapsed_ms,
                 )
                 results[i] = category
                 continue
@@ -648,8 +731,11 @@ class Classifier:
                 total = sum(sender_cls.values())
                 conf = sender_cls.get(category, 0) / total if total > 0 else 0.0
                 METRICS.classification_metrics.record_classification(
-                    email_id=email_obj.msg_id, signal="historical_db",
-                    category=category, confidence=conf, processing_time_ms=elapsed_ms,
+                    email_id=email_obj.msg_id,
+                    signal="historical_db",
+                    category=category,
+                    confidence=conf,
+                    processing_time_ms=elapsed_ms,
                 )
                 results[i] = category
                 continue
@@ -659,8 +745,11 @@ class Classifier:
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
                 self.database.update_suggestion(email_obj.sender_address, category)
                 METRICS.classification_metrics.record_classification(
-                    email_id=email_obj.msg_id, signal="domain_db",
-                    category=category, confidence=0.90, processing_time_ms=elapsed_ms,
+                    email_id=email_obj.msg_id,
+                    signal="domain_db",
+                    category=category,
+                    confidence=0.90,
+                    processing_time_ms=elapsed_ms,
                 )
                 results[i] = category
                 continue
@@ -669,9 +758,7 @@ class Classifier:
 
         # Signal 5: batch semantic routing
         has_router = (
-            self._init_mlx_components()
-            and self._semantic_router
-            and self._semantic_router.num_categories > 0
+            self._init_mlx_components() and self._semantic_router and self._semantic_router.num_categories > 0
         )
         if pending_indices and has_router:
             query_texts = []
@@ -694,8 +781,10 @@ class Classifier:
                 if cat and cat in self.categories:
                     self.database.update_suggestion(emails[idx].sender_address, cat)
                     METRICS.classification_metrics.record_classification(
-                        email_id=emails[idx].msg_id, signal="semantic_router",
-                        category=cat, confidence=score,
+                        email_id=emails[idx].msg_id,
+                        signal="semantic_router",
+                        category=cat,
+                        confidence=score,
                         processing_time_ms=batch_elapsed_ms / len(pending_indices),
                     )
                     results[idx] = cat

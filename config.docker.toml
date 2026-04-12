@@ -1,0 +1,55 @@
+# Docker container configuration for MailTag API.
+# Copy to config.toml or mount as a volume.
+#
+# All ${VAR} placeholders are resolved from environment variables.
+# Set them in .env or docker-compose.yml environment section.
+
+[general]
+# Cloud AI model (MLX not available in containers)
+# Examples: "gemini/gemini-2.5-flash", "ollama_chat/gemma3n"
+ollama_model = "${MODEL}"
+api_base = "${API_BASE}"
+
+[classifier]
+ai_confidence_threshold = 0.85
+historical_confidence_threshold = 0.9
+min_count = 5
+num_ctx = 8192
+
+[logging]
+level = "INFO"
+file = "logs/mailtag.log"
+
+[imap]
+host = "${IMAP_HOST}"
+user = "${IMAP_USER}"
+password = "${IMAP_PASSWORD}"
+
+[gmail]
+credentials_file = "credentials.json"
+token_file = "token.json"
+
+[fast_parse]
+batch_size = 500
+folder_cache_ttl_hours = 24
+unclassified_folder_name = "Unclassified"
+junk_folder_name = "Junk"
+max_retries = 3
+retry_delay = 1.0
+retry_backoff = 2.0
+retry_jitter = 0.1
+metrics_enabled = true
+metrics_log_level = "INFO"
+metrics_log_interval_minutes = 10
+
+[mlx]
+# MLX requires Apple Silicon — disabled in containers
+enabled = false
+
+[webhook]
+# Bind to all interfaces inside the container
+host = "0.0.0.0"
+port = 8000
+api_key = "${WEBHOOK_API_KEY}"
+allow_move = true
+max_batch_size = 50

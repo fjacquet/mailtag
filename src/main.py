@@ -424,5 +424,32 @@ def prune_db(min_count: int, dry_run: bool):
         print("\nPruning cancelled.")
 
 
+@cli.command()
+@click.option("--host", default=None, help="Host to bind to (overrides config.toml)")
+@click.option("--port", default=None, type=int, help="Port to bind to (overrides config.toml)")
+@click.option("--reload", is_flag=True, help="Enable auto-reload for development")
+def serve(host, port, reload):
+    """Start the webhook API server.
+
+    Launches a FastAPI server with classification endpoints for N8N
+    and other webhook integrations. See /docs for Swagger UI.
+    """
+    import uvicorn
+
+    from mailtag.api import create_app
+
+    if not CONFIG.webhook.api_key:
+        logger.warning("No WEBHOOK_API_KEY set — API will be unprotected!")
+
+    app = create_app()
+    uvicorn_host = host or CONFIG.webhook.host
+    uvicorn_port = port or CONFIG.webhook.port
+
+    logger.info(f"Starting MailTag API on {uvicorn_host}:{uvicorn_port}")
+    logger.info(f"Swagger UI: http://{uvicorn_host}:{uvicorn_port}/docs")
+
+    uvicorn.run(app, host=uvicorn_host, port=uvicorn_port, reload=reload)
+
+
 if __name__ == "__main__":
     cli()

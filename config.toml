@@ -84,3 +84,14 @@ llm_confidence = 0.85
 llm_max_tokens = 128
 # Temperature for generation (lower = more deterministic)
 llm_temperature = 0.2
+
+[webhook]
+# API server settings
+host = "127.0.0.1"
+port = 8000
+# API key for authentication (set WEBHOOK_API_KEY in .env)
+api_key = "${WEBHOOK_API_KEY}"
+# Enable/disable move operations via API (safety control)
+allow_move = true
+# Maximum batch size for classify-batch endpoint
+max_batch_size = 50

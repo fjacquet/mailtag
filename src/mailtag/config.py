@@ -75,6 +75,17 @@ class MLXConfig:
 
 
 @dataclass
+class WebhookConfig:
+    """Configuration for the webhook API server."""
+
+    host: str = "127.0.0.1"
+    port: int = 8000
+    api_key: str = ""
+    allow_move: bool = True
+    max_batch_size: int = 50
+
+
+@dataclass
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
@@ -83,6 +94,11 @@ class AppConfig:
     gmail: GmailConfig
     fast_parse: FastParseConfig
     mlx: MLXConfig
+    webhook: WebhookConfig = None  # type: ignore[assignment]
+
+    def __post_init__(self):
+        if self.webhook is None:
+            self.webhook = WebhookConfig()
 
 
 def _dataclass_from_dict(cls, data: dict):
@@ -119,6 +135,33 @@ def load_config(path: Path) -> AppConfig:
             fast_parse_config = _dataclass_from_dict(FastParseConfig, data.get("fast_parse", {}))
             mlx_config = _dataclass_from_dict(MLXConfig, data.get("mlx", {}))
 
+            # Allow MLX_ENABLED env var to override config (for Docker/non-Apple-Silicon)
+            mlx_enabled_env = os.getenv("MLX_ENABLED")
+            if mlx_enabled_env is not None:
+                mlx_config = MLXConfig(
+                    enabled=mlx_enabled_env.lower() in ("true", "1", "yes"),
+                    embedding_model=mlx_config.embedding_model,
+                    score_threshold=mlx_config.score_threshold,
+                    embeddings_file=mlx_config.embeddings_file,
+                    llm_model=mlx_config.llm_model,
+                    llm_confidence=mlx_config.llm_confidence,
+                    llm_max_tokens=mlx_config.llm_max_tokens,
+                    llm_temperature=mlx_config.llm_temperature,
+                )
+
+            webhook_config = _dataclass_from_dict(WebhookConfig, data.get("webhook", {}))
+            # Resolve API key from environment
+            webhook_api_key = os.getenv("WEBHOOK_API_KEY", webhook_config.api_key)
+            if webhook_api_key.startswith("${"):
+                webhook_api_key = ""
+            webhook_config = WebhookConfig(
+                host=webhook_config.host,
+                port=webhook_config.port,
+                api_key=webhook_api_key,
+                allow_move=webhook_config.allow_move,
+                max_batch_size=webhook_config.max_batch_size,
+            )
+
             return AppConfig(
                 general=GeneralConfig(
                     ollama_model=ollama_model,
@@ -149,6 +192,7 @@ def load_config(path: Path) -> AppConfig:
                 ),
                 fast_parse=fast_parse_config,
                 mlx=mlx_config,
+                webhook=webhook_config,
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e

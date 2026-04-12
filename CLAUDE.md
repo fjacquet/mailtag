@@ -49,6 +49,8 @@ python src/main.py filters                         # Generate email filters
 python src/main.py analyze-domains --output data/domain_candidates.json
 python src/main.py db-stats                        # Database health check
 python src/main.py cleanup --consolidate           # Remove old pass3 files
+python src/main.py serve                           # Start webhook API server
+python src/main.py serve --host 0.0.0.0 --reload   # Dev mode with auto-reload
 ```
 
 ## Architecture
@@ -62,7 +64,7 @@ The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical
 3. **Historical Database** - Sender history with high-confidence patterns (90%+, 10+ occurrences)
 4. **Domain Classification** - Commercial domain-based rules (90%, skips gmail.com/yahoo.com etc.)
 5. **Semantic Router** - MLX embedding-based classification via `nomic-embed-text-v1.5` (configurable score threshold)
-6. **MLX LLM** - Fallback to local LLM (currently Gemma 4 E4B) returning JSON with `{category, confidence, reason}`. Below-threshold classifications (0.85) route to "À Classer"
+6. **AI LLM** - Fallback to LLM returning JSON with `{category, confidence, reason}`. Uses MLX locally (Apple Silicon) or litellm (Docker/cloud: Gemini, Ollama, OpenRouter). Below-threshold classifications (0.85) route to "À Classer"
 
 Each signal can definitively classify an email, stopping further evaluation.
 
@@ -117,11 +119,41 @@ All databases use lowercase normalization for sender addresses and domains to en
 
 Both use lazy loading — models are only loaded on first use.
 
+### Webhook API
+
+FastAPI-based HTTP API (`src/mailtag/api/`) for external integrations (N8N, webhooks):
+
+- **App factory**: `create_app()` in `src/mailtag/api/__init__.py` — lifespan manages Classifier/DB lifecycle
+- **Routes**: `src/mailtag/api/routes/classify.py` (POST classify, classify-batch, classify-and-move) and `health.py` (GET health, status)
+- **Auth**: `X-API-Key` header via `APIKeyMiddleware` — exempts `/health`, `/docs`, `/redoc`, `/openapi.json`
+- **Schemas**: Pydantic models in `src/mailtag/api/schemas.py` with Swagger examples
+- **State**: `AppState` singleton in `src/mailtag/api/dependencies.py`
+- **Config**: `[webhook]` section in `config.toml` — host, port, api_key, allow_move, max_batch_size
+- **Swagger UI**: Auto-generated at `/docs`, enriched with OpenAPI tags and schema examples
+
+Route handlers use sync `def` (not `async def`) — FastAPI runs them in a thread pool, which is correct since Classifier/DB/Providers are all synchronous.
+
+### Docker Deployment
+
+Multi-stage Docker build for running the API server without Apple Silicon:
+
+- `Dockerfile` — `python:3.13-slim` base, excludes MLX deps via uv overrides, non-root user, healthcheck
+- `docker-compose.yml` — Volumes for `db/`, `data/`, `config.toml`; `MLX_ENABLED=false`
+- `config.docker.toml` — Container-optimized template with env var placeholders
+
+When `MLX_ENABLED=false`, Signals 1-4 work via DB lookups. Signal 6 falls back to litellm (`MODEL` env var: Gemini, Ollama, OpenRouter). Signal 5 (semantic router) is skipped.
+
+```bash
+docker compose build
+docker compose up -d
+curl http://localhost:8000/health
+```
+
 ### Configuration System
 
 Two config sources:
 
-- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
 - **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.)
 
 ### Dynamic vs Static Classification
