@@ -105,7 +105,7 @@ def test_retry_multiple_exception_types():
     def alternating_errors():
         attempt = len(attempts) + 1
         attempts.append(attempt)
-        
+
         if attempt == 1:
             raise ConnectionError("Connection failed")
         elif attempt == 2:
@@ -120,7 +120,7 @@ def test_retry_multiple_exception_types():
 def test_retry_exponential_backoff():
     """Test retry delay increases exponentially."""
     delays = []
-    
+
     @retry(max_retries=3, retry_delay=0.1, retry_backoff=2.0, retry_jitter=0.0)
     def track_delays():
         delays.append(time.time())
@@ -137,7 +137,7 @@ def test_retry_exponential_backoff():
     first_delay = delays[1] - delays[0]
     second_delay = delays[2] - delays[1]
     third_delay = delays[3] - delays[2]
-    
+
     # Allow 50ms tolerance for timing
     assert 0.05 < first_delay < 0.15  # ~0.1s
     assert 0.15 < second_delay < 0.25  # ~0.2s
@@ -166,6 +166,7 @@ def test_retry_on_retry_callback():
 
 def test_retry_with_return_value():
     """Test retry preserves return values."""
+
     @retry(max_retries=2, retry_delay=0.01)
     def returns_dict():
         return {"key": "value", "number": 42}
@@ -195,6 +196,7 @@ def test_retry_with_args_and_kwargs():
 
 def test_retry_preserves_function_name():
     """Test retry decorator preserves function metadata."""
+
     @retry()
     def my_function():
         """This is my function."""
@@ -206,6 +208,7 @@ def test_retry_preserves_function_name():
 
 def test_retry_with_zero_jitter():
     """Test retry with jitter disabled."""
+
     @retry(max_retries=1, retry_delay=0.1, retry_jitter=0.0)
     def fails_once():
         if not hasattr(fails_once, "called"):
@@ -253,6 +256,7 @@ def test_retry_respects_max_retries_parameter():
 
 def test_retry_with_none_parameters_uses_defaults():
     """Test None parameters fall back to defaults."""
+
     @retry(max_retries=None, retry_delay=None)
     def test_function():
         return "success"
@@ -264,6 +268,7 @@ def test_retry_with_none_parameters_uses_defaults():
 
 def test_retry_exception_propagates_after_max_retries():
     """Test original exception propagates after exhausting retries."""
+
     @retry(max_retries=1, retry_delay=0.01)
     def custom_error():
         raise ValueError("Custom error message")
@@ -274,6 +279,7 @@ def test_retry_exception_propagates_after_max_retries():
 
 def test_retry_with_method():
     """Test retry works on class methods."""
+
     class TestClass:
         def __init__(self):
             self.call_count = 0

@@ -188,7 +188,7 @@ class ClassificationMetrics:
 
         # Compute statistics outside lock (using copies)
         total_classified = sum(signal_hits_copy.values())
-        
+
         # Compute hit rates from copy
         signal_hit_rates = {}
         if total_classified > 0:

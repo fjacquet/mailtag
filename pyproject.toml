@@ -41,6 +41,7 @@ dependencies = [
     "uvicorn[standard]>=0.34.0",
     # Cloud/Ollama AI fallback (used when MLX is unavailable, e.g. Docker)
     "litellm>=1.40.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

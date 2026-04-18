@@ -216,9 +216,7 @@ def _validate_config(config: AppConfig) -> None:
 
     # Check non-empty password
     if not config.imap.password:
-        raise ValueError(
-            "IMAP password cannot be empty. Set IMAP_PASSWORD environment variable."
-        )
+        raise ValueError("IMAP password cannot be empty. Set IMAP_PASSWORD environment variable.")
 
     # Validate API base URL format (if provided and not empty)
     # Empty string is valid for non-Ollama providers like Gemini

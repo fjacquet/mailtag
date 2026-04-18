@@ -238,9 +238,7 @@ class TestAIFallback:
             domain_db_path=domain_db,
         )
 
-    def test_ai_error_routes_to_unclassified(
-        self, mocker: MockerFixture, test_config, tmp_path
-    ):
+    def test_ai_error_routes_to_unclassified(self, mocker: MockerFixture, test_config, tmp_path):
         """Test AI errors route email to (Model Error)."""
         mock_folder_analyzer = mocker.Mock()
         mock_folder_analyzer.get_all_categories.return_value = ["À Classer"]
@@ -272,9 +270,7 @@ class TestAIFallback:
         result = classifier.classify_email(email)
         assert result == "(Model Error)"
 
-    def test_low_confidence_routes_to_unclassified(
-        self, mocker: MockerFixture, test_config, tmp_path
-    ):
+    def test_low_confidence_routes_to_unclassified(self, mocker: MockerFixture, test_config, tmp_path):
         """Test low confidence AI results route to À Classer."""
         mock_folder_analyzer = mocker.Mock()
         mock_folder_analyzer.get_all_categories.return_value = ["À Classer", "Finance/Banking"]
@@ -307,9 +303,7 @@ class TestAIFallback:
         result = classifier.classify_email(email)
         assert result == "À Classer"
 
-    def test_invalid_json_response_routes_to_unclassified(
-        self, mocker: MockerFixture, test_config, tmp_path
-    ):
+    def test_invalid_json_response_routes_to_unclassified(self, mocker: MockerFixture, test_config, tmp_path):
         """Test invalid JSON from AI routes to À Classer."""
         mock_folder_analyzer = mocker.Mock()
         mock_folder_analyzer.get_all_categories.return_value = ["À Classer"]

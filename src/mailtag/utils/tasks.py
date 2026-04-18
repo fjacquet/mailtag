@@ -207,7 +207,10 @@ def run_classification(provider_instance: Provider, database: ClassificationData
 
                 # --- Pass 2: Domain-based classification ---
                 uids_to_process_pass3 = _run_domain_classification_pass(
-                    provider, database, uids_to_process_pass2, validate,
+                    provider,
+                    database,
+                    uids_to_process_pass2,
+                    validate,
                     prefetched_headers=pass2_headers,
                 )
                 database.flush()

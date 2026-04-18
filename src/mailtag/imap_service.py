@@ -35,7 +35,7 @@ class ImapService(EmailProvider):
         self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
         self.folder_cache_path = Path("data/imap_folders.json")
-        
+
         # Thread management for metrics logging
         self._metrics_stop_event = threading.Event()
         self._metrics_thread: threading.Thread | None = None
@@ -68,9 +68,7 @@ class ImapService(EmailProvider):
                     # Continue running despite errors
 
         self._metrics_thread = threading.Thread(
-            target=log_metrics_periodically,
-            daemon=True,
-            name="metrics-logger"
+            target=log_metrics_periodically, daemon=True, name="metrics-logger"
         )
         self._metrics_thread.start()
         interval_minutes = self.fast_parse_config.metrics_log_interval_minutes
@@ -106,7 +104,7 @@ class ImapService(EmailProvider):
         finally:
             # Stop metrics thread before disconnecting
             self._stop_metrics_thread()
-            
+
             if self.client:
                 self.client.logout()
                 logger.info("Disconnected from IMAP server.")

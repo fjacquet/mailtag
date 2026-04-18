@@ -179,13 +179,17 @@ class MLXLLM:
             # Disable thinking mode to get direct JSON output
             try:
                 formatted_prompt = self.tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True,
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
                     enable_thinking=False,
                 )
             except TypeError:
                 # Fallback for tokenizers that don't support enable_thinking
                 formatted_prompt = self.tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True,
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
                 )
         else:
             formatted_prompt = prompt
@@ -195,6 +199,7 @@ class MLXLLM:
             sampler = self._sampler
         else:
             from mlx_lm.sample_utils import make_sampler
+
             sampler = make_sampler(temp=temperature)
 
         generate_fn = self._generate_fn

@@ -143,6 +143,7 @@ dmypy.json
 .pyre/
 
 logs/*.log*
+test.log
 .env
 credentials.json
 db/
@@ -155,3 +156,5 @@ data/
 old
 proposals.log
 site/
+# Added by code-review-graph
+.code-review-graph/
