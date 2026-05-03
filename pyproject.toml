@@ -21,7 +21,7 @@ dependencies = [
     "google-api-python-client==2.179.0",
     "google-auth-httplib2==0.2.0",
     "google-auth-oauthlib==1.2.2",
-    "python-dotenv==1.1.1",
+    "python-dotenv==1.2.2",
     "imapclient>=3.0.1",
     "click>=8.2.1",
     "fastapi>=0.115.14",
