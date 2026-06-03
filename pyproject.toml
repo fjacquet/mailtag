@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mailtag"
-version = "1.0.0"
+version = "1.0.1"
 description = "A tool to automatically classify and tag emails."
 readme = "README.md"
 requires-python = ">=3.13"
