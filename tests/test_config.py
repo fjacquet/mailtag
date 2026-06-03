@@ -237,6 +237,33 @@ def test_validate_config_template_placeholder_allowed():
     _validate_config(config)
 
 
+def test_validate_config_imap_user_placeholder_allowed():
+    """Unsubstituted ${IMAP_USER} placeholder (e.g. in CI) must not fail validation."""
+    from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
+
+    config = AppConfig(
+        general=GeneralConfig(ollama_model="test-model", api_base=""),
+        logging=LoggingConfig(level="INFO", file="test.log"),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.85,
+            historical_confidence_threshold=0.9,
+            min_count=3,
+            num_ctx=8192,
+        ),
+        imap=ImapConfig(
+            host="imap.test.com",
+            user="${IMAP_USER}",  # Unsubstituted placeholder - should be allowed
+            password="${IMAP_PASSWORD}",
+            use_gmail_extensions=False,
+        ),
+        gmail=None,
+        fast_parse=None,
+        mlx=None,
+    )
+    # Should not raise - unsubstituted placeholders are tolerated
+    _validate_config(config)
+
+
 def test_validate_config_valid():
     """Tests that validation passes for a valid config."""
     from mailtag.config import ClassifierConfig, GeneralConfig, ImapConfig, LoggingConfig
