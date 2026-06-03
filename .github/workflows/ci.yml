@@ -36,7 +36,7 @@ jobs:
           prune-cache: false
       - name: Install project dependencies with uv
         run: |
-          uv sync -U
+          uv sync -U --extra dev
       - name: Run tests with coverage
         run: |
           uv run pytest --cov --cov-branch --cov-report=xml
