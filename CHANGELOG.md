@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-03
+
+### Fixed
+
+- **CI test job**: install the `dev` extra (`uv sync -U --extra dev`) so `pytest-cov` is present; previously `pytest --cov` failed with `unrecognized arguments: --cov` (#17)
+- **Config validation**: tolerate unsubstituted `${...}` template placeholders in the IMAP email-format check (mirrors existing `api_base` handling), fixing import-time `ValueError: Invalid email format: ${IMAP_USER}` during test collection when `IMAP_USER` is unset (e.g. in CI)
+
 ## [0.3.0] - 2026-04-12
 
 ### Added

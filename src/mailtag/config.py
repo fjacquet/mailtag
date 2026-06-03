@@ -209,9 +209,11 @@ def _validate_config(config: AppConfig) -> None:
     """
     import re
 
-    # Check email format
+    # Check email format. Skip unsubstituted template placeholders like
+    # ${IMAP_USER} (e.g. in CI where the env var is unset) — mirrors the
+    # api_base handling below.
     email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    if not re.match(email_regex, config.imap.user):
+    if not config.imap.user.startswith("${") and not re.match(email_regex, config.imap.user):
         raise ValueError(f"Invalid email format: {config.imap.user}")
 
     # Check non-empty password
