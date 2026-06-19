@@ -1,12 +1,10 @@
-name: CI
+name: Security
 on:
   push: { branches: [main] }
   pull_request: { branches: [main] }
 permissions:
   contents: read
 jobs:
-  ci:
-    uses: fjacquet/ci/.github/workflows/python-ci.yml@v1
+  security:
+    uses: fjacquet/ci/.github/workflows/python-security.yml@v1
     with: { python-version: "3.13" }
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
