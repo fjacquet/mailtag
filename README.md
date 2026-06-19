@@ -6,7 +6,7 @@ MailTag is a Python-based email automation tool that classifies and organizes em
 [![GitHub Release](https://img.shields.io/github/v/release/fjacquet/mailtag)](https://github.com/fjacquet/mailtag/releases)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![codecov](https://codecov.io/gh/fjacquet/mailtag/branch/maincd/graph/badge.svg)](https://codecov.io/gh/fjacquet/mailtag)
+[![codecov](https://codecov.io/gh/fjacquet/mailtag/branch/main/graph/badge.svg)](https://codecov.io/gh/fjacquet/mailtag)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://fjacquet.github.io/mailtag/)
 
 ## How It Works
