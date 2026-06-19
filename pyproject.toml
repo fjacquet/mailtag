@@ -54,6 +54,7 @@ dev = [
     "faker",
     "pendulum",
     "yamlfix",
+    "cyclonedx-bom",
 ]
 
 gmail = [
