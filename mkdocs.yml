@@ -75,3 +75,6 @@ markdown_extensions:
       alternate_style: true
   - toc:
       permalink: true
+
+extra:
+  version: v1.0.2
