@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -40,7 +40,7 @@ dependencies = [
     # Webhook API server
     "uvicorn[standard]>=0.34.0",
     # Cloud/Ollama AI fallback (used when MLX is unavailable, e.g. Docker)
-    "litellm>=1.84.0",
+    "litellm>=1.93.0",
     "defusedxml>=0.7.1",
 ]
 
