@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Build dependencies with uv
-FROM python:3.13-slim AS builder
+FROM docker.io/library/python:3.13-slim AS builder
 
 RUN pip install --no-cache-dir uv
 
@@ -22,7 +22,7 @@ COPY src/ src/
 RUN uv sync --no-dev --no-editable
 
 # Stage 2: Runtime
-FROM python:3.13-slim
+FROM docker.io/library/python:3.13-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
