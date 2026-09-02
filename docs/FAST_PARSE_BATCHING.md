@@ -30,7 +30,9 @@ The solution is to split large UID lists into smaller batches and process them s
 The batching system is implemented through the `_batch_fetch` helper method in the `ImapService` class:
 
 ```python
-def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable) -> dict[Any, Any]:
+def _batch_fetch(
+    self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable
+) -> dict[Any, Any]:
     """
     Helper method to fetch UIDs in batches and process the results.
     Processes UIDs in chunks based on the configured batch size.
@@ -41,7 +43,7 @@ def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], 
     results = {}
     batch_size = self.fast_parse_config.batch_size
     for i in range(0, len(uids), batch_size):
-        batch = uids[i:i + batch_size]
+        batch = uids[i : i + batch_size]
         try:
             response = self.client.fetch(batch, fetch_command)
             batch_results = processor(response)
@@ -75,9 +77,7 @@ def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
 
     int_uids = [int(uid) if isinstance(uid, str) and uid.isdigit() else uid for uid in uids]
     return self._batch_fetch(
-        int_uids, 
-        [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"], 
-        self._process_email_headers
+        int_uids, [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"], self._process_email_headers
     )
 ```
 
@@ -95,11 +95,7 @@ def get_full_emails(self, uids: list[str | int]) -> list[Email]:
         raise ConnectionError("Not connected to IMAP server.")
 
     int_uids = [int(uid) if isinstance(uid, str) and uid.isdigit() else uid for uid in uids]
-    emails_dict = self._batch_fetch(
-        int_uids, 
-        [b"RFC822"], 
-        self._process_full_emails
-    )
+    emails_dict = self._batch_fetch(int_uids, [b"RFC822"], self._process_full_emails)
     return list(emails_dict.values())
 ```
 

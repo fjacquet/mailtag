@@ -89,34 +89,40 @@ project_name/
 from returns.result import Result, Success, Failure
 from typing import Dict
 
+
 def validate_user_data(data: Dict[str, str]) -> Result[Dict[str, str], str]:
     if "email" not in data:
         return Failure("Email is missing.")
     # ... autres validations ...
     return Success(data)
 
+
 def create_greeting(user_data: Dict[str, str]) -> str:
     # Fonction pure
     return f"Hello, {user_data.get('name', 'user')}!"
 
+
 # main.py
 from core.logic import validate_user_data, create_greeting
 from returns.pipeline import flow
+
 
 def process_request(request: Dict) -> None:
     # Pipeline fonctionnel
     result: Result[str, str] = flow(
         request,
         validate_user_data,
-        lambda result: result.map(create_greeting) # .map applique la fonction si le conteneur est un Success
+        lambda result: result.map(
+            create_greeting
+        ),  # .map applique la fonction si le conteneur est un Success
     )
 
     # Gestion des effets de bord à la toute fin
     match result:
         case Success(message):
-            print(message) # Effet de bord (I/O)
+            print(message)  # Effet de bord (I/O)
         case Failure(error_message):
-            print(f"Error: {error_message}") # Effet de bord (I/O)
+            print(f"Error: {error_message}")  # Effet de bord (I/O)
 ```
 
 **À NE PAS FAIRE : Fonctions impures et exceptions**
@@ -129,7 +135,7 @@ def process_user(data: Dict[str, str]) -> None:
         raise ValueError("Email is missing.")
 
     greeting = f"Hello, {data.get('name', 'user')}!"
-    print(greeting) # Effet de bord
+    print(greeting)  # Effet de bord
 ```
 
 ---
@@ -145,6 +151,7 @@ def process_user(data: Dict[str, str]) -> None:
 # tests/property/test_logic.py
 from hypothesis import given, strategies as st
 from core.logic import create_greeting
+
 
 @given(st.dictionaries(st.text(), st.text()))
 def test_create_greeting_always_returns_string(user_data):

@@ -62,51 +62,48 @@ def main():
 ```python
 class FolderAnalyzer:
     """Analyzes IMAP folder structure for classification purposes."""
-    
+
     def __init__(self, folder_path: Path = Path("data/imap_folders.json")):
         self.folder_path = folder_path
         self.folders = self._load_folders()
         self.parent_folders = self._identify_parent_folders()
-        
+
     def _load_folders(self) -> list[str]:
         """Load folders from the JSON file."""
         if not self.folder_path.exists():
             logger.warning(f"Folder file {self.folder_path} not found")
             return []
-            
+
         try:
             with self.folder_path.open("r", encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError:
             logger.error(f"Could not parse folder file {self.folder_path}")
             return []
-            
+
     def _identify_parent_folders(self) -> set[str]:
         """Identify parent folders (those that have subfolders)."""
         parent_folders = set()
-        
+
         for folder in self.folders:
             if "/" in folder:
                 parent = folder.split("/")[0]
                 parent_folders.add(parent)
-                
+
         return parent_folders
-        
+
     def get_all_categories(self) -> list[str]:
         """Get all available categories from the folder structure."""
         return self.folders
-        
+
     def get_parent_folders(self) -> list[str]:
         """Get all parent folders."""
         return list(self.parent_folders)
-        
+
     def get_subfolders(self, parent: str) -> list[str]:
         """Get all subfolders for a given parent folder."""
-        return [
-            folder for folder in self.folders 
-            if folder.startswith(f"{parent}/")
-        ]
-        
+        return [folder for folder in self.folders if folder.startswith(f"{parent}/")]
+
     def suggest_subfolder(self, content: str) -> tuple[str, str]:
         """
         Suggest a parent folder and subfolder based on email content.

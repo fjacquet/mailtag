@@ -67,7 +67,9 @@ The email body processing system handles full email content retrieval:
 ### Batching Implementation
 
 ```python
-def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable) -> dict[Any, Any]:
+def _batch_fetch(
+    self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable
+) -> dict[Any, Any]:
     """
     Helper method to fetch UIDs in batches and process the results.
     Processes UIDs in chunks of MAX_BATCH_SIZE (default: 100).
@@ -77,7 +79,7 @@ def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], 
 
     results = {}
     for i in range(0, len(uids), MAX_BATCH_SIZE):
-        batch = uids[i:i + MAX_BATCH_SIZE]
+        batch = uids[i : i + MAX_BATCH_SIZE]
         try:
             response = self.client.fetch(batch, fetch_command)
             batch_results = processor(response)

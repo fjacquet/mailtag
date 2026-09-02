@@ -22,11 +22,7 @@ def get_full_emails(self, uids: list[str | int]) -> list[Email]:
         raise ConnectionError("Not connected to IMAP server.")
 
     int_uids = [int(uid) if isinstance(uid, str) and uid.isdigit() else uid for uid in uids]
-    emails_dict = self._batch_fetch(
-        int_uids, 
-        [b"RFC822"], 
-        self._process_full_emails
-    )
+    emails_dict = self._batch_fetch(int_uids, [b"RFC822"], self._process_full_emails)
     return list(emails_dict.values())
 ```
 
@@ -57,15 +53,15 @@ def _process_full_emails(self, response: dict[int, dict[bytes, bytes]]) -> dict[
         try:
             email_data = data[b"RFC822"]
             msg = email.message_from_bytes(email_data)
-            
+
             # Extract headers
             from_header = self._parse_header_value(msg.get("From", ""))
             sender_name, sender_address = self._parse_sender(from_header)
             subject = self._parse_header_value(msg.get("Subject", ""))
-            
+
             # Extract body
             body = self._get_body_from_msg(msg)
-            
+
             # Create Email object
             emails[str(msg_id)] = Email(
                 msg_id=str(msg_id),
@@ -73,11 +69,11 @@ def _process_full_emails(self, response: dict[int, dict[bytes, bytes]]) -> dict[
                 sender_name=sender_name,
                 sender_address=sender_address,
                 body=body,
-                labels=[]  # Labels are typically not available in IMAP
+                labels=[],  # Labels are typically not available in IMAP
             )
         except Exception as e:
             logger.error(f"Error processing email {msg_id}: {e}")
-    
+
     return emails
 ```
 

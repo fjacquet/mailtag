@@ -41,26 +41,19 @@ from mailtag.config import FastParseConfig
 
 # Create with default Fast Parse configuration
 imap_service = ImapService(
-    host="imap.example.com",
-    username="user@example.com",
-    password="password123",
-    port=993,
-    use_ssl=True
+    host="imap.example.com", username="user@example.com", password="password123", port=993, use_ssl=True
 )
 
 # Create with custom Fast Parse configuration
 fast_parse_config = FastParseConfig(
-    batch_size=50,
-    inbox_folder="INBOX",
-    junk_folder="Junk",
-    folder_cache_ttl=3600
+    batch_size=50, inbox_folder="INBOX", junk_folder="Junk", folder_cache_ttl=3600
 )
 
 imap_service = ImapService(
     host="imap.example.com",
     username="user@example.com",
     password="password123",
-    fast_parse_config=fast_parse_config
+    fast_parse_config=fast_parse_config,
 )
 ```
 
@@ -303,8 +296,7 @@ uids = imap_service.get_all_uids()
 headers = imap_service.get_email_headers(uids)
 
 uids_to_move = [
-    uid for uid, header in headers.items()
-    if header['sender_address'] == 'newsletter@example.com'
+    uid for uid, header in headers.items() if header["sender_address"] == "newsletter@example.com"
 ]
 
 if uids_to_move:
@@ -388,15 +380,12 @@ config = FastParseConfig(
     batch_size=50,  # Smaller batch size for slower connections
     inbox_folder="INBOX",
     junk_folder="Spam",  # Different name for junk folder
-    folder_cache_ttl=1800  # Shorter cache TTL (30 minutes)
+    folder_cache_ttl=1800,  # Shorter cache TTL (30 minutes)
 )
 
 # Use in ImapService
 imap_service = ImapService(
-    host="imap.example.com",
-    username="user@example.com",
-    password="password123",
-    fast_parse_config=config
+    host="imap.example.com", username="user@example.com", password="password123", fast_parse_config=config
 )
 ```
 
@@ -437,18 +426,10 @@ from mailtag.config import FastParseConfig
 database = ClassificationDatabase("sender_classification_db.json", "validated_classification_db.json")
 
 # Create ImapService with custom configuration
-config = FastParseConfig(
-    batch_size=50,
-    inbox_folder="INBOX",
-    junk_folder="Spam",
-    folder_cache_ttl=3600
-)
+config = FastParseConfig(batch_size=50, inbox_folder="INBOX", junk_folder="Spam", folder_cache_ttl=3600)
 
 imap_service = ImapService(
-    host="imap.example.com",
-    username="user@example.com",
-    password="password123",
-    fast_parse_config=config
+    host="imap.example.com", username="user@example.com", password="password123", fast_parse_config=config
 )
 
 # Connect to the server
@@ -474,59 +455,55 @@ from mailtag.database import ClassificationDatabase
 
 # Initialize services
 database = ClassificationDatabase("sender_classification_db.json", "validated_classification_db.json")
-imap_service = ImapService(
-    host="imap.example.com",
-    username="user@example.com",
-    password="password123"
-)
+imap_service = ImapService(host="imap.example.com", username="user@example.com", password="password123")
 
 # Connect to the server
 if imap_service.connect():
     try:
         # Select folder
         imap_service.select_folder("INBOX")
-        
+
         # Get all UIDs
         all_uids = imap_service.get_all_uids()
         print(f"Found {len(all_uids)} emails in INBOX")
-        
+
         # Pass 1: Process headers only
         headers = imap_service.get_email_headers(all_uids)
-        
+
         # Classify based on sender
         classified_uids = {}
         unclassified_uids = []
-        
+
         for uid, header_data in headers.items():
             sender_address = header_data["sender_address"]
             classification = database.get_dominant_classification(sender_address)
-            
+
             if classification:
                 if classification not in classified_uids:
                     classified_uids[classification] = []
                 classified_uids[classification].append(uid)
             else:
                 unclassified_uids.append(uid)
-        
+
         # Move classified emails
         for classification, uids in classified_uids.items():
             imap_service.batch_move_emails(uids, classification)
             print(f"Moved {len(uids)} emails to {classification}")
-        
+
         # Pass 2: Process unclassified emails
         if unclassified_uids:
             full_emails = imap_service.get_full_emails(unclassified_uids)
-            
+
             # Process with more advanced classification
             # (This would typically involve AI classification)
             print(f"Processing {len(full_emails)} emails in Pass 2")
-            
+
             # Example: Simple keyword-based classification
             for email in full_emails:
                 if "newsletter" in email.subject.lower() or "newsletter" in email.body.lower():
                     imap_service.batch_move_emails([email.msg_id], "Newsletters")
                     print(f"Moved email {email.msg_id} to Newsletters")
-    
+
     finally:
         # Always disconnect when done
         imap_service.disconnect()
@@ -542,23 +519,19 @@ The Fast Parse API methods include robust error handling. Here's how to handle c
 from mailtag.imap_service import ImapService
 import imaplib
 
-imap_service = ImapService(
-    host="imap.example.com",
-    username="user@example.com",
-    password="password123"
-)
+imap_service = ImapService(host="imap.example.com", username="user@example.com", password="password123")
 
 try:
     # Connect to the server
     if not imap_service.connect():
         print("Failed to connect to IMAP server")
         exit(1)
-    
+
     # Select folder
     if not imap_service.select_folder("INBOX"):
         print("Failed to select INBOX")
         exit(1)
-    
+
     # Get UIDs and process
     try:
         uids = imap_service.get_all_uids()

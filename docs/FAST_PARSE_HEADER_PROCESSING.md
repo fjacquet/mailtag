@@ -23,9 +23,7 @@ def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
 
     int_uids = [int(uid) if isinstance(uid, str) and uid.isdigit() else uid for uid in uids]
     return self._batch_fetch(
-        int_uids, 
-        [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"], 
-        self._process_email_headers
+        int_uids, [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"], self._process_email_headers
     )
 ```
 
