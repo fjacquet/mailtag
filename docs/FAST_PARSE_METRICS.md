@@ -115,8 +115,7 @@ The metrics system is integrated with `ImapService` in several ways:
 
    ```python
    configure_metrics(
-       enabled=self.fast_parse_config.metrics_enabled,
-       log_level=self.fast_parse_config.metrics_log_level
+       enabled=self.fast_parse_config.metrics_enabled, log_level=self.fast_parse_config.metrics_log_level
    )
    ```
 

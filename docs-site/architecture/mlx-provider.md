@@ -29,7 +29,7 @@ Both classes use lazy loading -- models are only downloaded and loaded on first 
 
 ```python
 embedder = MLXEmbedder()  # No model loaded yet
-embedder.encode("text")    # Model loaded here on first call
+embedder.encode("text")  # Model loaded here on first call
 ```
 
 ## Configuration

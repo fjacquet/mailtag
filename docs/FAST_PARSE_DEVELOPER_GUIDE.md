@@ -133,14 +133,16 @@ def _get_optimal_batch_size(self, uids: list) -> int:
 1. **Update the Batching Method**:
 
 ```python
-def _batch_fetch(self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable) -> dict[Any, Any]:
+def _batch_fetch(
+    self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable
+) -> dict[Any, Any]:
     results = {}
-    
+
     # Get dynamic batch size
     batch_size = self._get_optimal_batch_size(uids)
-    
+
     for i in range(0, len(uids), batch_size):
-        batch = uids[i:i + batch_size]
+        batch = uids[i : i + batch_size]
         # Process batch as before
 ```
 
@@ -159,11 +161,7 @@ from typing import List, Dict, Any, Union, Callable
 
 ```python
 def _concurrent_batch_fetch(
-    self, 
-    uids: list[Union[str, int]], 
-    fetch_command: list[bytes], 
-    processor: callable,
-    max_workers: int = 4
+    self, uids: list[Union[str, int]], fetch_command: list[bytes], processor: callable, max_workers: int = 4
 ) -> dict[Any, Any]:
     """
     Fetch UIDs in batches concurrently and process the results.
@@ -174,17 +172,17 @@ def _concurrent_batch_fetch(
     # Split UIDs into batches
     batches = []
     for i in range(0, len(uids), self.fast_parse_config.batch_size):
-        batches.append(uids[i:i + self.fast_parse_config.batch_size])
-    
+        batches.append(uids[i : i + self.fast_parse_config.batch_size])
+
     results = {}
-    
+
     # Process batches concurrently
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_batch = {
             executor.submit(self._process_single_batch, batch, fetch_command, processor): batch
             for batch in batches
         }
-        
+
         for future in concurrent.futures.as_completed(future_to_batch):
             batch = future_to_batch[future]
             try:
@@ -192,14 +190,12 @@ def _concurrent_batch_fetch(
                 results.update(batch_results)
             except Exception as e:
                 logger.error(f"Error processing batch {batch}: {e}")
-    
+
     return results
 
+
 def _process_single_batch(
-    self, 
-    batch: list[Union[str, int]], 
-    fetch_command: list[bytes], 
-    processor: callable
+    self, batch: list[Union[str, int]], fetch_command: list[bytes], processor: callable
 ) -> dict[Any, Any]:
     """
     Process a single batch of UIDs.
@@ -209,14 +205,14 @@ def _process_single_batch(
         client = IMAPClient(self.host, port=self.port, use_ssl=self.use_ssl)
         client.login(self.username, self.password)
         client.select_folder(self.current_folder)
-        
+
         # Fetch and process the batch
         response = client.fetch(batch, fetch_command)
         batch_results = processor(response)
-        
+
         # Clean up
         client.logout()
-        
+
         return batch_results
     except Exception as e:
         logger.error(f"Error in batch processing: {e}")
@@ -237,16 +233,13 @@ import unittest
 from unittest.mock import Mock, patch
 from mailtag.imap_service import ImapService
 
+
 class TestImapService(unittest.TestCase):
     def setUp(self):
-        self.imap_service = ImapService(
-            host="test.example.com",
-            username="test",
-            password="password"
-        )
+        self.imap_service = ImapService(host="test.example.com", username="test", password="password")
         # Mock the IMAP client
         self.imap_service.client = Mock()
-    
+
     def test_get_email_headers(self):
         # Mock the fetch response
         mock_response = {
@@ -255,10 +248,10 @@ class TestImapService(unittest.TestCase):
             }
         }
         self.imap_service.client.fetch.return_value = mock_response
-        
+
         # Call the method
         result = self.imap_service.get_email_headers([1])
-        
+
         # Verify the result
         self.assertEqual(len(result), 1)
         self.assertEqual(result["1"]["sender_address"], "test@example.com")
@@ -291,6 +284,7 @@ import os
 from mailtag.imap_service import ImapService
 from mailtag.database import ClassificationDatabase
 
+
 class TestImapIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -298,30 +292,26 @@ class TestImapIntegration(unittest.TestCase):
         cls.host = os.environ.get("TEST_IMAP_HOST")
         cls.username = os.environ.get("TEST_IMAP_USERNAME")
         cls.password = os.environ.get("TEST_IMAP_PASSWORD")
-        
+
         if not all([cls.host, cls.username, cls.password]):
             raise ValueError("Test IMAP credentials not set in environment variables")
-        
+
         # Initialize services
-        cls.imap_service = ImapService(
-            host=cls.host,
-            username=cls.username,
-            password=cls.password
-        )
+        cls.imap_service = ImapService(host=cls.host, username=cls.username, password=cls.password)
         cls.database = ClassificationDatabase("test_sender_db.json", "test_validated_db.json")
-    
+
     def setUp(self):
         # Connect before each test
         self.imap_service.connect()
-    
+
     def tearDown(self):
         # Disconnect after each test
         self.imap_service.disconnect()
-    
+
     def test_run_fast_parse(self):
         # Run in validation mode to avoid moving emails
         pass1_count, pass2_count = self.imap_service.run_fast_parse(self.database, validate=True)
-        
+
         # Verify results
         self.assertIsInstance(pass1_count, int)
         self.assertIsInstance(pass2_count, int)
@@ -381,11 +371,11 @@ def _with_connection_retry(self, operation, max_retries=3):
         except (socket.timeout, ConnectionError) as e:
             retries += 1
             logger.warning(f"Connection error (attempt {retries}/{max_retries}): {e}")
-            
+
             if retries < max_retries:
                 # Reconnect and try again
                 self.disconnect()
-                time.sleep(2 ** retries)  # Exponential backoff
+                time.sleep(2**retries)  # Exponential backoff
                 self.connect()
             else:
                 raise
@@ -407,25 +397,26 @@ def _with_connection_retry(self, operation, max_retries=3):
 ```python
 import gc
 
+
 def _process_large_mailbox(self, uids):
     """
     Process a large mailbox with memory management.
     """
     results = {}
-    
+
     for i in range(0, len(uids), self.fast_parse_config.batch_size):
-        batch = uids[i:i + self.fast_parse_config.batch_size]
-        
+        batch = uids[i : i + self.fast_parse_config.batch_size]
+
         # Process batch
         batch_results = self._process_batch(batch)
         results.update(batch_results)
-        
+
         # Force garbage collection after each batch
         gc.collect()
-        
+
         # Log progress
         logger.info(f"Processed {i + len(batch)}/{len(uids)} emails")
-    
+
     return results
 ```
 
@@ -468,6 +459,7 @@ logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 logger.add("fast_parse_debug.log", level="DEBUG", rotation="10 MB")
 
+
 # Add detailed logging in key methods
 def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
     logger.debug(f"Fetching headers for {len(uids)} UIDs")
@@ -481,7 +473,9 @@ def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
 ```python
 # Enable IMAP debug mode
 import imaplib
+
 imaplib.Debug = 4  # Set to desired debug level (1-5)
+
 
 # Or in ImapService
 def connect(self):
@@ -499,27 +493,29 @@ Create standalone test scripts to isolate and debug specific functionality:
 from mailtag.imap_service import ImapService
 import sys
 
+
 def test_connection(host, username, password):
     service = ImapService(host, username, password)
-    
+
     print(f"Connecting to {host}...")
     connected = service.connect()
     print(f"Connected: {connected}")
-    
+
     if connected:
         print("Listing folders:")
         folders = service.get_folder_hierarchy(force_refresh=True)
         for name, info in folders.items():
             print(f"- {name} ({info['attributes']})")
-        
+
         service.disconnect()
         print("Disconnected")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Usage: python debug_imap_connection.py host username password")
         sys.exit(1)
-    
+
     test_connection(sys.argv[1], sys.argv[2], sys.argv[3])
 ```
 
@@ -538,6 +534,7 @@ def parse_sender(sender_string: str) -> tuple[str, str]:
     name, address = email.utils.parseaddr(sender_string)
     return name, address
 
+
 # Avoid: Impure function with side effects
 def process_sender(self, sender_string: str) -> None:
     """Process sender with side effects."""
@@ -553,6 +550,7 @@ Use comprehensive type hints for all functions and methods:
 ```python
 from typing import Dict, List, Optional, Union, Any, Callable
 
+
 def get_email_headers(self, uids: list[Union[str, int]]) -> Dict[str, Dict[str, str]]:
     """
     Fetches 'From' and 'Subject' headers for a batch of email UIDs.
@@ -567,6 +565,7 @@ Use the `returns` library for functional error handling:
 
 ```python
 from returns.result import Result, Success, Failure
+
 
 def parse_header_safely(header_value: Any) -> Result[str, Exception]:
     """

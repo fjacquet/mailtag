@@ -146,7 +146,7 @@ from mailtag.utils.db_backup import restore_database
 
 restore_database(
     backup_path=Path("db/backups/sender_classification_db_20251230_120000.json"),
-    db_path=Path("db/sender_classification_db.json")
+    db_path=Path("db/sender_classification_db.json"),
 )
 ```
 
@@ -167,10 +167,7 @@ for b in backups:
 Check for data quality issues:
 
 ```python
-from mailtag.utils.data_validation import (
-    validate_domain_classifications,
-    validate_sender_classifications
-)
+from mailtag.utils.data_validation import validate_domain_classifications, validate_sender_classifications
 
 # Check domain database
 issues = validate_domain_classifications(Path("db/domain_classifications.json"))
@@ -207,7 +204,7 @@ from mailtag.utils.data_validation import normalize_email, normalize_domain
 
 # Email normalization
 normalize_email("<John.Doe@EXAMPLE.COM>")  # → "john.doe@example.com"
-normalize_email("Name <user@host.com>")     # → "user@host.com"
+normalize_email("Name <user@host.com>")  # → "user@host.com"
 
 # Domain normalization
 normalize_domain("Example.COM>")  # → "example.com"
@@ -280,6 +277,7 @@ Run the fix command:
 
 ```python
 from mailtag.utils.data_validation import fix_domain_classifications
+
 fix_domain_classifications(Path("db/domain_classifications.json"))
 ```
 
@@ -302,5 +300,5 @@ backups = list_backups(Path("db/backups"))
 latest = backups[-1]  # Most recent
 
 # Restore
-restore_database(latest['path'], Path("db/sender_classification_db.json"))
+restore_database(latest["path"], Path("db/sender_classification_db.json"))
 ```

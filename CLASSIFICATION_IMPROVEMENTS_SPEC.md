@@ -96,11 +96,11 @@ prompt = (
     f"{category_list}\n\n"
     "Si la catégorie appropriée n'existe pas, propose un nouveau sous-dossier.\n\n"
     "IMPORTANT: Réponds en format JSON structuré:\n"
-    '{\n'
+    "{\n"
     '  "category": "NomExactCategorie",\n'
     '  "confidence": 0.95,\n'
     '  "reason": "brève explication (optionnel)"\n'
-    '}\n\n'
+    "}\n\n"
     "- category: nom exact de la liste ou 'Parent/NewSub'\n"
     "- confidence: score entre 0.0 et 1.0\n"
     "- reason: pourquoi cette catégorie (1 phrase courte)\n"
@@ -112,9 +112,9 @@ prompt = (
 ```python
 def _get_category_from_ai(self, email: Email) -> str | None:
     """Get category from AI model with confidence scoring."""
-    
+
     # ... existing cache check ...
-    
+
     response = completion(
         model=self.model_name,
         messages=[{"role": "user", "content": prompt}],
@@ -123,52 +123,55 @@ def _get_category_from_ai(self, email: Email) -> str | None:
         temperature=0.2,
         num_ctx=2048,
     )
-    
+
     raw_response = response.choices[0].message.content.strip()
-    
+
     # Parse JSON response
     try:
         import json
         import re
-        
+
         # Extract JSON from response (handles markdown code blocks)
-        json_match = re.search(r'\{[^}]+\}', raw_response)
+        json_match = re.search(r"\{[^}]+\}", raw_response)
         if json_match:
             result = json.loads(json_match.group(0))
             category = result.get("category", "").strip()
             confidence = float(result.get("confidence", 0.0))
             reason = result.get("reason", "")
-            
+
             # Log confidence and reason
             logger.debug(f"AI classification: {category} (confidence: {confidence:.2f}, reason: {reason})")
-            
+
             # Track in metrics
-            if hasattr(self, 'metrics'):
+            if hasattr(self, "metrics"):
                 self.metrics.record("classification.ai_confidence", confidence)
                 self.metrics.increment(f"classification.ai_category.{category}")
-            
+
             # Check against threshold
             if confidence < self.config.classifier.ai_confidence_threshold:
-                logger.info(f"AI confidence {confidence:.2f} below threshold {self.config.classifier.ai_confidence_threshold}, routing to 'À Classer'")
+                logger.info(
+                    f"AI confidence {confidence:.2f} below threshold {self.config.classifier.ai_confidence_threshold}, routing to 'À Classer'"
+                )
                 self.metrics.increment("classification.ai_low_confidence")
                 return "À Classer"
-            
+
             # Validate category exists
             if category not in self.categories_set and "/" not in category:
                 logger.warning(f"AI suggested invalid category: {category}")
                 return "À Classer"
-            
+
             return category
-            
+
         else:
             # Fallback to old parsing if JSON not found
             logger.warning(f"AI response not JSON format: {raw_response[:100]}")
             return self._parse_legacy_response(raw_response)
-            
+
     except (json.JSONDecodeError, ValueError, KeyError) as e:
         logger.error(f"Failed to parse AI response: {e}, raw: {raw_response[:100]}")
         self.metrics.increment("classification.ai_parse_error")
         return "À Classer"
+
 
 def _parse_legacy_response(self, response: str) -> str | None:
     """Fallback parser for non-JSON responses."""
@@ -226,50 +229,47 @@ request_ai_reasoning = true  # New: request explanation from AI
 # Add new metric types
 class ClassificationMetrics:
     """Metrics specific to email classification quality."""
-    
+
     def __init__(self):
         self.signal_hits = Counter()  # Which signal classified email
         self.category_distribution = Counter()  # Category usage
         self.confidence_scores = defaultdict(list)  # Confidence per signal
         self.errors = Counter()  # Error types
         self.processing_times = defaultdict(list)  # Time per signal
-        
+
     def record_classification(
         self,
         email_id: str,
         signal: str,  # validated_db, server_labels, historical, domain, ai
         category: str,
         confidence: float | None = None,
-        processing_time_ms: float = 0.0
+        processing_time_ms: float = 0.0,
     ):
         """Record a successful classification."""
         self.signal_hits[signal] += 1
         self.category_distribution[category] += 1
-        
+
         if confidence is not None:
             self.confidence_scores[signal].append(confidence)
-        
+
         if processing_time_ms > 0:
             self.processing_times[signal].append(processing_time_ms)
-    
+
     def record_error(self, error_type: str, context: str = ""):
         """Record classification error."""
         self.errors[f"{error_type}:{context}"] += 1
-    
+
     def get_signal_hit_rates(self) -> dict[str, float]:
         """Calculate percentage of emails classified by each signal."""
         total = sum(self.signal_hits.values())
         if total == 0:
             return {}
-        return {
-            signal: (count / total) * 100
-            for signal, count in self.signal_hits.items()
-        }
-    
+        return {signal: (count / total) * 100 for signal, count in self.signal_hits.items()}
+
     def get_summary(self) -> dict:
         """Get comprehensive metrics summary."""
         total_classified = sum(self.signal_hits.values())
-        
+
         return {
             "total_classified": total_classified,
             "signal_hit_rates": self.get_signal_hit_rates(),
@@ -283,14 +283,14 @@ class ClassificationMetrics:
                 for signal, times in self.processing_times.items()
             },
             "errors": dict(self.errors.most_common()),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-    
+
     def export_to_json(self, filepath: Path):
         """Export metrics to JSON file."""
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(self.get_summary(), f, indent=2)
-    
+
     def reset(self):
         """Reset all counters."""
         self.signal_hits.clear()
@@ -307,30 +307,31 @@ class ClassificationMetrics:
 ```python
 from mailtag.metrics import ClassificationMetrics
 
+
 class EmailClassifier:
     def __init__(self, config: Config):
         # ... existing init ...
         self.classification_metrics = ClassificationMetrics()
-    
+
     def classify_email(self, email: Email) -> str:
         """Classify email using AMSC strategy with metrics tracking."""
         import time
-        
+
         start_time = time.perf_counter()
-        
+
         # Signal 1: Validated DB
         category = self._get_category_from_validated_db(email)
         if category:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             self.classification_metrics.record_classification(
-                email.msg_id, 
+                email.msg_id,
                 signal="validated_db",
                 category=category,
                 confidence=1.0,  # Validated = 100% confidence
-                processing_time_ms=elapsed_ms
+                processing_time_ms=elapsed_ms,
             )
             return category
-        
+
         # Signal 2: Server-side labels
         category = self._get_category_from_labels(email)
         if category:
@@ -340,31 +341,31 @@ class EmailClassifier:
                 signal="server_labels",
                 category=category,
                 confidence=0.95,  # High confidence from user's organization
-                processing_time_ms=elapsed_ms
+                processing_time_ms=elapsed_ms,
             )
             # Still update suggestion DB
             self.database.update_suggestion(email.sender_address, category)
             return category
-        
+
         # Signal 3: Historical DB
         category = self._get_category_from_history(email)
         if category:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            
+
             # Calculate actual confidence
             sender_classifications = self.database.suggestion_db.get(email.sender_address, {})
             total_count = sum(sender_classifications.values())
             confidence = sender_classifications.get(category, 0) / total_count if total_count > 0 else 0.0
-            
+
             self.classification_metrics.record_classification(
                 email.msg_id,
                 signal="historical_db",
                 category=category,
                 confidence=confidence,
-                processing_time_ms=elapsed_ms
+                processing_time_ms=elapsed_ms,
             )
             return category
-        
+
         # Signal 4: Domain classification
         category = self._get_category_from_domain(email)
         if category:
@@ -374,15 +375,15 @@ class EmailClassifier:
                 signal="domain_db",
                 category=category,
                 confidence=0.90,  # Domain rules are high confidence
-                processing_time_ms=elapsed_ms
+                processing_time_ms=elapsed_ms,
             )
             self.database.update_suggestion(email.sender_address, category)
             return category
-        
+
         # Signal 5: AI classification
         category = self._get_category_from_ai(email)
         elapsed_ms = (time.perf_counter() - start_time) * 1000
-        
+
         if category and category != "À Classer":
             # Confidence already recorded in _get_category_from_ai
             self.classification_metrics.record_classification(
@@ -390,15 +391,15 @@ class EmailClassifier:
                 signal="ai_model",
                 category=category,
                 confidence=None,  # Already tracked internally
-                processing_time_ms=elapsed_ms
+                processing_time_ms=elapsed_ms,
             )
             self.database.update_suggestion(email.sender_address, category)
         else:
             self.classification_metrics.record_error("ai_uncertain", email.sender_address)
             category = "À Classer"
-        
+
         return category
-    
+
     def export_metrics(self, output_dir: Path = Path("data/metrics")):
         """Export classification metrics to file."""
         output_dir.mkdir(exist_ok=True)
@@ -416,35 +417,35 @@ class EmailClassifier:
 ```python
 def run_classification_with_metrics(provider: EmailProvider, classifier: EmailClassifier):
     """Run classification and generate metrics report."""
-    
+
     # ... existing classification logic ...
-    
+
     # After classification completes
     summary = classifier.classification_metrics.get_summary()
-    
+
     logger.info("=" * 60)
     logger.info("CLASSIFICATION METRICS SUMMARY")
     logger.info("=" * 60)
     logger.info(f"Total emails classified: {summary['total_classified']}")
     logger.info("")
     logger.info("Signal Hit Rates:")
-    for signal, rate in summary['signal_hit_rates'].items():
+    for signal, rate in summary["signal_hit_rates"].items():
         logger.info(f"  {signal:20s}: {rate:6.2f}%")
     logger.info("")
     logger.info("Top 10 Categories:")
-    for category, count in list(summary['top_categories'].items())[:10]:
+    for category, count in list(summary["top_categories"].items())[:10]:
         logger.info(f"  {category:40s}: {count:4d} emails")
     logger.info("")
     logger.info("Average Confidence by Signal:")
-    for signal, conf in summary['avg_confidence_by_signal'].items():
+    for signal, conf in summary["avg_confidence_by_signal"].items():
         logger.info(f"  {signal:20s}: {conf:.3f}")
     logger.info("")
-    
-    if summary['errors']:
+
+    if summary["errors"]:
         logger.warning("Classification Errors:")
-        for error, count in summary['errors'].items():
+        for error, count in summary["errors"].items():
             logger.warning(f"  {error}: {count}")
-    
+
     # Export to file
     filepath = classifier.export_metrics()
     logger.info(f"Full metrics exported to: {filepath}")
@@ -496,6 +497,7 @@ from loguru import logger
 @dataclass
 class DomainCandidate:
     """Candidate domain for classification."""
+
     domain: str
     email_count: int
     unique_senders: set[str]
@@ -506,70 +508,67 @@ class DomainCandidate:
 
 class DomainAnalyzer:
     """Analyze email data to find domain classification opportunities."""
-    
+
     def __init__(self, non_commercial_domains_path: Path):
         """Initialize with non-commercial domains to exclude."""
         import yaml
+
         with open(non_commercial_domains_path) as f:
             self.non_commercial = set(yaml.safe_load(f))
-    
+
     def analyze_pass3_files(self, data_dir: Path) -> list[DomainCandidate]:
         """Analyze all Pass 3 manual matching files."""
-        
+
         # Aggregate data from all Pass 3 files
-        domain_data = defaultdict(lambda: {
-            'count': 0,
-            'senders': set(),
-            'sender_list': []
-        })
-        
+        domain_data = defaultdict(lambda: {"count": 0, "senders": set(), "sender_list": []})
+
         for filepath in data_dir.glob("pass3_manual_matching_*.json"):
             logger.info(f"Processing {filepath.name}")
-            
+
             with open(filepath) as f:
                 data = json.load(f)
-            
+
             for sender, count in data.items():
                 # Extract domain
                 domain = self._extract_domain(sender)
                 if not domain or domain in self.non_commercial:
                     continue
-                
-                domain_data[domain]['count'] += count
-                domain_data[domain]['senders'].add(sender)
-                domain_data[domain]['sender_list'].append(sender)
-        
+
+                domain_data[domain]["count"] += count
+                domain_data[domain]["senders"].add(sender)
+                domain_data[domain]["sender_list"].append(sender)
+
         # Convert to candidates
         candidates = []
         for domain, data in domain_data.items():
-            if data['count'] >= 5:  # At least 5 emails from domain
+            if data["count"] >= 5:  # At least 5 emails from domain
                 candidate = DomainCandidate(
                     domain=domain,
-                    email_count=data['count'],
-                    unique_senders=data['senders'],
-                    sample_senders=list(data['senders'])[:5]
+                    email_count=data["count"],
+                    unique_senders=data["senders"],
+                    sample_senders=list(data["senders"])[:5],
                 )
                 candidates.append(candidate)
-        
+
         # Sort by email count
         candidates.sort(key=lambda c: c.email_count, reverse=True)
-        
+
         logger.info(f"Found {len(candidates)} domain candidates")
         return candidates
-    
+
     def _extract_domain(self, email: str) -> str | None:
         """Extract domain from email address."""
-        match = re.search(r'@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$', email.lower())
+        match = re.search(r"@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$", email.lower())
         return match.group(1) if match else None
-    
+
     def export_candidates(self, candidates: list[DomainCandidate], output_path: Path):
         """Export candidates to JSON for manual review."""
-        
+
         export_data = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
                 "total_candidates": len(candidates),
-                "total_emails": sum(c.email_count for c in candidates)
+                "total_emails": sum(c.email_count for c in candidates),
             },
             "candidates": [
                 {
@@ -578,20 +577,20 @@ class DomainAnalyzer:
                     "unique_senders": len(c.unique_senders),
                     "sample_senders": c.sample_senders,
                     "suggested_category": c.suggested_category or "REVIEW_NEEDED",
-                    "confidence": c.confidence
+                    "confidence": c.confidence,
                 }
                 for c in candidates
-            ]
+            ],
         }
-        
-        with open(output_path, 'w') as f:
+
+        with open(output_path, "w") as f:
             json.dump(export_data, f, indent=2)
-        
+
         logger.info(f"Exported {len(candidates)} candidates to {output_path}")
-    
+
     def generate_report(self, candidates: list[DomainCandidate]) -> str:
         """Generate human-readable report."""
-        
+
         lines = [
             "=" * 80,
             "DOMAIN CLASSIFICATION CANDIDATES",
@@ -602,27 +601,29 @@ class DomainAnalyzer:
             "Top 50 Domains by Email Count:",
             "-" * 80,
             f"{'Domain':<30} {'Emails':>8} {'Senders':>8} Sample",
-            "-" * 80
+            "-" * 80,
         ]
-        
+
         for candidate in candidates[:50]:
             sample = candidate.sample_senders[0] if candidate.sample_senders else ""
             lines.append(
                 f"{candidate.domain:<30} {candidate.email_count:>8} "
                 f"{len(candidate.unique_senders):>8} {sample}"
             )
-        
-        lines.extend([
-            "-" * 80,
-            "",
-            "Next Steps:",
-            "1. Review domain_candidates.json",
-            "2. For each domain, determine appropriate category",
-            "3. Add to db/domain_classifications.json",
-            "4. Re-run classification to measure impact",
-            ""
-        ])
-        
+
+        lines.extend(
+            [
+                "-" * 80,
+                "",
+                "Next Steps:",
+                "1. Review domain_candidates.json",
+                "2. For each domain, determine appropriate category",
+                "3. Add to db/domain_classifications.json",
+                "4. Re-run classification to measure impact",
+                "",
+            ]
+        )
+
         return "\n".join(lines)
 ```
 
@@ -632,23 +633,22 @@ class DomainAnalyzer:
 
 ```python
 @click.command()
-@click.option('--output', default='data/domain_candidates.json', help='Output file path')
+@click.option("--output", default="data/domain_candidates.json", help="Output file path")
 def analyze_domains(output: str):
     """Analyze Pass 3 files to identify domain classification candidates."""
     from mailtag.utils.domain_analyzer import DomainAnalyzer
-    
+
     config = load_config()
-    analyzer = DomainAnalyzer(
-        non_commercial_domains_path=Path("data/non_commercial_domains.yaml")
-    )
-    
+    analyzer = DomainAnalyzer(non_commercial_domains_path=Path("data/non_commercial_domains.yaml"))
+
     candidates = analyzer.analyze_pass3_files(Path("data"))
     analyzer.export_candidates(candidates, Path(output))
-    
+
     report = analyzer.generate_report(candidates)
     print(report)
-    
+
     logger.info(f"Review {output} and add entries to db/domain_classifications.json")
+
 
 # Add to CLI
 cli.add_command(analyze_domains)
@@ -665,45 +665,44 @@ cli.add_command(analyze_domains)
 import json
 from pathlib import Path
 
+
 def update_domain_db(candidates_file: Path, domain_db_file: Path):
     """Update domain DB with reviewed candidates."""
-    
+
     # Load candidates with manual categories added
     with open(candidates_file) as f:
         data = json.load(f)
-    
+
     # Load existing domain DB
     with open(domain_db_file) as f:
         domain_db = json.load(f)
-    
+
     # Add new entries
     added = 0
-    for candidate in data['candidates']:
-        domain = candidate['domain']
-        category = candidate.get('suggested_category', '').strip()
-        
+    for candidate in data["candidates"]:
+        domain = candidate["domain"]
+        category = candidate.get("suggested_category", "").strip()
+
         # Skip if no category or placeholder
-        if not category or category in ['REVIEW_NEEDED', '']:
+        if not category or category in ["REVIEW_NEEDED", ""]:
             continue
-        
+
         # Add to DB
         if domain not in domain_db:
             domain_db[domain] = category
             added += 1
             print(f"Added: {domain} → {category}")
-    
+
     # Save updated DB
-    with open(domain_db_file, 'w') as f:
+    with open(domain_db_file, "w") as f:
         json.dump(domain_db, f, indent=2, sort_keys=True)
-    
+
     print(f"\nAdded {added} new domain classifications")
     print(f"Total domains in DB: {len(domain_db)}")
 
-if __name__ == '__main__':
-    update_domain_db(
-        Path('data/domain_candidates.json'),
-        Path('db/domain_classifications.json')
-    )
+
+if __name__ == "__main__":
+    update_domain_db(Path("data/domain_candidates.json"), Path("db/domain_classifications.json"))
 ```
 
 #### Workflow
@@ -752,64 +751,86 @@ from typing import Tuple
 
 def smart_truncate(body: str, max_chars: int = 1500) -> str:
     """Intelligently truncate email body to preserve important content.
-    
+
     Strategy:
     1. Extract first 2 paragraphs (likely main message)
     2. Find sentences with high-signal keywords
     3. Remove email signatures and disclaimers
     4. Combine and truncate to max_chars
     """
-    
+
     # Remove quoted replies (lines starting with >)
-    lines = [line for line in body.split('\n') if not line.strip().startswith('>')]
-    clean_body = '\n'.join(lines)
-    
+    lines = [line for line in body.split("\n") if not line.strip().startswith(">")]
+    clean_body = "\n".join(lines)
+
     # Remove common email signatures
     signature_patterns = [
-        r'\n--\s*\n.*',  # Standard signature delimiter
-        r'\nSent from my .*',
-        r'\nGet Outlook for .*',
-        r'\n_{10,}.*',  # Underline separators
-        r'\nBest regards,.*',
-        r'\nCordialement,.*',
+        r"\n--\s*\n.*",  # Standard signature delimiter
+        r"\nSent from my .*",
+        r"\nGet Outlook for .*",
+        r"\n_{10,}.*",  # Underline separators
+        r"\nBest regards,.*",
+        r"\nCordialement,.*",
     ]
     for pattern in signature_patterns:
-        clean_body = re.sub(pattern, '', clean_body, flags=re.DOTALL | re.IGNORECASE)
-    
+        clean_body = re.sub(pattern, "", clean_body, flags=re.DOTALL | re.IGNORECASE)
+
     # Extract paragraphs
-    paragraphs = [p.strip() for p in clean_body.split('\n\n') if p.strip()]
-    
+    paragraphs = [p.strip() for p in clean_body.split("\n\n") if p.strip()]
+
     # High-signal keywords that indicate important content
     keywords = [
-        'invoice', 'facture', 'payment', 'paiement',
-        'order', 'commande', 'delivery', 'livraison',
-        'confirm', 'confirmer', 'receipt', 'reçu',
-        'subscription', 'abonnement', 'renewal', 'renouvellement',
-        'account', 'compte', 'password', 'mot de passe',
-        'security', 'sécurité', 'alert', 'alerte',
-        'meeting', 'réunion', 'appointment', 'rendez-vous',
-        'unsubscribe', 'désabonner'
+        "invoice",
+        "facture",
+        "payment",
+        "paiement",
+        "order",
+        "commande",
+        "delivery",
+        "livraison",
+        "confirm",
+        "confirmer",
+        "receipt",
+        "reçu",
+        "subscription",
+        "abonnement",
+        "renewal",
+        "renouvellement",
+        "account",
+        "compte",
+        "password",
+        "mot de passe",
+        "security",
+        "sécurité",
+        "alert",
+        "alerte",
+        "meeting",
+        "réunion",
+        "appointment",
+        "rendez-vous",
+        "unsubscribe",
+        "désabonner",
     ]
-    
+
     # Collect important sentences
     important_sentences = []
     for para in paragraphs[:3]:  # First 3 paragraphs
-        sentences = re.split(r'[.!?]\s+', para)
+        sentences = re.split(r"[.!?]\s+", para)
         for sentence in sentences:
             if any(kw in sentence.lower() for kw in keywords):
                 important_sentences.append(sentence)
-    
+
     # Build result: first paragraphs + important sentences
     result_parts = paragraphs[:2]  # First 2 paragraphs
     if important_sentences:
         result_parts.append(" ".join(important_sentences[:3]))  # Top 3 important sentences
-    
+
     result = "\n\n".join(result_parts)
-    
+
     # Final truncation
     if len(result) > max_chars:
         result = result[:max_chars] + "..."
-    
+
     return result
 
 
@@ -826,7 +847,7 @@ def count_links(body: str) -> int:
 
 def has_unsubscribe_link(body: str) -> bool:
     """Check if email contains unsubscribe link (newsletter indicator)."""
-    return bool(re.search(r'unsubscribe|désabonner|se désinscrire', body, re.IGNORECASE))
+    return bool(re.search(r"unsubscribe|désabonner|se désinscrire", body, re.IGNORECASE))
 ```
 
 **4.2 Update Classifier to Use Smart Truncation**
@@ -836,16 +857,17 @@ def has_unsubscribe_link(body: str) -> bool:
 ```python
 from mailtag.utils.text_utils import smart_truncate
 
+
 class EmailClassifier:
     def _get_category_from_ai(self, email: Email) -> str | None:
         """Get category from AI model."""
-        
+
         # OLD:
         # truncated_body = email.body[:500]
-        
+
         # NEW:
         truncated_body = smart_truncate(email.body, max_chars=1500)
-        
+
         # ... rest of method unchanged ...
 ```
 
