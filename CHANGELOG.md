@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-13
+
+### Fixed
+
+- **Version drift**: align `pyproject.toml` (and the locked `uv.lock` entry) with the latest published git tag (`v1.1.0`) so wheels/sdists no longer embed a stale `1.0.1` version
+
 ## [1.0.1] - 2026-06-03
 
 ### Fixed
