@@ -144,8 +144,8 @@ archive_after_days = 7
 - **nomic indisponible :** le signal 5 est sauté, et Gemma classe seul. La vérification d'accord ne peut plus se faire, donc tout mail classé par Gemma va dans `9-A revoir`.
 - **Gemma indisponible ou en erreur sur un lot :** les mails du lot vont dans `9-A revoir`.
 - **Échec de déplacement IMAP :** le mail reste où il est, rien n'est enregistré, et il sera retraité au passage suivant.
-- **Écriture de `pending_archive` :** l'écriture est atomique (fichier temporaire, puis renommage), comme pour les autres bases.
-- **API webhook :** elle utilise le même `Classifier`. Les réponses gagnent un champ `action` et renvoient les nouveaux noms de catégorie.
+- **Écriture de `pending_archive` :** l'écriture est atomique (fichier temporaire, puis renommage). Les autres bases ne le sont pas aujourd'hui ; ce n'est pas corrigé ici.
+- **API webhook :** elle utilise le même `Classifier` et renvoie les nouveaux noms de catégorie, ou `9-A revoir`. Elle ne reçoit pas les en-têtes `List-Unsubscribe` et `List-Id`, dont `choose_action` a besoin. `classify-and-move` range donc directement dans la catégorie, sans passer par un dossier d'action.
 
 ## 9. Tests
 
