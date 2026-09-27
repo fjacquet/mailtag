@@ -35,6 +35,8 @@ dependencies = [
     "mlx>=0.18.0",
     "mlx-lm>=0.18.0",
     "sentence-transformers>=2.2.0",
+    # 5.17 removed get_extended_attention_mask, used by nomic-embed's remote code
+    "transformers>=5.16.1,<5.17",
     "numpy>=1.24.0",
     "einops>=0.8.1",
     # Webhook API server
