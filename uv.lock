@@ -1800,7 +1800,7 @@ requires-dist = [
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.0" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.29.0" },
     { name = "mlx", specifier = ">=0.18.0" },
-    { name = "mlx-lm", specifier = ">=0.18.0" },
+    { name = "mlx-lm", specifier = ">=0.31.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "pendulum", marker = "extra == 'dev'" },
     { name = "psutil", specifier = ">=7.0.0" },
