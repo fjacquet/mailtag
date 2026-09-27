@@ -283,8 +283,8 @@ def main():
     parser.add_argument(
         "--folders",
         type=Path,
-        default=Path("data/imap_folders.json"),
-        help="Path to IMAP folders JSON",
+        default=Path("data/legacy_folders.json"),
+        help="Path to the frozen folder snapshot (see [taxonomy] legacy_folders_file)",
     )
     parser.add_argument(
         "--sender-db",

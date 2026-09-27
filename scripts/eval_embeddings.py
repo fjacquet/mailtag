@@ -227,7 +227,14 @@ def category_examples() -> dict[str, list[str]]:
         extract_categories_from_validated_db(
             load_json_file(Path("db/validated_classification_db.json")) or {}
         ),
-        extract_categories_from_folders(load_json_file(Path("data/imap_folders.json")) or []),
+        extract_categories_from_folders(
+            load_json_file(
+                Path("data/legacy_folders.json")
+                if Path("data/legacy_folders.json").exists()
+                else Path("data/imap_folders.json")
+            )
+            or []
+        ),
         extract_categories_from_history(load_json_file(Path("db/sender_classification_db.json")) or {}),
     ]
     merged = merge_examples(*sources)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from mailtag.archive import run_archive
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
 from mailtag.database import ClassificationDatabase
@@ -297,6 +298,16 @@ def run_classification(provider_instance: Provider, database: ClassificationData
 
                     database.flush()
                 logger.info("Pass 3 complete.")
+
+                if pending is not None:
+                    run_archive(
+                        provider,
+                        pending,
+                        database,
+                        CONFIG.taxonomy.archive_after_days,
+                        date.today(),
+                        validate,
+                    )
 
             else:  # Original logic for Gmail or other providers
                 emails = provider.get_emails()
