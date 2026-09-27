@@ -292,3 +292,64 @@ def test_validate_config_valid():
     )
     # Should not raise any exception
     _validate_config(config)
+
+
+def test_taxonomy_config_defaults():
+    from mailtag.config import TaxonomyConfig
+
+    cfg = TaxonomyConfig()
+    assert cfg.enabled is False
+    assert cfg.nomic_threshold == 0.70
+    assert cfg.llm_batch_size == 8
+    assert cfg.archive_after_days == 7
+    assert cfg.pending_archive_file == "db/pending_archive.json"
+    assert cfg.legacy_folders_file == "data/legacy_folders.json"
+
+
+def test_app_config_without_taxonomy_gets_default():
+    from mailtag.config import (
+        AppConfig,
+        ClassifierConfig,
+        FastParseConfig,
+        GeneralConfig,
+        GmailConfig,
+        ImapConfig,
+        LoggingConfig,
+        MLXConfig,
+        TaxonomyConfig,
+    )
+
+    cfg = AppConfig(
+        general=GeneralConfig(ollama_model="m", api_base=""),
+        logging=LoggingConfig(level="INFO", file=""),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3
+        ),
+        imap=ImapConfig(host="", user="", password=""),
+        gmail=GmailConfig(credentials_file="", token_file=""),
+        fast_parse=FastParseConfig(),
+        mlx=MLXConfig(enabled=False),
+    )
+    assert cfg.taxonomy == TaxonomyConfig()
+
+
+def test_load_config_reads_taxonomy_section(tmp_path, monkeypatch):
+    from mailtag.config import load_config
+
+    monkeypatch.setenv("IMAP_USER", "user@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    monkeypatch.setenv("MODEL", "test-model")
+    toml = tmp_path / "config.toml"
+    toml.write_text(
+        '[general]\napi_base = ""\n'
+        '[logging]\nlevel = "INFO"\nfile = "x.log"\n'
+        "[classifier]\nai_confidence_threshold = 0.7\nhistorical_confidence_threshold = 0.9\nmin_count = 3\n"
+        '[imap]\nhost = "h"\n'
+        '[gmail]\ncredentials_file = "c"\ntoken_file = "t"\n'
+        "[taxonomy]\nenabled = true\nnomic_threshold = 0.72\n",
+        encoding="utf-8",
+    )
+    cfg = load_config(toml)
+    assert cfg.taxonomy.enabled is True
+    assert cfg.taxonomy.nomic_threshold == 0.72
+    assert cfg.taxonomy.llm_batch_size == 8

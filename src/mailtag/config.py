@@ -86,6 +86,18 @@ class WebhookConfig:
 
 
 @dataclass
+class TaxonomyConfig:
+    """19-category taxonomy with action folders (see docs/superpowers/specs/2026-09-27-*)."""
+
+    enabled: bool = False
+    nomic_threshold: float = 0.70
+    llm_batch_size: int = 8
+    archive_after_days: int = 7
+    pending_archive_file: str = "db/pending_archive.json"
+    legacy_folders_file: str = "data/legacy_folders.json"
+
+
+@dataclass
 class AppConfig:
     general: GeneralConfig
     logging: LoggingConfig
@@ -95,10 +107,13 @@ class AppConfig:
     fast_parse: FastParseConfig
     mlx: MLXConfig
     webhook: WebhookConfig = None  # type: ignore[assignment]
+    taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.webhook is None:
             self.webhook = WebhookConfig()
+        if self.taxonomy is None:
+            self.taxonomy = TaxonomyConfig()
 
 
 def _dataclass_from_dict(cls, data: dict):
@@ -193,6 +208,7 @@ def load_config(path: Path) -> AppConfig:
                 fast_parse=fast_parse_config,
                 mlx=mlx_config,
                 webhook=webhook_config,
+                taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
