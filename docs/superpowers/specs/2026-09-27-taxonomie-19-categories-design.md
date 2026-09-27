@@ -74,8 +74,8 @@ MailTag crée les dossiers manquants au premier passage. Jusqu'à la spec 2, les
 | `Classifier` (modifié) | Chaîne de catégorisation (section 3). Renvoie `category` ou `None` (doute). | `taxonomy`, bases de données, `SemanticRouter`, `MLXLLM` |
 | `MLXLLM` (modifié) | `classify_batch(emails) -> list[int or None]` : début du prompt calculé une seule fois (`make_prompt_cache`), puis `batch_generate` par lots de 8 avec `prompt_caches`, réponse par numéro (`max_tokens=4`). | mlx-lm ≥ 0.31 |
 | `mailtag/archive.py` | Ramasse-miettes de fin de passage (section 6). | `ImapService`, base des mails en attente |
-| `db/pending_archive.json` | `Message-ID -> {category, sender}` pour les mails en attente d'archivage ou de revue. | — |
-| `data/legacy_folders.json` | Instantané figé de l'ancienne arborescence, copié une fois depuis `data/imap_folders.json`. `scripts/build_category_embeddings.py` le lit à la place de `imap_folders.json` pour construire les exemples de nomic. | — |
+| `db/pending_archive.json` | Mémoire de la catégorie de chaque mail pendant son séjour en dossier d'action (7 jours après lecture) : `Message-ID -> {category, sender, added}`. Les entrées sont supprimées à l'archivage. | — |
+| `data/legacy_folders.json` | Instantané figé de l'arborescence telle qu'elle est aujourd'hui (611 dossiers au 2026-09-27), copié une fois depuis `data/imap_folders.json` avant toute modification de la boîte. `scripts/build_category_embeddings.py` le lit à la place de `imap_folders.json` pour construire les exemples de nomic. | — |
 
 `Classifier`, `MLXLLM` et `ImapService` gardent leurs interfaces existantes. On ajoute seulement `classify_batch` et la lecture de nouveaux en-têtes.
 
@@ -85,7 +85,7 @@ Les signaux sont évalués dans l'ordre. Le premier qui décide l'emporte.
 
 1. **Règles par expéditeur et par domaine** (signaux 1, 3 et 4 existants) : les valeurs des bases actuelles, qui sont d'anciens chemins de dossier, sont converties au chargement par `map_folder`. Une valeur qui ne correspond à aucune catégorie est ignorée.
 2. **Libellés côté serveur** (signal 2) : une étiquette déjà posée sur le serveur est convertie de la même manière.
-3. **nomic** (signal 5) : les centroïdes restent ceux des anciens dossiers (`data/category_embeddings.npz`, construits à partir de `data/legacy_folders.json`). On prend l'ancien dossier le plus proche, puis on le convertit par `map_folder`. On classe si le score est d'au moins `taxonomy.nomic_threshold` (0,70 par défaut). On garde aussi ce premier choix de nomic pour l'étape suivante, même sous le seuil.
+3. **nomic** (signal 5) : les centroïdes restent ceux des 611 dossiers d'aujourd'hui (`data/category_embeddings.npz`, construits à partir de `data/legacy_folders.json`). On prend l'ancien dossier le plus proche, puis on le convertit par `map_folder`. On classe si le score est d'au moins `taxonomy.nomic_threshold` (0,70 par défaut). On garde aussi ce premier choix de nomic pour l'étape suivante, même sous le seuil.
 4. **Gemma** (signal 6) : les mails restants sont envoyés par lots de 8 à `classify_batch`. Si le numéro renvoyé correspond au premier choix de nomic, on classe. Sinon, ou si la réponse est illisible, la catégorie vaut `None`.
 
 `None` signifie : destination `9-A revoir`.
@@ -121,6 +121,7 @@ Pour chaque dossier d'action, sauf `9-A revoir` :
 - **Action :** chaque mail retenu part vers la catégorie trouvée dans `pending_archive` grâce à son `Message-ID`, et l'entrée est supprimée.
 - **Mail inconnu de `pending_archive`** (déposé à la main, par exemple) : il reste en place.
 - **Mail non lu :** il ne bouge jamais.
+- **Entrée orpheline :** une entrée dont le `Message-ID` ne se trouve plus dans aucun dossier d'action (mail supprimé ou déplacé à la main hors du flux) est supprimée. Le fichier reste ainsi limité aux mails présents dans les dossiers d'action.
 
 Pour `9-A revoir`, rien n'est déplacé. Pour chaque entrée de `pending_archive` dont `category` vaut `null`, MailTag cherche le `Message-ID` dans les 19 dossiers de catégorie (`SEARCH HEADER Message-ID`). S'il le trouve, l'expéditeur et la catégorie sont ajoutés à la base validée (signal 1), et l'entrée est supprimée. C'est ainsi que tes corrections deviennent des règles.
 
