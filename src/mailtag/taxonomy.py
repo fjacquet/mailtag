@@ -1,9 +1,6 @@
-"""Candidate business-sector taxonomy and the mapping from today's IMAP folders.
+"""Business-sector taxonomy: 19 categories, action folders and folder mapping."""
 
-Each existing folder maps to one of 19 categories by the line of business of the
-sender (see TAXONOMY). Used by scripts/eval_embeddings.py to measure the taxonomy
-before any mailbox change.
-"""
+import re
 
 TAXONOMY = {
     "Banque & Placements": "banques, cartes de crédit, paiements, bourse, crypto, crowdfunding, budget",
@@ -26,6 +23,14 @@ TAXONOMY = {
     "Associations & Communauté": "associations, dons, communautés, paroisse",
     "Contacts": "personnes qui écrivent directement",
 }
+
+ACTION_TODO = "1-A traiter"
+ACTION_PAY = "2-A payer"
+ACTION_READ = "3-A lire"
+ACTION_INFO = "4-Pour info"
+ACTION_PROMO = "5-Promos"
+REVIEW = "9-A revoir"
+ACTION_FOLDERS = (ACTION_TODO, ACTION_PAY, ACTION_READ, ACTION_INFO, ACTION_PROMO, REVIEW)
 
 # Folders that hold no category (mailbox system folders, action/promo buckets)
 _NOT_A_CATEGORY = {
@@ -245,3 +250,37 @@ def map_folder(folder: str) -> str | None:
         if category:
             return category
     return None
+
+
+def to_category(value: str | None) -> str | None:
+    """Return a taxonomy category for a stored value: a category name or an old folder path."""
+    if not value:
+        return None
+    if value in TAXONOMY:
+        return value
+    return map_folder(value)
+
+
+def llm_static_prompt() -> str:
+    """Instructions and numbered category list; identical for every email so it can be cached."""
+    categories = "\n".join(f"{i}. {name} : {desc}" for i, (name, desc) in enumerate(TAXONOMY.items(), 1))
+    return (
+        "Classe cet email dans UNE des catégories suivantes, selon le métier de l'expéditeur :\n"
+        f"{categories}\n\n"
+        "Réponds uniquement par le numéro de la catégorie, sans autre texte.\n\n"
+    )
+
+
+def llm_email_part(subject: str, sender: str, body: str) -> str:
+    """Per-email part of the prompt, appended after llm_static_prompt()."""
+    return f"Sujet: {subject}\nDe: {sender}\nCorps: {body}"
+
+
+def parse_category_number(text: str) -> str | None:
+    """Map the LLM answer ('7', ' 7\\n', 'Catégorie 7') to a category name, or None."""
+    match = re.search(r"\d+", text or "")
+    if not match:
+        return None
+    number = int(match.group())
+    names = list(TAXONOMY)
+    return names[number - 1] if 1 <= number <= len(names) else None

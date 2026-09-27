@@ -438,7 +438,7 @@ def gemma(sample_path: Path, n: int, seed: int, nomic_threshold: float) -> None:
 
 def taxonomy_prompt(sample: dict[str, str]) -> str:
     """Gemma prompt for the 19-category taxonomy; the static part comes first so it can be cached."""
-    from taxonomy import TAXONOMY
+    from mailtag.taxonomy import TAXONOMY
 
     categories = "\n".join(f"- {name} : {desc}" for name, desc in TAXONOMY.items())
     sender = f"{sample['sender_name']} <{sample['sender_address']}>" if sample["sender_name"] else (
@@ -457,7 +457,7 @@ def taxonomy_eval(sample_path: Path, n_gemma: int, seed: int) -> None:
     """Measure nomic (from caches) and Gemma on the 19-category taxonomy."""
     import random
 
-    from taxonomy import TAXONOMY, map_folder
+    from mailtag.taxonomy import TAXONOMY, map_folder
 
     samples = json.loads(sample_path.read_text(encoding="utf-8"))
     keep = [i for i, s in enumerate(samples) if map_folder(s["folder"])]
