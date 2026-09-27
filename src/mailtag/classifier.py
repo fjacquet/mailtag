@@ -11,6 +11,7 @@ from .database import ClassificationDatabase
 from .folder_analyzer import FolderAnalyzer
 from .metrics import METRICS
 from .models import Email
+from .taxonomy import REVIEW, TAXONOMY, llm_email_part, llm_static_prompt, parse_category_number, to_category
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 from .utils.text_utils import smart_truncate
 
@@ -49,8 +50,12 @@ class Classifier:
         # Buffered proposal writes
         self._proposal_buffer: list[str] = []
 
-        # Use either folder analyzer or static schema based on configuration
-        if config.general.use_imap_folders_for_classification:
+        # Use the taxonomy, the folder analyzer or the static schema based on configuration
+        if config.taxonomy.enabled:
+            self.folder_analyzer = None
+            self.categories = list(TAXONOMY)
+            logger.info(f"Using the {len(self.categories)}-category taxonomy")
+        elif config.general.use_imap_folders_for_classification:
             self.folder_analyzer = FolderAnalyzer()
             self.categories = self.folder_analyzer.get_all_categories()
             logger.info(f"Using dynamic IMAP folder structure with {len(self.categories)} categories")
@@ -550,6 +555,9 @@ class Classifier:
         Classifies an email using the Adaptive Multi-Signal Classification (AMSC) strategy.
         Tracks classification metrics for each signal.
         """
+        if self.config.taxonomy.enabled:
+            return self._classify_batch_taxonomy([email])[0]
+
         start_time = time.perf_counter()
 
         # Signal 1: Validated Database
@@ -690,6 +698,9 @@ class Classifier:
         Returns:
             List of category strings, one per input email
         """
+        if self.config.taxonomy.enabled:
+            return self._classify_batch_taxonomy(emails)
+
         results: list[str | None] = [None] * len(emails)
         pending_indices: list[int] = []
 
@@ -804,6 +815,95 @@ class Classifier:
 
         # Ensure no None results
         return [r if r is not None else "À Classer" for r in results]
+
+    # --- Taxonomy mode (spec docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md) ---
+
+    def _rule_category(self, email: Email) -> str | None:
+        """Signals 1-4 with stored values (old folder paths or categories) mapped to the taxonomy."""
+        category = to_category(self._get_category_from_validated_db(email))
+        if category:
+            return category
+        for label in email.labels:
+            category = to_category(label)
+            if category:
+                return category
+        return to_category(self._get_category_from_history(email)) or to_category(
+            self._get_category_from_domain(email)
+        )
+
+    def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
+        """Signal 5: nearest old folder per email, mapped to its category, with its similarity."""
+        unavailable = [(None, 0.0)] * len(emails)
+        if not self._init_mlx_components() or not self._semantic_router:
+            return unavailable
+        if self._semantic_router.num_categories == 0:
+            return unavailable
+        texts = []
+        for e in emails:
+            text = f"Email from {e.sender_name or e.sender_address or 'Unknown'}: {e.subject}"
+            body = self._truncate_body(e.body, max_chars=500) if e.body else ""
+            texts.append(f"{text}\n{body}" if body else text)
+        try:
+            top = self._semantic_router.top_batch(texts)
+        except (RuntimeError, ValueError, AttributeError, OSError) as e:
+            logger.error(f"Semantic router failed, sending emails to review: {e}")
+            return unavailable
+        return [(to_category(folder), score) for folder, score in top]
+
+    def _llm_categories(self, emails: list[Email]) -> list[str | None]:
+        """Signal 6: one category (or None) per email from the LLM, answered by number."""
+        if not self._init_mlx_components() or self._mlx_llm is None:
+            return [None] * len(emails)
+        parts = [
+            llm_email_part(
+                e.subject,
+                f"{e.sender_name} <{e.sender_address}>" if e.sender_name else e.sender_address,
+                self._truncate_body(e.body, max_chars=500),
+            )
+            for e in emails
+        ]
+        try:
+            answers = self._mlx_llm.classify_batch(
+                llm_static_prompt(), parts, batch_size=self.config.taxonomy.llm_batch_size
+            )
+        except (RuntimeError, ValueError, KeyError, AttributeError, TypeError) as e:
+            logger.error(f"LLM batch failed, sending emails to review: {e}")
+            return [None] * len(emails)
+        return [parse_category_number(answer) for answer in answers]
+
+    def _classify_uncertain(self, emails: list[Email]) -> list[str]:
+        """Signals 5-6: nomic above threshold, else LLM when it agrees with nomic's choice, else REVIEW."""
+        results: list[str] = [REVIEW] * len(emails)
+        need_llm: list[tuple[int, str | None]] = []
+        for i, (category, score) in enumerate(self._nomic_top(emails)):
+            if category and score >= self.config.taxonomy.nomic_threshold:
+                results[i] = category
+            else:
+                need_llm.append((i, category))
+        if need_llm:
+            answers = self._llm_categories([emails[i] for i, _ in need_llm])
+            for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
+                if llm_category and llm_category == nomic_category:
+                    results[i] = llm_category
+        return results
+
+    def _classify_batch_taxonomy(self, emails: list[Email]) -> list[str]:
+        """Taxonomy mode: rules first, then the nomic/LLM chain for the rest."""
+        results: list[str | None] = [self._rule_category(e) for e in emails]
+        pending = [i for i, category in enumerate(results) if category is None]
+        if pending:
+            for i, category in zip(
+                pending, self._classify_uncertain([emails[i] for i in pending]), strict=True
+            ):
+                results[i] = category
+                if category != REVIEW:
+                    self.database.update_suggestion(emails[i].sender_address, category)
+        logger.info(
+            f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
+            f"{sum(1 for i in pending if results[i] != REVIEW)} by models, "
+            f"{sum(1 for r in results if r == REVIEW)} to review"
+        )
+        return results  # type: ignore[return-value]
 
     def export_metrics(self, output_dir: Path = Path("data/metrics")) -> Path:
         """Export classification metrics to JSON file.
