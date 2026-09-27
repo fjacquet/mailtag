@@ -15,7 +15,7 @@ class MockImapClient:
         self.mailboxes: dict[str, dict[int, dict[bytes, Any]]] = {
             "INBOX": {
                 1: {
-                    b"BODY[HEADER.FIELDS (FROM SUBJECT)]": (
+                    b"BODY[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]": (
                         b"From: Test <test@example.com>\r\nSubject: Test\r\n"
                     ),
                     b"BODY[]": email.message_from_string(
