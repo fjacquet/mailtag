@@ -1,23 +1,32 @@
+import dataclasses
 import imaplib
 import json
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from loguru import logger
 
+from mailtag.archive import run_archive
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
 from mailtag.database import ClassificationDatabase
 from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
+from mailtag.pending_archive import PendingArchive
+from mailtag.routing import RoutedMail, route_to_action_folders
+from mailtag.taxonomy import to_category
 from mailtag.utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
 Provider = ImapService | GmailService
 
 
 def _run_fast_parse_on_folder(
-    provider: ImapService, database: ClassificationDatabase, folder_name: str, validate: bool
+    provider: ImapService,
+    database: ClassificationDatabase,
+    folder_name: str,
+    validate: bool,
+    pending: PendingArchive | None = None,
 ) -> tuple[list[str], dict[str, dict[str, str]]]:
     """
     Runs the fast parse (Pass 1) on a specific folder.
@@ -52,19 +61,25 @@ def _run_fast_parse_on_folder(
         headers = provider.get_email_headers(batch_uids)
 
         emails_to_move = {}
+        routed: list[RoutedMail] = []
         for uid, header_data in headers.items():
             sender_address = header_data["sender_address"]
             subject = header_data["subject"]
             classification = database.get_dominant_classification(sender_address)
+            if pending is not None:
+                classification = to_category(classification)
             if classification:
                 logger.info(f'Email "{subject}" from {sender_address} -> Category: {classification} (Pass 1)')
-                if classification not in emails_to_move:
-                    emails_to_move[classification] = []
-                emails_to_move[classification].append(uid)
+                if pending is not None:
+                    routed.append(RoutedMail.from_headers(uid, classification, header_data))
+                else:
+                    emails_to_move.setdefault(classification, []).append(uid)
             else:
                 uids_to_process_pass2.append(uid)
                 pass2_headers[uid] = header_data
 
+        if routed:
+            route_to_action_folders(provider, pending, routed, validate, date.today())
         for classification, uids in emails_to_move.items():
             if not validate:
                 provider.batch_move_emails(uids, classification)
@@ -80,6 +95,7 @@ def _run_domain_classification_pass(
     uids_to_process: list[str],
     validate: bool,
     prefetched_headers: dict[str, dict[str, str]] | None = None,
+    pending: PendingArchive | None = None,
 ) -> list[str]:
     """
     Runs the domain-based classification (Pass 2) on remaining emails.
@@ -140,6 +156,8 @@ def _run_domain_classification_pass(
 
         # Check if we have a domain classification
         category = database.get_category_by_domain(domain)
+        if pending is not None:
+            category = to_category(category)
 
         if category:
             logger.info(f"Found domain classification: {domain} -> {category}")
@@ -161,8 +179,15 @@ def _run_domain_classification_pass(
                 except (KeyError, ValueError, TypeError, OSError) as e:
                     logger.error(f"Could not update database for email UID {uid}: {e}")
 
-            # Batch move all emails from this domain
-            if not validate and category not in ["Unclassified", "À Classer", "(Model Error)"]:
+            if pending is not None:
+                emails_moved += route_to_action_folders(
+                    provider,
+                    pending,
+                    [RoutedMail.from_headers(uid, category, headers[uid]) for uid in domain_uids],
+                    validate,
+                    date.today(),
+                )
+            elif not validate and category not in ["Unclassified", "À Classer", "(Model Error)"]:
                 try:
                     provider.batch_move_emails(domain_uids, category)
                     emails_moved += len(domain_uids)
@@ -187,7 +212,16 @@ def _run_domain_classification_pass(
 def run_classification(provider_instance: Provider, database: ClassificationDatabase, validate: bool) -> None:
     """Runs the email classification process using a given provider instance."""
     try:
-        classifier = Classifier(CONFIG, database)
+        if isinstance(provider_instance, ImapService):
+            classifier = Classifier(CONFIG, database)
+        else:
+            gmail_config = dataclasses.replace(
+                CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
+            )
+            classifier = Classifier(gmail_config, database)
+        pending = (
+            PendingArchive(Path(CONFIG.taxonomy.pending_archive_file)) if CONFIG.taxonomy.enabled else None
+        )
 
         with provider_instance.connect() as provider:
             if isinstance(provider, ImapService):
@@ -196,12 +230,12 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                 # --- Fast Parse (Pass 1) on Junk Folder ---
                 junk_folder = provider.fast_parse_config.junk_folder_name
                 if junk_folder:
-                    _run_fast_parse_on_folder(provider, database, junk_folder, validate)
+                    _run_fast_parse_on_folder(provider, database, junk_folder, validate, pending=pending)
                     database.flush()
 
                 # --- Fast Parse (Pass 1) on INBOX ---
                 uids_to_process_pass2, pass2_headers = _run_fast_parse_on_folder(
-                    provider, database, "INBOX", validate
+                    provider, database, "INBOX", validate, pending=pending
                 )
                 database.flush()
 
@@ -212,6 +246,7 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                     uids_to_process_pass2,
                     validate,
                     prefetched_headers=pass2_headers,
+                    pending=pending,
                 )
                 database.flush()
 
@@ -228,29 +263,51 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                     # Batch classify: uses batch embeddings for Signal 5
                     categories = classifier.classify_emails_batch(full_emails)
 
-                    # Accumulate moves by category for batch IMAP operations
-                    moves: dict[str, list[str]] = {}
-                    for email_obj, category in zip(full_emails, categories, strict=True):
-                        logger.info(
-                            f'Email "{email_obj.subject}" from {email_obj.sender_address}'
-                            f" -> Category: {category}"
+                    if pending is not None:
+                        route_to_action_folders(
+                            provider,
+                            pending,
+                            [
+                                RoutedMail.from_email(e, c)
+                                for e, c in zip(full_emails, categories, strict=True)
+                            ],
+                            validate,
+                            date.today(),
                         )
-                        if not validate and category not in [
-                            "Unclassified",
-                            "À Classer",
-                            "(Model Error)",
-                        ]:
-                            moves.setdefault(category, []).append(email_obj.msg_id)
+                    else:
+                        # Accumulate moves by category for batch IMAP operations
+                        moves: dict[str, list[str]] = {}
+                        for email_obj, category in zip(full_emails, categories, strict=True):
+                            logger.info(
+                                f'Email "{email_obj.subject}" from {email_obj.sender_address}'
+                                f" -> Category: {category}"
+                            )
+                            if not validate and category not in [
+                                "Unclassified",
+                                "À Classer",
+                                "(Model Error)",
+                            ]:
+                                moves.setdefault(category, []).append(email_obj.msg_id)
 
-                    # Execute batch moves per category
-                    for category, uids in moves.items():
-                        try:
-                            provider.batch_move_emails(uids, category)
-                        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
-                            logger.error(f"Could not batch-move {len(uids)} emails to {category}: {e}")
+                        # Execute batch moves per category
+                        for category, uids in moves.items():
+                            try:
+                                provider.batch_move_emails(uids, category)
+                            except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+                                logger.error(f"Could not batch-move {len(uids)} emails to {category}: {e}")
 
                     database.flush()
                 logger.info("Pass 3 complete.")
+
+                if pending is not None:
+                    run_archive(
+                        provider,
+                        pending,
+                        database,
+                        CONFIG.taxonomy.archive_after_days,
+                        date.today(),
+                        validate,
+                    )
 
             else:  # Original logic for Gmail or other providers
                 emails = provider.get_emails()

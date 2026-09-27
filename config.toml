@@ -85,6 +85,14 @@ llm_max_tokens = 128
 # Temperature for generation (lower = more deterministic)
 llm_temperature = 0.2
 
+[taxonomy]
+# 19-category taxonomy + action folders (spec docs/superpowers/specs/2026-09-27-*)
+# Keep false until `scripts/eval_embeddings.py chain` meets the success criteria
+enabled = false
+nomic_threshold = 0.70
+llm_batch_size = 8
+archive_after_days = 7
+
 [webhook]
 # API server settings
 host = "127.0.0.1"

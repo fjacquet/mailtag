@@ -1,12 +1,16 @@
 """Email classification endpoints."""
 
+import dataclasses
+
 from fastapi import APIRouter, HTTPException
 from loguru import logger
 
+from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
 from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
 from mailtag.models import Email
+from mailtag.taxonomy import REVIEW
 
 from ..dependencies import app_state
 from ..schemas import (
@@ -21,7 +25,28 @@ from ..schemas import (
 
 router = APIRouter()
 
+# Categories that classify-and-move must not try to move (not actionable folders).
 UNACTIONABLE_CATEGORIES = frozenset({"À Classer", "(Model Error)", "Unclassified"})
+# Same, plus the taxonomy review bucket — used only for the classify-batch "classified" count,
+# since REVIEW ("9-A revoir") is a valid destination for classify-and-move.
+UNCLASSIFIED_CATEGORIES = UNACTIONABLE_CATEGORIES | {REVIEW}
+
+
+def _classifier_for(provider: str) -> Classifier:
+    """Return the classifier to use for a provider.
+
+    Gmail stays on the legacy (non-taxonomy) flow even when `[taxonomy] enabled = true`
+    (see global constraint). The legacy classifier is built lazily, once, and reuses the
+    main database — mirrors `run_classification` in `mailtag.utils.tasks`.
+    """
+    if provider == "gmail" and CONFIG.taxonomy.enabled:
+        if app_state.legacy_classifier is None:
+            legacy_config = dataclasses.replace(
+                CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
+            )
+            app_state.legacy_classifier = Classifier(legacy_config, app_state.database)
+        return app_state.legacy_classifier
+    return app_state.classifier
 
 
 def _to_email(req: ClassifyRequest) -> Email:
@@ -104,7 +129,7 @@ def classify_batch(request: ClassifyBatchRequest):
     return ClassifyBatchResponse(
         results=results,
         total=len(results),
-        classified=sum(1 for r in results if r.category not in UNACTIONABLE_CATEGORIES),
+        classified=sum(1 for r in results if r.category not in UNCLASSIFIED_CATEGORIES),
     )
 
 
@@ -144,7 +169,8 @@ def classify_and_move(request: ClassifyAndMoveRequest):
         labels=request.labels,
     )
 
-    category = app_state.classifier.classify_email(email)
+    classifier = _classifier_for(request.provider)
+    category = classifier.classify_email(email)
     if app_state.database:
         app_state.database.flush()
 

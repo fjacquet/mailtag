@@ -132,6 +132,9 @@ class MLXLLM:
         self._tokenizer = None
         self._generate_fn = None
         self._sampler = None
+        self._prefix_key: str | None = None
+        self._prefix_cache = None
+        self._prefix_post = ""
         logger.info(f"MLXLLM initialized with model: {model_name}")
 
     def _load_model(self):
@@ -266,6 +269,62 @@ class MLXLLM:
         # Fallback: return raw response as category with low confidence
         logger.warning(f"Failed to parse JSON from LLM response: {response[:100]}...")
         return response.strip(), 0.5, "JSON parsing failed"
+
+    def classify_batch(
+        self, static_prompt: str, email_parts: list[str], batch_size: int = 8, max_tokens: int = 4
+    ) -> list[str]:
+        """Answer one short prompt per email, reusing the KV cache of the shared static prefix.
+
+        The chat-formatted prompt is `static_prompt + email_part`; the static part is prefilled once
+        per distinct value and each email only prefills its own tokens. Emails run in batches.
+        """
+        import copy
+
+        import mlx.core as mx
+        from mlx_lm import batch_generate
+        from mlx_lm.generate import generate_step
+        from mlx_lm.models.cache import make_prompt_cache
+        from mlx_lm.sample_utils import make_sampler
+
+        if not email_parts:
+            return []
+
+        if self._prefix_key != static_prompt:
+            marker = "<<<EMAIL>>>"
+            messages = [{"role": "user", "content": static_prompt + marker}]
+            try:
+                template = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+                )
+            except TypeError:
+                template = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+            pre, self._prefix_post = template.split(marker)
+            cache = make_prompt_cache(self.model)
+            for _ in generate_step(
+                mx.array(self.tokenizer.encode(pre)), self.model, max_tokens=0, prompt_cache=cache
+            ):
+                pass
+            self._prefix_cache, self._prefix_key = cache, static_prompt
+
+        suffixes = [
+            self.tokenizer.encode(part + self._prefix_post, add_special_tokens=False) for part in email_parts
+        ]
+        sampler = make_sampler(temp=0.0)
+        texts: list[str] = []
+        for start in range(0, len(suffixes), batch_size):
+            chunk = suffixes[start : start + batch_size]
+            response = batch_generate(
+                self.model,
+                self.tokenizer,
+                chunk,
+                prompt_caches=[copy.deepcopy(self._prefix_cache) for _ in chunk],
+                max_tokens=max_tokens,
+                sampler=sampler,
+            )
+            texts.extend(text.strip() for text in response.texts)
+        return texts
 
 
 def get_embedder(model_name: str | None = None) -> MLXEmbedder:

@@ -33,7 +33,7 @@ dependencies = [
     "dotenv>=0.9.9",
     # MLX dependencies (Apple Silicon optimized)
     "mlx>=0.18.0",
-    "mlx-lm>=0.18.0",
+    "mlx-lm>=0.31.0",
     "sentence-transformers>=2.2.0",
     # 5.17 removed get_extended_attention_mask, used by nomic-embed's remote code
     "transformers>=5.16.1,<5.17",

@@ -382,3 +382,28 @@ class TestSemanticRouterEmbeddingMatrix:
         router._build_embedding_matrix()
 
         assert router._embedding_matrix is None
+
+
+def test_top_batch_ignores_threshold(mocker):
+    import numpy as np
+
+    from mailtag.semantic_router import SemanticRouter
+
+    embedder = mocker.MagicMock()
+    embedder.encode.return_value = np.array([[1.0, 0.0], [0.6, 0.8]])
+    router = SemanticRouter(embedder, score_threshold=0.99)
+    router.category_embeddings = {"A": np.array([1.0, 0.0]), "B": np.array([0.0, 1.0])}
+    router.categories = ["A", "B"]
+    router._build_embedding_matrix()
+
+    top = router.top_batch(["x", "y"])
+
+    assert [c for c, _ in top] == ["A", "B"]
+    assert top[1][1] == pytest.approx(0.8)
+    assert router.route_batch(["x", "y"])[1] == ("", pytest.approx(0.8))
+
+
+def test_top_batch_without_centroids(mocker):
+    from mailtag.semantic_router import SemanticRouter
+
+    assert SemanticRouter(mocker.MagicMock()).top_batch(["x"]) == [("", 0.0)]

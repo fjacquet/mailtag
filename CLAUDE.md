@@ -78,6 +78,18 @@ For IMAP providers, the classification runs in three passes for performance opti
 
 Gmail providers use single-pass processing with the full AMSC strategy.
 
+### Taxonomy Mode (`[taxonomy] enabled = true`)
+
+Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
+19 business-sector categories (`src/mailtag/taxonomy.py`) replace the 611 IMAP folders.
+
+- Signals 1-4 map stored old folder paths with `to_category`.
+- Signal 5 (nomic) classifies at score ≥ `nomic_threshold`.
+- Otherwise Signal 6 (Gemma, answers by category number, batched with a cached prompt prefix) must agree with nomic's top choice, else the email goes to `9-A revoir`.
+- Emails land in action folders (`src/mailtag/action_rules.py`), with their category remembered in `db/pending_archive.json`.
+- `src/mailtag/archive.py` moves seen, unflagged emails older than `archive_after_days` into their category and learns sender rules from emails filed out of `9-A revoir`.
+- Nomic centroids come from the frozen `data/legacy_folders.json`.
+
 ### Provider Architecture
 
 The codebase uses a provider pattern (`src/mailtag/providers.py`):

@@ -186,6 +186,20 @@ class SemanticRouter:
             logger.debug(f"No route found (best: '{best_category}' with score {best_score:.3f})")
             return "", float(best_score)
 
+    def top_batch(self, texts: list[str]) -> list[tuple[str, float]]:
+        """Return the nearest category and its similarity for each text, without threshold."""
+        if not self.categories or self._embedding_matrix is None:
+            return [("", 0.0)] * len(texts)
+        if not texts:
+            return []
+
+        query_embeddings = self.embedder.encode(texts, prefix="search_query: ")
+        norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True)
+        similarities = np.dot(query_embeddings / norms, self._embedding_matrix.T)
+
+        best = np.argmax(similarities, axis=1)
+        return [(self.categories[j], float(similarities[i][j])) for i, j in enumerate(best)]
+
     def route_batch(self, texts: list[str]) -> list[tuple[str, float]]:
         """Route multiple texts to categories in a single batch (more efficient than per-item).
 
@@ -194,33 +208,12 @@ class SemanticRouter:
 
         Returns:
             List of (category, similarity_score) tuples, one per input text.
-            Returns ("", 0.0) for texts where no category meets threshold.
+            Returns ("", score) for texts where no category meets threshold.
         """
-        if not self.categories or self._embedding_matrix is None:
-            return [("", 0.0)] * len(texts)
-
-        if not texts:
-            return []
-
-        # Batch-encode all queries at once
-        query_embeddings = self.embedder.encode(texts, prefix="search_query: ")
-        # Normalize
-        norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True)
-        query_embeddings = query_embeddings / norms
-
-        # Compute similarities for all queries at once: (n_queries, n_categories)
-        similarities = np.dot(query_embeddings, self._embedding_matrix.T)
-
-        results = []
-        for i in range(len(texts)):
-            best_idx = np.argmax(similarities[i])
-            best_score = similarities[i][best_idx]
-            if best_score >= self.score_threshold:
-                results.append((self.categories[best_idx], float(best_score)))
-            else:
-                results.append(("", float(best_score)))
-
-        return results
+        return [
+            (category, score) if category and score >= self.score_threshold else ("", score)
+            for category, score in self.top_batch(texts)
+        ]
 
     def route_with_alternatives(self, text: str, top_k: int = 3) -> list[tuple[str, float]]:
         """Route text and return top-k alternatives.

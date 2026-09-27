@@ -20,6 +20,9 @@ class AppState:
         self.start_time = time.time()
         self.database: ClassificationDatabase | None = None
         self.classifier: Classifier | None = None
+        # Legacy (taxonomy-disabled) classifier, built lazily for Gmail requests
+        # when [taxonomy] enabled = true — Gmail always keeps the legacy flow.
+        self.legacy_classifier: Classifier | None = None
 
     def initialize(self) -> None:
         """Initialize classifier and database (called during FastAPI lifespan startup)."""

@@ -288,6 +288,68 @@ class TestMLXLLM:
         assert confidence == 1.0  # Clamped to max
 
 
+class TestMLXLLMClassifyBatch:
+    def _fake_mlx(self, mocker):
+        fake_mlx_lm = mocker.MagicMock()
+        fake_mlx_lm.batch_generate.side_effect = lambda model, tok, prompts, **kw: mocker.MagicMock(
+            texts=[f" {i + 1}\n" for i in range(len(prompts))]
+        )
+        fake_generate = mocker.MagicMock()
+        fake_generate.generate_step.return_value = iter([])
+        fake_cache = mocker.MagicMock()
+        fake_cache.make_prompt_cache.return_value = ["kv"]
+        mocker.patch.dict(
+            sys.modules,
+            {
+                "mlx": mocker.MagicMock(),
+                "mlx.core": mocker.MagicMock(),
+                "mlx_lm": fake_mlx_lm,
+                "mlx_lm.generate": fake_generate,
+                "mlx_lm.models": mocker.MagicMock(),
+                "mlx_lm.models.cache": fake_cache,
+                "mlx_lm.sample_utils": mocker.MagicMock(),
+            },
+        )
+        return fake_mlx_lm, fake_generate
+
+    def _llm(self, mocker):
+        from mailtag.mlx_provider import MLXLLM
+
+        llm = MLXLLM()
+        llm._model = mocker.MagicMock()
+        tokenizer = mocker.MagicMock()
+        tokenizer.apply_chat_template.return_value = "<bos>PRE<<<EMAIL>>>POST"
+        tokenizer.encode.side_effect = lambda text, add_special_tokens=True: list(range(len(text)))
+        llm._tokenizer = tokenizer
+        return llm
+
+    def test_batches_and_returns_raw_answers(self, mocker):
+        fake_mlx_lm, _ = self._fake_mlx(mocker)
+        llm = self._llm(mocker)
+
+        answers = llm.classify_batch("STATIC", ["a", "b", "c"], batch_size=2)
+
+        assert answers == ["1", "2", "1"]
+        assert fake_mlx_lm.batch_generate.call_count == 2
+        first_call = fake_mlx_lm.batch_generate.call_args_list[0]
+        assert len(first_call.kwargs["prompt_caches"]) == 2
+        assert first_call.kwargs["max_tokens"] == 4
+
+    def test_prefix_computed_once_per_static_prompt(self, mocker):
+        _, fake_generate = self._fake_mlx(mocker)
+        llm = self._llm(mocker)
+
+        llm.classify_batch("STATIC", ["a"])
+        llm.classify_batch("STATIC", ["b"])
+        llm.classify_batch("OTHER", ["c"])
+
+        assert fake_generate.generate_step.call_count == 2
+
+    def test_empty_input(self, mocker):
+        self._fake_mlx(mocker)
+        assert self._llm(mocker).classify_batch("STATIC", []) == []
+
+
 class TestFactoryFunctions:
     """Test factory functions."""
 

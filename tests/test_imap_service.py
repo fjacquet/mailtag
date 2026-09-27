@@ -1,3 +1,4 @@
+import email as email_lib
 from email.header import Header
 from pathlib import Path
 
@@ -108,3 +109,49 @@ def test_parse_sender_header(imap_service: ImapService):
     name, address = imap_service._parse_sender(header)
     assert name == "Sender Name"
     assert address == "sender@example.com"
+
+
+def test_list_header_flags_newsletter():
+    from mailtag.imap_service import list_header_flags
+
+    msg = email_lib.message_from_string(
+        "Message-ID: <abc@x>\nList-Unsubscribe: <mailto:u@x>\nList-Id: <news.x>\n\nbody"
+    )
+    assert list_header_flags(msg) == ("<abc@x>", True, True)
+
+
+def test_list_header_flags_precedence_bulk_without_unsubscribe():
+    from mailtag.imap_service import list_header_flags
+
+    msg = email_lib.message_from_string("Message-ID: <m@x>\nPrecedence: Bulk\n\nbody")
+    assert list_header_flags(msg) == ("<m@x>", False, True)
+
+
+def test_list_header_flags_person_without_message_id():
+    from mailtag.imap_service import list_header_flags
+
+    assert list_header_flags(email_lib.message_from_string("Subject: hi\n\nbody")) == ("", False, False)
+
+
+def test_get_email_headers_includes_list_flags(mock_imap_client, mocker):
+    from mailtag.config import FastParseConfig, ImapConfig
+    from mailtag.imap_service import ImapService
+
+    mock_imap_client.mailboxes["INBOX"][1][
+        b"BODY[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]"
+    ] = b"From: Shop <shop@x.ch>\r\nSubject: Promo\r\nMessage-ID: <p@x>\r\nList-Unsubscribe: <u>\r\n"
+    service = ImapService(
+        ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False)
+    )
+    service.client = mock_imap_client
+    mock_imap_client.select_folder("INBOX")
+
+    headers = service.get_email_headers([1])
+
+    assert headers["1"] == {
+        "sender_address": "shop@x.ch",
+        "subject": "Promo",
+        "message_id": "<p@x>",
+        "has_unsubscribe": True,
+        "is_bulk": True,
+    }

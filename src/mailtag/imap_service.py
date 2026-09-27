@@ -26,6 +26,17 @@ T = TypeVar("T")
 # Maximum number of UIDs to fetch in a single batch to avoid "Too long argument" errors
 # This is now configurable via FastParseConfig.batch_size
 
+HEADER_FETCH = b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]"
+
+
+def list_header_flags(msg: email.message.Message) -> tuple[str, bool, bool]:
+    """Return (message_id, has_unsubscribe, is_bulk) from a parsed message's headers."""
+    message_id = str(msg.get("Message-ID") or "").strip()
+    has_unsubscribe = msg.get("List-Unsubscribe") is not None
+    precedence = str(msg.get("Precedence") or "").strip().lower()
+    is_bulk = has_unsubscribe or msg.get("List-Id") is not None or precedence in ("bulk", "list", "junk")
+    return message_id, has_unsubscribe, is_bulk
+
 
 class ImapService(EmailProvider):
     """Handles interactions with an IMAP email server using IMAPClient."""
@@ -239,7 +250,7 @@ class ImapService(EmailProvider):
             try:
                 # The response key might vary, so we need to find the header data
                 header_key = next(
-                    (k for k in data if k.startswith(b"BODY[HEADER.FIELDS (FROM SUBJECT)")), None
+                    (k for k in data if k.startswith(b"BODY[HEADER.FIELDS (FROM SUBJECT")), None
                 )
 
                 if not header_key or header_key not in data:
@@ -256,9 +267,13 @@ class ImapService(EmailProvider):
                 # Parse sender information
                 _, sender_address = self._parse_sender(sender_header)
 
+                message_id, has_unsubscribe, is_bulk = list_header_flags(msg)
                 headers[str(msg_id)] = {
                     "sender_address": sender_address or "",
                     "subject": subject_header or "",
+                    "message_id": message_id,
+                    "has_unsubscribe": has_unsubscribe,
+                    "is_bulk": is_bulk,
                 }
 
             except (KeyError, ValueError, UnicodeDecodeError, AttributeError) as e:
@@ -286,9 +301,7 @@ class ImapService(EmailProvider):
         int_uids = [int(uid) if isinstance(uid, str) and uid.isdigit() else uid for uid in uids]
 
         # Use the batch fetch helper
-        return self._batch_fetch(
-            int_uids, [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"], self._process_email_headers
-        )
+        return self._batch_fetch(int_uids, [HEADER_FETCH], self._process_email_headers)
 
     def get_email_senders(self, uids: list[str | int]) -> dict[str, str]:
         """
@@ -326,6 +339,7 @@ class ImapService(EmailProvider):
                     label.decode() if isinstance(label, bytes) else str(label)
                     for label in data.get(b"X-GM-LABELS", [])
                 ]
+                message_id, has_unsubscribe, is_bulk = list_header_flags(msg)
 
                 emails[msg_id] = Email(
                     msg_id=str(msg_id),
@@ -334,6 +348,9 @@ class ImapService(EmailProvider):
                     sender_name=sender_name or "",
                     body=body,
                     labels=labels,
+                    message_id=message_id,
+                    has_unsubscribe=has_unsubscribe,
+                    is_bulk=is_bulk,
                 )
             except (KeyError, ValueError, UnicodeDecodeError, AttributeError, TypeError) as e:
                 logger.error(f"Could not process email {msg_id}: {e}")
