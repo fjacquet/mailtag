@@ -1,3 +1,4 @@
+import imaplib
 from datetime import date
 
 import pytest
@@ -11,14 +12,17 @@ TODAY = date(2026, 9, 27)
 class FakeClient:
     """Folders of {uid: {"mid": str, "seen": bool, "flagged": bool, "old": bool}}."""
 
-    def __init__(self, folders):
+    def __init__(self, folders, broken_folders=frozenset()):
         self.folders = folders
         self.current = None
+        self.broken_folders = broken_folders
 
     def folder_exists(self, name):
         return name in self.folders
 
     def select_folder(self, name, readonly=False):
+        if name in self.broken_folders:
+            raise imaplib.IMAP4.error(f"select failed for {name}")
         self.current = name
 
     def search(self, criteria):
@@ -45,9 +49,9 @@ def pending(tmp_path):
     return PendingArchive(tmp_path / "pending.json")
 
 
-def setup(mocker, folders):
+def setup(mocker, folders, broken_folders=frozenset()):
     provider = mocker.MagicMock()
-    provider.client = FakeClient(folders)
+    provider.client = FakeClient(folders, broken_folders=broken_folders)
     return provider, mocker.MagicMock()
 
 
@@ -109,6 +113,58 @@ def test_missing_action_folder_is_skipped(mocker, pending):
         "learned": 0,
         "orphans": 0,
     }
+
+
+def test_one_broken_folder_does_not_abort_the_others(mocker, pending):
+    """A transient IMAP error reading one action folder must not stop the sweep from
+    archiving the other, healthy folders."""
+    provider, db = setup(
+        mocker,
+        {
+            "3-A lire": {1: mail("<broken>")},
+            "4-Pour info": {2: mail("<healthy>")},
+        },
+        broken_folders={"3-A lire"},
+    )
+    pending.add("<broken>", "Médias & Divertissement", "s@x", "2026-09-01")
+    pending.add("<healthy>", "Achats", "s@x", "2026-09-01")
+
+    result = run_archive(provider, pending, db, days=7, today=TODAY)
+
+    provider.batch_move_emails.assert_called_once_with([2], "Achats")
+    assert result["archived"] == 1
+
+
+def test_broken_folder_entries_are_not_removed_as_orphans(mocker, pending):
+    """An entry whose folder could not be read must not be treated as an orphan: we
+    simply don't know whether it is still there."""
+    provider, db = setup(
+        mocker,
+        {"3-A lire": {1: mail("<in-broken-folder>")}, "4-Pour info": {}},
+        broken_folders={"3-A lire"},
+    )
+    pending.add("<in-broken-folder>", "Médias & Divertissement", "s@x", "2026-09-01")
+
+    result = run_archive(provider, pending, db, days=7, today=TODAY)
+
+    assert result["orphans"] == 0
+    assert pending.get("<in-broken-folder>") is not None
+
+
+def test_broken_review_folder_does_not_abort_learning_from_other_categories(mocker, pending):
+    """A transient error reading one taxonomy category during the review-learning pass
+    must not stop learning from the remaining categories."""
+    provider, db = setup(
+        mocker,
+        {"9-A revoir": {}, "Assurances & Retraite": {}, "Santé": {9: mail("<r>")}},
+        broken_folders={"Assurances & Retraite"},
+    )
+    pending.add("<r>", None, "doc@clinic.ch", "2026-09-01")
+
+    result = run_archive(provider, pending, db, days=7, today=TODAY)
+
+    db.promote_to_validated.assert_called_once_with("doc@clinic.ch", "Santé")
+    assert result["learned"] == 1
 
 
 def test_validate_changes_nothing(mocker, pending):

@@ -51,6 +51,29 @@ def test_validate_moves_nothing_and_records_nothing(mocker, pending):
     assert pending.items() == []
 
 
+def test_pending_is_saved_after_each_successful_group(mocker, pending):
+    """Each group's entries must hit disk right away, so an interruption before the next
+    group (e.g. process killed between groups) never loses an already-moved group."""
+    provider = mocker.MagicMock()
+    save_spy = mocker.spy(pending, "save")
+    save_calls_seen_at_move = []
+
+    def move(uids, folder):
+        save_calls_seen_at_move.append((folder, save_spy.call_count))
+
+    provider.batch_move_emails.side_effect = move
+    mails = [
+        routed("1", "Banque & Placements", subject="Votre facture"),  # -> 2-A payer
+        routed("2", "Médias & Divertissement"),  # -> 3-A lire
+    ]
+
+    route_to_action_folders(provider, pending, mails, validate=False, today=TODAY)
+
+    # save() must already have run for the first group before the second group's move starts.
+    assert save_calls_seen_at_move == [("2-A payer", 0), ("3-A lire", 1)]
+    assert save_spy.call_count == 2
+
+
 def test_failed_move_is_not_recorded(mocker, pending):
     provider = mocker.MagicMock()
     provider.batch_move_emails.side_effect = ConnectionError("down")

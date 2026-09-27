@@ -31,17 +31,23 @@ def _learn_from_review(client, pending: PendingArchive, database, present: set[s
     waiting = {mid: e for mid, e in pending.items() if e["category"] is None and mid not in present}
     learned = 0
     for category in TAXONOMY:
-        if not waiting or not client.folder_exists(category):
+        if not waiting:
+            break
+        try:
+            if not client.folder_exists(category):
+                continue
+            client.select_folder(category)
+            found_mids = [mid for mid in list(waiting) if client.search(["HEADER", "Message-ID", mid])]
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not read folder {category}: {e}")
             continue
-        client.select_folder(category)
-        for mid in list(waiting):
-            if client.search(["HEADER", "Message-ID", mid]):
-                logger.info(f"Learned rule from review: {waiting[mid]['sender']} -> {category}")
-                if not validate:
-                    database.promote_to_validated(waiting[mid]["sender"], category)
-                    pending.remove(mid)
-                del waiting[mid]
-                learned += 1
+        for mid in found_mids:
+            logger.info(f"Learned rule from review: {waiting[mid]['sender']} -> {category}")
+            if not validate:
+                database.promote_to_validated(waiting[mid]["sender"], category)
+                pending.remove(mid)
+            del waiting[mid]
+            learned += 1
     return learned
 
 
@@ -53,17 +59,26 @@ def run_archive(
     cutoff = today - timedelta(days=days)
     present: set[str] = set()
     archived = 0
+    unreadable = False
 
     for folder in ACTION_FOLDERS:
-        if not client.folder_exists(folder):
+        try:
+            if not client.folder_exists(folder):
+                continue
+            client.select_folder(folder)
+            ids = _message_ids(client, client.search(["ALL"]))
+            eligible = (
+                None if folder == REVIEW else set(client.search(["SEEN", "UNFLAGGED", "BEFORE", cutoff]))
+            )
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not read folder {folder}: {e}")
+            unreadable = True
             continue
-        client.select_folder(folder)
-        ids = _message_ids(client, client.search(["ALL"]))
+
         present.update(ids.values())
         if folder == REVIEW:
             continue
 
-        eligible = set(client.search(["SEEN", "UNFLAGGED", "BEFORE", cutoff]))
         moves: dict[str, list[int]] = defaultdict(list)
         for uid, mid in ids.items():
             entry = pending.get(mid)
@@ -86,7 +101,9 @@ def run_archive(
 
     learned = _learn_from_review(client, pending, database, present, validate)
 
-    orphans = [mid for mid, _ in pending.items() if mid not in present]
+    # A folder that could not be read tells us nothing about whether its entries are
+    # orphans — never treat that as evidence, so skip orphan removal entirely this run.
+    orphans = [] if unreadable else [mid for mid, _ in pending.items() if mid not in present]
     if not validate:
         for mid in orphans:
             pending.remove(mid)

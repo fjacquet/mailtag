@@ -281,7 +281,9 @@ def test_app_config_without_taxonomy_gets_default():
     cfg = AppConfig(
         general=GeneralConfig(ollama_model="m", api_base=""),
         logging=LoggingConfig(level="INFO", file=""),
-        classifier=ClassifierConfig(ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3
+        ),
         imap=ImapConfig(host="", user="", password=""),
         gmail=GmailConfig(credentials_file="", token_file=""),
         fast_parse=FastParseConfig(),
@@ -337,14 +339,15 @@ class TaxonomyConfig:
 Dans `AppConfig`, ajouter le champ après `webhook` et compléter `__post_init__` :
 
 ```python
-    webhook: WebhookConfig = None  # type: ignore[assignment]
-    taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
+webhook: WebhookConfig = None  # type: ignore[assignment]
+taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
 
-    def __post_init__(self):
-        if self.webhook is None:
-            self.webhook = WebhookConfig()
-        if self.taxonomy is None:
-            self.taxonomy = TaxonomyConfig()
+
+def __post_init__(self):
+    if self.webhook is None:
+        self.webhook = WebhookConfig()
+    if self.taxonomy is None:
+        self.taxonomy = TaxonomyConfig()
 ```
 
 Dans `load_config`, passer `taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),` à `AppConfig(...)`, juste après `webhook=webhook_config,`.
@@ -448,7 +451,9 @@ def test_bulk_mail_is_not_to_do():
     assert act("Outils & Services en ligne", "team@x.ch", "Hello", bulk=True) == "4-Pour info"
 
 
-@pytest.mark.parametrize("subject", ["-30% sur tout", "Offre spéciale", "Soldes d'été", "Promo", "Big SALE", "Rabatt"])
+@pytest.mark.parametrize(
+    "subject", ["-30% sur tout", "Offre spéciale", "Soldes d'été", "Promo", "Big SALE", "Rabatt"]
+)
 def test_promo_with_unsubscribe_is_promo(subject):
     assert act("Achats", "shop@x.ch", subject, unsub=True, bulk=True) == "5-Promos"
 
@@ -597,7 +602,9 @@ def test_get_email_headers_includes_list_flags(mock_imap_client, mocker):
     mock_imap_client.mailboxes["INBOX"][1][
         b"BODY[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]"
     ] = b"From: Shop <shop@x.ch>\r\nSubject: Promo\r\nMessage-ID: <p@x>\r\nList-Unsubscribe: <u>\r\n"
-    service = ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False))
+    service = ImapService(
+        ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False)
+    )
     service.client = mock_imap_client
     mock_imap_client.select_folder("INBOX")
 
@@ -729,34 +736,35 @@ Expected: FAIL, `AttributeError: 'SemanticRouter' object has no attribute 'top_b
 Dans `src/mailtag/semantic_router.py`, remplacer toute la méthode `route_batch` par :
 
 ```python
-    def top_batch(self, texts: list[str]) -> list[tuple[str, float]]:
-        """Return the nearest category and its similarity for each text, without threshold."""
-        if not self.categories or self._embedding_matrix is None:
-            return [("", 0.0)] * len(texts)
-        if not texts:
-            return []
+def top_batch(self, texts: list[str]) -> list[tuple[str, float]]:
+    """Return the nearest category and its similarity for each text, without threshold."""
+    if not self.categories or self._embedding_matrix is None:
+        return [("", 0.0)] * len(texts)
+    if not texts:
+        return []
 
-        query_embeddings = self.embedder.encode(texts, prefix="search_query: ")
-        norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True)
-        similarities = np.dot(query_embeddings / norms, self._embedding_matrix.T)
+    query_embeddings = self.embedder.encode(texts, prefix="search_query: ")
+    norms = np.linalg.norm(query_embeddings, axis=1, keepdims=True)
+    similarities = np.dot(query_embeddings / norms, self._embedding_matrix.T)
 
-        best = np.argmax(similarities, axis=1)
-        return [(self.categories[j], float(similarities[i][j])) for i, j in enumerate(best)]
+    best = np.argmax(similarities, axis=1)
+    return [(self.categories[j], float(similarities[i][j])) for i, j in enumerate(best)]
 
-    def route_batch(self, texts: list[str]) -> list[tuple[str, float]]:
-        """Route multiple texts to categories in a single batch (more efficient than per-item).
 
-        Args:
-            texts: List of input texts to classify
+def route_batch(self, texts: list[str]) -> list[tuple[str, float]]:
+    """Route multiple texts to categories in a single batch (more efficient than per-item).
 
-        Returns:
-            List of (category, similarity_score) tuples, one per input text.
-            Returns ("", score) for texts where no category meets threshold.
-        """
-        return [
-            (category, score) if category and score >= self.score_threshold else ("", score)
-            for category, score in self.top_batch(texts)
-        ]
+    Args:
+        texts: List of input texts to classify
+
+    Returns:
+        List of (category, similarity_score) tuples, one per input text.
+        Returns ("", score) for texts where no category meets threshold.
+    """
+    return [
+        (category, score) if category and score >= self.score_threshold else ("", score)
+        for category, score in self.top_batch(texts)
+    ]
 ```
 
 - [ ] **Step 4: Lancer les tests pour vérifier qu'ils passent**
@@ -870,57 +878,61 @@ Dans `MLXLLM.__init__`, après `self._sampler = None`, ajouter :
 Ajouter la méthode après `classify` :
 
 ```python
-    def classify_batch(
-        self, static_prompt: str, email_parts: list[str], batch_size: int = 8, max_tokens: int = 4
-    ) -> list[str]:
-        """Answer one short prompt per email, reusing the KV cache of the shared static prefix.
+def classify_batch(
+    self, static_prompt: str, email_parts: list[str], batch_size: int = 8, max_tokens: int = 4
+) -> list[str]:
+    """Answer one short prompt per email, reusing the KV cache of the shared static prefix.
 
-        The chat-formatted prompt is `static_prompt + email_part`; the static part is prefilled once
-        per distinct value and each email only prefills its own tokens. Emails run in batches.
-        """
-        import copy
+    The chat-formatted prompt is `static_prompt + email_part`; the static part is prefilled once
+    per distinct value and each email only prefills its own tokens. Emails run in batches.
+    """
+    import copy
 
-        import mlx.core as mx
-        from mlx_lm import batch_generate
-        from mlx_lm.generate import generate_step
-        from mlx_lm.models.cache import make_prompt_cache
-        from mlx_lm.sample_utils import make_sampler
+    import mlx.core as mx
+    from mlx_lm import batch_generate
+    from mlx_lm.generate import generate_step
+    from mlx_lm.models.cache import make_prompt_cache
+    from mlx_lm.sample_utils import make_sampler
 
-        if not email_parts:
-            return []
+    if not email_parts:
+        return []
 
-        if self._prefix_key != static_prompt:
-            marker = "<<<EMAIL>>>"
-            messages = [{"role": "user", "content": static_prompt + marker}]
-            try:
-                template = self.tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
-                )
-            except TypeError:
-                template = self.tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
-                )
-            pre, self._prefix_post = template.split(marker)
-            cache = make_prompt_cache(self.model)
-            for _ in generate_step(mx.array(self.tokenizer.encode(pre)), self.model, max_tokens=0, prompt_cache=cache):
-                pass
-            self._prefix_cache, self._prefix_key = cache, static_prompt
-
-        suffixes = [self.tokenizer.encode(part + self._prefix_post, add_special_tokens=False) for part in email_parts]
-        sampler = make_sampler(temp=0.0)
-        texts: list[str] = []
-        for start in range(0, len(suffixes), batch_size):
-            chunk = suffixes[start : start + batch_size]
-            response = batch_generate(
-                self.model,
-                self.tokenizer,
-                chunk,
-                prompt_caches=[copy.deepcopy(self._prefix_cache) for _ in chunk],
-                max_tokens=max_tokens,
-                sampler=sampler,
+    if self._prefix_key != static_prompt:
+        marker = "<<<EMAIL>>>"
+        messages = [{"role": "user", "content": static_prompt + marker}]
+        try:
+            template = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
             )
-            texts.extend(text.strip() for text in response.texts)
-        return texts
+        except TypeError:
+            template = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+        pre, self._prefix_post = template.split(marker)
+        cache = make_prompt_cache(self.model)
+        for _ in generate_step(
+            mx.array(self.tokenizer.encode(pre)), self.model, max_tokens=0, prompt_cache=cache
+        ):
+            pass
+        self._prefix_cache, self._prefix_key = cache, static_prompt
+
+    suffixes = [
+        self.tokenizer.encode(part + self._prefix_post, add_special_tokens=False) for part in email_parts
+    ]
+    sampler = make_sampler(temp=0.0)
+    texts: list[str] = []
+    for start in range(0, len(suffixes), batch_size):
+        chunk = suffixes[start : start + batch_size]
+        response = batch_generate(
+            self.model,
+            self.tokenizer,
+            chunk,
+            prompt_caches=[copy.deepcopy(self._prefix_cache) for _ in chunk],
+            max_tokens=max_tokens,
+            sampler=sampler,
+        )
+        texts.extend(text.strip() for text in response.texts)
+    return texts
 ```
 
 Dans `pyproject.toml`, passer `"mlx-lm>=0.18.0"` à `"mlx-lm>=0.31.0"`, puis lancer `uv lock`.
@@ -1010,7 +1022,9 @@ def classifier(db, mocker):
     config = AppConfig(
         general=GeneralConfig(ollama_model="m", api_base=""),
         logging=LoggingConfig(level="DEBUG", file=""),
-        classifier=ClassifierConfig(ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3),
+        classifier=ClassifierConfig(
+            ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3
+        ),
         imap=ImapConfig(host="", user="", password=""),
         gmail=GmailConfig(credentials_file="", token_file=""),
         fast_parse=FastParseConfig(),
@@ -1021,7 +1035,9 @@ def classifier(db, mocker):
 
 
 def mail(i=1, sender="x@shop.ch", subject="S", body="B", labels=None):
-    return Email(msg_id=str(i), subject=subject, sender_address=sender, sender_name="", body=body, labels=labels or [])
+    return Email(
+        msg_id=str(i), subject=subject, sender_address=sender, sender_name="", body=body, labels=labels or []
+    )
 
 
 def test_categories_are_the_taxonomy(classifier):
@@ -1086,7 +1102,9 @@ def test_chain_unparsable_llm_goes_to_review(classifier, mocker):
 
 
 def test_chain_mixed_batch_keeps_order(classifier, mocker):
-    mocker.patch.object(classifier, "_nomic_top", return_value=[("Achats", 0.9), ("Santé", 0.5), ("Contacts", 0.4)])
+    mocker.patch.object(
+        classifier, "_nomic_top", return_value=[("Achats", 0.9), ("Santé", 0.5), ("Contacts", 0.4)]
+    )
     llm = mocker.patch.object(classifier, "_llm_categories", return_value=["Santé", "Achats"])
 
     result = classifier._classify_uncertain([mail(1), mail(2), mail(3)])
@@ -1186,92 +1204,97 @@ Première instruction de `classify_emails_batch` (avant `results: list[str | Non
 Nouvelles méthodes, juste avant `def export_metrics` :
 
 ```python
-    # --- Taxonomy mode (spec docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md) ---
+# --- Taxonomy mode (spec docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md) ---
 
-    def _rule_category(self, email: Email) -> str | None:
-        """Signals 1-4 with stored values (old folder paths or categories) mapped to the taxonomy."""
-        category = to_category(self._get_category_from_validated_db(email))
+
+def _rule_category(self, email: Email) -> str | None:
+    """Signals 1-4 with stored values (old folder paths or categories) mapped to the taxonomy."""
+    category = to_category(self._get_category_from_validated_db(email))
+    if category:
+        return category
+    for label in email.labels:
+        category = to_category(label)
         if category:
             return category
-        for label in email.labels:
-            category = to_category(label)
-            if category:
-                return category
-        return to_category(self._get_category_from_history(email)) or to_category(
-            self._get_category_from_domain(email)
+    return to_category(self._get_category_from_history(email)) or to_category(
+        self._get_category_from_domain(email)
+    )
+
+
+def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
+    """Signal 5: nearest old folder per email, mapped to its category, with its similarity."""
+    unavailable = [(None, 0.0)] * len(emails)
+    if not self._init_mlx_components() or not self._semantic_router:
+        return unavailable
+    if self._semantic_router.num_categories == 0:
+        return unavailable
+    texts = []
+    for e in emails:
+        text = f"Email from {e.sender_name or e.sender_address or 'Unknown'}: {e.subject}"
+        body = self._truncate_body(e.body, max_chars=500) if e.body else ""
+        texts.append(f"{text}\n{body}" if body else text)
+    try:
+        top = self._semantic_router.top_batch(texts)
+    except (RuntimeError, ValueError, AttributeError, OSError) as e:
+        logger.error(f"Semantic router failed, sending emails to review: {e}")
+        return unavailable
+    return [(to_category(folder), score) for folder, score in top]
+
+
+def _llm_categories(self, emails: list[Email]) -> list[str | None]:
+    """Signal 6: one category (or None) per email from the LLM, answered by number."""
+    if not self._init_mlx_components() or self._mlx_llm is None:
+        return [None] * len(emails)
+    parts = [
+        llm_email_part(
+            e.subject,
+            f"{e.sender_name} <{e.sender_address}>" if e.sender_name else e.sender_address,
+            self._truncate_body(e.body, max_chars=500),
         )
-
-    def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
-        """Signal 5: nearest old folder per email, mapped to its category, with its similarity."""
-        unavailable = [(None, 0.0)] * len(emails)
-        if not self._init_mlx_components() or not self._semantic_router:
-            return unavailable
-        if self._semantic_router.num_categories == 0:
-            return unavailable
-        texts = []
-        for e in emails:
-            text = f"Email from {e.sender_name or e.sender_address or 'Unknown'}: {e.subject}"
-            body = self._truncate_body(e.body, max_chars=500) if e.body else ""
-            texts.append(f"{text}\n{body}" if body else text)
-        try:
-            top = self._semantic_router.top_batch(texts)
-        except (RuntimeError, ValueError, AttributeError, OSError) as e:
-            logger.error(f"Semantic router failed, sending emails to review: {e}")
-            return unavailable
-        return [(to_category(folder), score) for folder, score in top]
-
-    def _llm_categories(self, emails: list[Email]) -> list[str | None]:
-        """Signal 6: one category (or None) per email from the LLM, answered by number."""
-        if not self._init_mlx_components() or self._mlx_llm is None:
-            return [None] * len(emails)
-        parts = [
-            llm_email_part(
-                e.subject,
-                f"{e.sender_name} <{e.sender_address}>" if e.sender_name else e.sender_address,
-                self._truncate_body(e.body, max_chars=500),
-            )
-            for e in emails
-        ]
-        try:
-            answers = self._mlx_llm.classify_batch(
-                llm_static_prompt(), parts, batch_size=self.config.taxonomy.llm_batch_size
-            )
-        except (RuntimeError, ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.error(f"LLM batch failed, sending emails to review: {e}")
-            return [None] * len(emails)
-        return [parse_category_number(answer) for answer in answers]
-
-    def _classify_uncertain(self, emails: list[Email]) -> list[str]:
-        """Signals 5-6: nomic above threshold, else LLM when it agrees with nomic's top choice, else REVIEW."""
-        results: list[str] = [REVIEW] * len(emails)
-        need_llm: list[tuple[int, str | None]] = []
-        for i, (category, score) in enumerate(self._nomic_top(emails)):
-            if category and score >= self.config.taxonomy.nomic_threshold:
-                results[i] = category
-            else:
-                need_llm.append((i, category))
-        if need_llm:
-            answers = self._llm_categories([emails[i] for i, _ in need_llm])
-            for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
-                if llm_category and llm_category == nomic_category:
-                    results[i] = llm_category
-        return results
-
-    def _classify_batch_taxonomy(self, emails: list[Email]) -> list[str]:
-        """Taxonomy mode: rules first, then the nomic/LLM chain for the rest."""
-        results: list[str | None] = [self._rule_category(e) for e in emails]
-        pending = [i for i, category in enumerate(results) if category is None]
-        if pending:
-            for i, category in zip(pending, self._classify_uncertain([emails[i] for i in pending]), strict=True):
-                results[i] = category
-                if category != REVIEW:
-                    self.database.update_suggestion(emails[i].sender_address, category)
-        logger.info(
-            f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
-            f"{sum(1 for i in pending if results[i] != REVIEW)} by models, "
-            f"{sum(1 for r in results if r == REVIEW)} to review"
+        for e in emails
+    ]
+    try:
+        answers = self._mlx_llm.classify_batch(
+            llm_static_prompt(), parts, batch_size=self.config.taxonomy.llm_batch_size
         )
-        return results  # type: ignore[return-value]
+    except (RuntimeError, ValueError, KeyError, AttributeError, TypeError) as e:
+        logger.error(f"LLM batch failed, sending emails to review: {e}")
+        return [None] * len(emails)
+    return [parse_category_number(answer) for answer in answers]
+
+
+def _classify_uncertain(self, emails: list[Email]) -> list[str]:
+    """Signals 5-6: nomic above threshold, else LLM when it agrees with nomic's top choice, else REVIEW."""
+    results: list[str] = [REVIEW] * len(emails)
+    need_llm: list[tuple[int, str | None]] = []
+    for i, (category, score) in enumerate(self._nomic_top(emails)):
+        if category and score >= self.config.taxonomy.nomic_threshold:
+            results[i] = category
+        else:
+            need_llm.append((i, category))
+    if need_llm:
+        answers = self._llm_categories([emails[i] for i, _ in need_llm])
+        for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
+            if llm_category and llm_category == nomic_category:
+                results[i] = llm_category
+    return results
+
+
+def _classify_batch_taxonomy(self, emails: list[Email]) -> list[str]:
+    """Taxonomy mode: rules first, then the nomic/LLM chain for the rest."""
+    results: list[str | None] = [self._rule_category(e) for e in emails]
+    pending = [i for i, category in enumerate(results) if category is None]
+    if pending:
+        for i, category in zip(pending, self._classify_uncertain([emails[i] for i in pending]), strict=True):
+            results[i] = category
+            if category != REVIEW:
+                self.database.update_suggestion(emails[i].sender_address, category)
+    logger.info(
+        f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
+        f"{sum(1 for i in pending if results[i] != REVIEW)} by models, "
+        f"{sum(1 for r in results if r == REVIEW)} to review"
+    )
+    return results  # type: ignore[return-value]
 ```
 
 - [ ] **Step 4: Lancer les tests pour vérifier qu'ils passent, puis toute la suite**
@@ -1480,7 +1503,11 @@ def test_groups_moves_by_action_folder_and_records_category(mocker, pending):
     assert moved == 4
     calls = {c.args[1]: c.args[0] for c in provider.batch_move_emails.call_args_list}
     assert calls == {"2-A payer": ["1"], "3-A lire": ["2", "3"], "9-A revoir": ["4"]}
-    assert pending.get("<1@x>") == {"category": "Banque & Placements", "sender": "noreply@x.ch", "added": "2026-09-27"}
+    assert pending.get("<1@x>") == {
+        "category": "Banque & Placements",
+        "sender": "noreply@x.ch",
+        "added": "2026-09-27",
+    }
     assert pending.get("<4@x>")["category"] is None
     assert (pending.path).exists()
 
@@ -1488,7 +1515,9 @@ def test_groups_moves_by_action_folder_and_records_category(mocker, pending):
 def test_validate_moves_nothing_and_records_nothing(mocker, pending):
     provider = mocker.MagicMock()
 
-    assert route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=True, today=TODAY) == 0
+    assert (
+        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=True, today=TODAY) == 0
+    )
     provider.batch_move_emails.assert_not_called()
     assert pending.items() == []
 
@@ -1497,24 +1526,38 @@ def test_failed_move_is_not_recorded(mocker, pending):
     provider = mocker.MagicMock()
     provider.batch_move_emails.side_effect = ConnectionError("down")
 
-    assert route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=False, today=TODAY) == 0
+    assert (
+        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=False, today=TODAY) == 0
+    )
     assert pending.items() == []
 
 
 def test_mail_without_message_id_is_moved_but_not_tracked(mocker, pending):
     provider = mocker.MagicMock()
 
-    moved = route_to_action_folders(provider, pending, [routed("1", "Achats", mid="")], validate=False, today=TODAY)
+    moved = route_to_action_folders(
+        provider, pending, [routed("1", "Achats", mid="")], validate=False, today=TODAY
+    )
 
     assert moved == 1
     assert pending.items() == []
 
 
 def test_from_headers_and_from_email():
-    header = {"sender_address": "a@x", "subject": "S", "message_id": "<m>", "has_unsubscribe": True, "is_bulk": True}
-    assert RoutedMail.from_headers("7", "Achats", header) == RoutedMail("7", "Achats", "a@x", "S", "<m>", True, True)
+    header = {
+        "sender_address": "a@x",
+        "subject": "S",
+        "message_id": "<m>",
+        "has_unsubscribe": True,
+        "is_bulk": True,
+    }
+    assert RoutedMail.from_headers("7", "Achats", header) == RoutedMail(
+        "7", "Achats", "a@x", "S", "<m>", True, True
+    )
 
-    email = Email(msg_id="8", subject="S", sender_address="a@x", sender_name="", message_id="<n>", is_bulk=True)
+    email = Email(
+        msg_id="8", subject="S", sender_address="a@x", sender_name="", message_id="<n>", is_bulk=True
+    )
     assert RoutedMail.from_email(email, "Santé") == RoutedMail("8", "Santé", "a@x", "S", "<n>", False, True)
 ```
 
@@ -1695,49 +1738,44 @@ from mailtag.taxonomy import to_category
 - remplacer `classifier = Classifier(CONFIG, database)` par le bloc suivant. La spec exclut Gmail : il garde le flux actuel.
 
 ```python
-        if isinstance(provider_instance, ImapService):
-            classifier = Classifier(CONFIG, database)
-        else:
-            gmail_config = dataclasses.replace(
-                CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
-            )
-            classifier = Classifier(gmail_config, database)
-        pending = PendingArchive(Path(CONFIG.taxonomy.pending_archive_file)) if CONFIG.taxonomy.enabled else None
+if isinstance(provider_instance, ImapService):
+    classifier = Classifier(CONFIG, database)
+else:
+    gmail_config = dataclasses.replace(CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False))
+    classifier = Classifier(gmail_config, database)
+pending = PendingArchive(Path(CONFIG.taxonomy.pending_archive_file)) if CONFIG.taxonomy.enabled else None
 ```
 
 - passer `pending=pending` aux trois appels `_run_fast_parse_on_folder(...)` et `_run_domain_classification_pass(...)` ;
 - dans la passe 3, remplacer le bloc qui va de `# Accumulate moves by category` jusqu'à la fin de la boucle `# Execute batch moves per category` par :
 
 ```python
-                    if pending is not None:
-                        route_to_action_folders(
-                            provider,
-                            pending,
-                            [RoutedMail.from_email(e, c) for e, c in zip(full_emails, categories, strict=True)],
-                            validate,
-                            date.today(),
-                        )
-                    else:
-                        # Accumulate moves by category for batch IMAP operations
-                        moves: dict[str, list[str]] = {}
-                        for email_obj, category in zip(full_emails, categories, strict=True):
-                            logger.info(
-                                f'Email "{email_obj.subject}" from {email_obj.sender_address}'
-                                f" -> Category: {category}"
-                            )
-                            if not validate and category not in [
-                                "Unclassified",
-                                "À Classer",
-                                "(Model Error)",
-                            ]:
-                                moves.setdefault(category, []).append(email_obj.msg_id)
+if pending is not None:
+    route_to_action_folders(
+        provider,
+        pending,
+        [RoutedMail.from_email(e, c) for e, c in zip(full_emails, categories, strict=True)],
+        validate,
+        date.today(),
+    )
+else:
+    # Accumulate moves by category for batch IMAP operations
+    moves: dict[str, list[str]] = {}
+    for email_obj, category in zip(full_emails, categories, strict=True):
+        logger.info(f'Email "{email_obj.subject}" from {email_obj.sender_address} -> Category: {category}')
+        if not validate and category not in [
+            "Unclassified",
+            "À Classer",
+            "(Model Error)",
+        ]:
+            moves.setdefault(category, []).append(email_obj.msg_id)
 
-                        # Execute batch moves per category
-                        for category, uids in moves.items():
-                            try:
-                                provider.batch_move_emails(uids, category)
-                            except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
-                                logger.error(f"Could not batch-move {len(uids)} emails to {category}: {e}")
+    # Execute batch moves per category
+    for category, uids in moves.items():
+        try:
+            provider.batch_move_emails(uids, category)
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"Could not batch-move {len(uids)} emails to {category}: {e}")
 ```
 
 - [ ] **Step 6: Test d'intégration des passes en mode taxonomie**
@@ -1909,7 +1947,11 @@ def test_orphan_entries_are_removed(mocker, pending):
 def test_missing_action_folder_is_skipped(mocker, pending):
     provider, db = setup(mocker, {})
 
-    assert run_archive(provider, pending, db, days=7, today=TODAY) == {"archived": 0, "learned": 0, "orphans": 0}
+    assert run_archive(provider, pending, db, days=7, today=TODAY) == {
+        "archived": 0,
+        "learned": 0,
+        "orphans": 0,
+    }
 
 
 def test_validate_changes_nothing(mocker, pending):
@@ -1981,7 +2023,9 @@ def _learn_from_review(client, pending: PendingArchive, database, present: set[s
     return learned
 
 
-def run_archive(provider, pending: PendingArchive, database, days: int, today: date, validate: bool = False) -> dict:
+def run_archive(
+    provider, pending: PendingArchive, database, days: int, today: date, validate: bool = False
+) -> dict:
     """Archive seen, unflagged emails received `days` ago or more into their category."""
     client = provider.client
     cutoff = today - timedelta(days=days)
@@ -2044,10 +2088,8 @@ Expected: PASS
 Dans `src/mailtag/utils/tasks.py`, ajouter `from mailtag.archive import run_archive`. À la fin de la branche `if isinstance(provider, ImapService):`, juste après `logger.info("Pass 3 complete.")`, ajouter :
 
 ```python
-                if pending is not None:
-                    run_archive(
-                        provider, pending, database, CONFIG.taxonomy.archive_after_days, date.today(), validate
-                    )
+if pending is not None:
+    run_archive(provider, pending, database, CONFIG.taxonomy.archive_after_days, date.today(), validate)
 ```
 
 Dans `scripts/build_category_embeddings.py`, changer la valeur par défaut de `--folders` en `Path("data/legacy_folders.json")`, et le texte d'aide en `"Path to the frozen folder snapshot (see [taxonomy] legacy_folders_file)"`.
@@ -2055,7 +2097,9 @@ Dans `scripts/build_category_embeddings.py`, changer la valeur par défaut de `-
 Dans `scripts/eval_embeddings.py`, fonction `category_examples()`, remplacer `Path("data/imap_folders.json")` par :
 
 ```python
-Path("data/legacy_folders.json") if Path("data/legacy_folders.json").exists() else Path("data/imap_folders.json")
+Path("data/legacy_folders.json") if Path("data/legacy_folders.json").exists() else Path(
+    "data/imap_folders.json"
+)
 ```
 
 Créer l'instantané (une seule fois, le fichier reste local car `data/` est ignoré par git), et vérifier que les centroïdes sont identiques :

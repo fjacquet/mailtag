@@ -77,5 +77,5 @@ def route_to_action_folders(
                 continue
             category = None if m.category == REVIEW else m.category
             pending.add(m.message_id, category, m.sender_address, today.isoformat())
-    pending.save()
+        pending.save()
     return moved
