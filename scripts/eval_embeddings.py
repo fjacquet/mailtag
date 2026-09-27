@@ -12,6 +12,9 @@ Step 2 - evaluate models on the cached sample:
 Step 3 - compare nomic prefixes and category-building strategies (leave-one-sender-out):
     uv run python scripts/eval_embeddings.py tune
 
+Step 5 - replay the taxonomy chain and check the spec success criteria:
+    uv run python scripts/eval_embeddings.py chain -n 500
+
 Category centroids are built exactly as in scripts/build_category_embeddings.py and
 queries are formatted exactly as in Classifier._get_category_from_semantic_router,
 so results reflect what production would do with each model.
@@ -557,6 +560,74 @@ def taxonomy_eval(sample_path: Path, n_gemma: int, seed: int) -> None:
         print(f"  same emails, {name}: {hits:.1%}")
 
 
+def chain_metrics(results: list[str], labels: list[str], llm_seconds: float, llm_calls: int) -> dict:
+    """Spec success criteria: >= 45% auto-classified, >= 90% precision, <= 1.5 s per LLM email."""
+    from mailtag.taxonomy import REVIEW
+
+    classified = [(r, lab) for r, lab in zip(results, labels, strict=True) if r != REVIEW]
+    auto = len(classified) / len(labels)
+    precision = sum(r == lab for r, lab in classified) / len(classified) if classified else 0.0
+    sec = llm_seconds / llm_calls if llm_calls else 0.0
+    return {
+        "auto": auto,
+        "precision": precision,
+        "sec_per_llm_email": sec,
+        "passed": auto >= 0.45 and precision >= 0.90 and sec <= 1.5,
+    }
+
+
+def chain_eval(sample_path: Path, n: int, seed: int) -> None:
+    """Replay the production signals 5-6 chain (no sender rules) on n labeled emails."""
+    import dataclasses
+    import random
+
+    from mailtag.classifier import Classifier
+    from mailtag.config import CONFIG
+    from mailtag.database import ClassificationDatabase
+    from mailtag.models import Email
+    from mailtag.taxonomy import map_folder
+
+    samples = [s for s in json.loads(sample_path.read_text(encoding="utf-8")) if map_folder(s["folder"])]
+    picked = random.Random(seed).sample(samples, n)
+    labels = [map_folder(s["folder"]) for s in picked]
+    emails = [
+        Email(msg_id=str(i), subject=s["subject"], sender_address=s["sender_address"],
+              sender_name=s["sender_name"], body=s["body"])
+        for i, s in enumerate(picked)
+    ]  # fmt: skip
+
+    config = dataclasses.replace(CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=True))
+    classifier = Classifier(
+        config,
+        ClassificationDatabase(
+            Path("db/sender_classification_db.json"), Path("db/validated_classification_db.json")
+        ),
+    )
+    llm_seconds, llm_calls = 0.0, 0
+    original = classifier._llm_categories
+
+    def timed_llm(batch):
+        nonlocal llm_seconds, llm_calls
+        start = time.perf_counter()
+        out = original(batch)
+        llm_seconds += time.perf_counter() - start
+        llm_calls += len(batch)
+        logger.info(f"LLM {llm_calls} emails ({llm_seconds / llm_calls:.2f} s/email)")
+        return out
+
+    classifier._llm_categories = timed_llm
+    results = []
+    for start in range(0, n, 50):
+        results += classifier._classify_uncertain(emails[start : start + 50])
+
+    m = chain_metrics(results, labels, llm_seconds, llm_calls)
+    print(f"\n{n} emails (seed {seed})")
+    print(f"auto-classified: {m['auto']:.1%}  (target >= 45%)")
+    print(f"precision:       {m['precision']:.1%}  (target >= 90%)")
+    print(f"LLM:             {m['sec_per_llm_email']:.2f} s/email on {llm_calls} emails  (target <= 1.5 s)")
+    print("PASS" if m["passed"] else "FAIL")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -586,6 +657,11 @@ def main():
     p_tax.add_argument("--gemma", type=int, default=0, help="number of emails to send to Gemma")
     p_tax.add_argument("--seed", type=int, default=2)
 
+    p_chain = sub.add_parser("chain", help="Replay the taxonomy signals 5-6 chain and check success criteria")
+    p_chain.add_argument("--sample", type=Path, default=DEFAULT_SAMPLE)
+    p_chain.add_argument("-n", type=int, default=500)
+    p_chain.add_argument("--seed", type=int, default=3)
+
     args = parser.parse_args()
     logger.remove()
     logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:<7} | {message}")
@@ -594,6 +670,8 @@ def main():
         collect(args.per_folder, args.output)
     elif args.command == "gemma":
         gemma(args.sample, args.n, args.seed, args.nomic_threshold)
+    elif args.command == "chain":
+        chain_eval(args.sample, args.n, args.seed)
     elif args.command == "taxonomy":
         taxonomy_eval(args.sample, args.gemma, args.seed)
     elif args.command == "tune":
