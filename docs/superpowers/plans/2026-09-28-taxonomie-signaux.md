@@ -19,7 +19,7 @@
 - Python ≥ 3.13, lignes de 110 caractères au plus. Dans chaque tâche : `uv run ruff format <fichiers>` puis `uv run ruff check <fichiers>`.
 - Tests : `uv run pytest -q`. La CI tourne sur Ubuntu sans MLX : aucun test ne charge nomic, Gemma ou Streamlit ; ils sont simulés.
 - Noms exacts, accents compris : les 19 clés de `TAXONOMY`, `REVIEW = "9-A revoir"`.
-- Fichiers : `db/taxonomy/validated.json`, `db/taxonomy/senders.json`, `db/taxonomy/domains.json`, `data/taxonomy_centroids.npz`, `data/mailbox_scan.json`, `data/sender_crosscheck.json`, `data/taxonomy_corpus.json`.
+- Fichiers : `db/taxonomy/validated.json`, `db/taxonomy/senders.json`, `db/taxonomy/domains.json`, `db/taxonomy/folder_overrides.json`, `data/taxonomy_centroids.npz`, `data/mailbox_scan.json`, `data/sender_crosscheck.json`, `data/taxonomy_corpus.json`.
 - Valeurs par défaut de `[taxonomy]` : `taxonomy_db_dir = "db/taxonomy"`, `centroids_file = "data/taxonomy_centroids.npz"`, `learn_min_agreements = 2`, `domain_min_purity = 0.90`, `sender_min_mails = 2`. `enabled` reste `false`.
 - `--validate` n'écrit rien : ni `db/taxonomy/*`, ni `pending_archive`, ni les anciennes bases.
 - Aucune étape de préparation ne déplace de mail. Toute lecture IMAP de préparation se fait avec `select_folder(..., readonly=True)` et `BODY.PEEK`.
@@ -48,10 +48,10 @@
 |---|---|
 | `src/mailtag/taxonomy.py` (modifié) | `llm_sender_static_prompt`, `llm_sender_part`, `nomic_text` |
 | `src/mailtag/config.py`, `config.toml` (modifiés) | nouveaux champs de `[taxonomy]` |
-| `src/mailtag/taxonomy_store.py` (créé) | `write_json_atomic`, `TaxonomyStore` : règles validées, apprises, domaines ; apprentissage par accords |
+| `src/mailtag/taxonomy_store.py` (créé) | `write_json_atomic`, `TaxonomyStore` : règles validées, apprises, domaines, corrections de dossiers ; apprentissage par accords |
 | `src/mailtag/mailbox_scan.py` (créé) | `scan_mailbox` : lecture seule des en-têtes des dossiers existants |
 | `src/mailtag/sender_crosscheck.py` (créé) | `crosscheck_senders` : Gemma par expéditeur, avec reprise |
-| `src/mailtag/taxonomy_build.py` (créé) | file de revue, expéditeurs appris, domaines, échantillon et centroïdes |
+| `src/mailtag/taxonomy_build.py` (créé) | audit des dossiers, file de revue, expéditeurs appris, domaines, échantillon et centroïdes |
 | `src/mailtag/classifier.py` (modifié) | règles via `TaxonomyStore`, centroïdes dédiés, apprentissage sur accord |
 | `src/mailtag/utils/tasks.py`, `src/mailtag/archive.py` (modifiés) | passe 1 via `TaxonomyStore`, passe 2 sautée en mode taxonomie, apprentissage depuis `9-A revoir` vers `validated.json` |
 | `scripts/taxonomy_setup.py` (créé) | commandes `scan`, `crosscheck`, `build` |
@@ -213,7 +213,8 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
   - `write_json_atomic(path: Path, data) -> None`
   - `normalize_address(address: str) -> str`
   - `TaxonomyStore(directory: Path, min_agreements: int = 2, read_only: bool = False)` avec :
-    - attributs `validated: dict[str, str]`, `senders: dict[str, dict]` (`{"category": str, "agreements": int}`), `domains: dict[str, str]`
+    - attributs `validated: dict[str, str]`, `senders: dict[str, dict]` (`{"category": str, "agreements": int}`), `domains: dict[str, str]`, `folder_overrides: dict[str, str | None]`
+    - `set_folder_category(folder: str, category: str | None) -> None` (`None` : le dossier n'a pas de catégorie)
     - `category_for(sender_address: str) -> str | None` : signal 1, puis 3 (seulement si `agreements >= min_agreements`), puis 4 (domaines non grand public)
     - `record_agreement(sender_address: str, category: str) -> None`
     - `set_validated(sender_address: str, category: str) -> None`
@@ -320,12 +321,15 @@ def test_save_writes_all_files_and_reloads(tmp_path):
     s.set_validated("v@x.ch", "Santé")
     s.record_agreement("n@x.ch", "Achats")
     s.replace_rules({}, {"x.ch": "Achats"})
+    s.set_folder_category("Finance/Local/Twint", "Banque & Placements")
+    s.set_folder_category("Divers", None)
     s.save()
 
     again = TaxonomyStore(tmp_path)
     assert again.validated == {"v@x.ch": "Santé"}
     assert again.senders == {"n@x.ch": {"category": "Achats", "agreements": 1}}
     assert again.domains == {"x.ch": "Achats"}
+    assert again.folder_overrides == {"Finance/Local/Twint": "Banque & Placements", "Divers": None}
 
 
 def test_read_only_never_writes(tmp_path):
@@ -339,7 +343,7 @@ def test_read_only_never_writes(tmp_path):
 def test_missing_or_corrupt_files_start_empty(tmp_path):
     (tmp_path / "senders.json").write_text("{not json", encoding="utf-8")
     s = TaxonomyStore(tmp_path)
-    assert s.validated == {} and s.senders == {} and s.domains == {}
+    assert s.validated == {} and s.senders == {} and s.domains == {} and s.folder_overrides == {}
 
 
 def test_write_json_atomic_creates_parent_and_leaves_no_temp_file(tmp_path):
@@ -370,7 +374,7 @@ from loguru import logger
 
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
-_FILES = ("validated", "senders", "domains")
+_FILES = ("validated", "senders", "domains", "folder_overrides")
 
 
 def write_json_atomic(path: Path, data) -> None:
@@ -412,6 +416,7 @@ class TaxonomyStore:
         self.validated: dict[str, str] = _load(self.directory / "validated.json")
         self.senders: dict[str, dict] = _load(self.directory / "senders.json")
         self.domains: dict[str, str] = _load(self.directory / "domains.json")
+        self.folder_overrides: dict[str, str | None] = _load(self.directory / "folder_overrides.json")
         self._dirty: set[str] = set()
 
     def category_for(self, sender_address: str) -> str | None:
@@ -446,6 +451,11 @@ class TaxonomyStore:
         self._dirty.add("validated")
         if self.senders.pop(sender, None) is not None:
             self._dirty.add("senders")
+
+    def set_folder_category(self, folder: str, category: str | None) -> None:
+        """Audit decision for an old folder; None means the folder holds no category."""
+        self.folder_overrides[folder] = category
+        self._dirty.add("folder_overrides")
 
     def replace_rules(self, learned: dict[str, dict], domains: dict[str, str]) -> None:
         """Install rules from `build`; runtime entries for senders `build` does not know are kept."""
@@ -490,7 +500,7 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
 
 **Interfaces:**
 - Consumes : `to_category` (`mailtag.taxonomy`), `extract_domain`, `parse_sender` (`mailtag.utils.email_parsing`), `ImapService._parse_header_value` (décodage RFC 2047), `normalize_address` (Task 2).
-- Produces : `scan_mailbox(provider: ImapService, folders: list[str], batch_size: int = 500) -> dict` qui renvoie :
+- Produces : `scan_mailbox(provider: ImapService, folders: list[str], overrides: dict[str, str | None] | None = None, batch_size: int = 500) -> dict`. La catégorie d'un dossier est `overrides[folder]` si le dossier y figure (même `None`), sinon `to_category(folder)`. Renvoie :
   ```python
   {
       "senders": {
@@ -502,6 +512,7 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
               "refs": [["Achats/Shop", 42], ...] # 5 au plus, (dossier, uid)
           }
       },
+      "folders": {"Achats/Shop": {"category": "Achats", "senders": {"a@shop.ch": 12}}},
       "skipped_folders": ["..."],
   }
   ```
@@ -571,7 +582,25 @@ def test_counts_per_category_with_decoded_subjects(provider):
     assert entry["subjects"] == ["Réservation", "Facture", "Parking"]
     assert entry["refs"] == [["Voyages", 1], ["Voyages", 2], ["Voyages/Transport", 7]]
     assert result["skipped_folders"] == []
+    assert result["folders"] == {
+        "Voyages": {"category": "Voyages & Loisirs", "senders": {"res@sixt.ch": 2}},
+        "Voyages/Transport": {"category": "Transports & Mobilité", "senders": {"res@sixt.ch": 1}},
+    }
     assert all(provider.client.readonly_calls)
+
+
+def test_folder_overrides_take_precedence(provider):
+    provider.client = FakeClient({
+        "Voyages": {1: header("a@x.ch", "S")},
+        "Voyages/Transport": {2: header("a@x.ch", "T")},
+        "Promotions": {3: header("a@x.ch", "P")},
+    })  # fmt: skip
+    overrides = {"Voyages": "Santé", "Voyages/Transport": None, "Promotions": "Achats"}
+
+    result = scan_mailbox(provider, ["Voyages", "Voyages/Transport", "Promotions"], overrides=overrides)
+
+    assert result["senders"]["a@x.ch"]["categories"] == {"Santé": 1, "Achats": 1}
+    assert set(result["folders"]) == {"Voyages", "Promotions"}
 
 
 def test_samples_are_capped_at_five(provider):
@@ -626,16 +655,19 @@ _FETCH = b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"
 _SAMPLES = 5
 
 
-def scan_mailbox(provider, folders: list[str], batch_size: int = 500) -> dict:
+def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, batch_size: int = 500) -> dict:
     """Sender -> name, domain, mails per category, sample subjects and (folder, uid) references."""
     client = provider.client
+    overrides = overrides or {}
     senders: dict[str, dict] = {}
+    by_folder: dict[str, dict] = {}
     skipped: list[str] = []
 
     for folder in folders:
-        category = to_category(folder)
+        category = overrides[folder] if folder in overrides else to_category(folder)
         if category is None:
             continue
+        folder_senders = by_folder.setdefault(folder, {"category": category, "senders": {}})["senders"]
         try:
             client.select_folder(folder, readonly=True)
             uids = client.search(["ALL"])
@@ -656,6 +688,7 @@ def scan_mailbox(provider, folders: list[str], batch_size: int = 500) -> dict:
                          "subjects": [], "refs": []},
                     )  # fmt: skip
                     entry["categories"][category] = entry["categories"].get(category, 0) + 1
+                    folder_senders[address] = folder_senders.get(address, 0) + 1
                     if len(entry["refs"]) < _SAMPLES:
                         entry["subjects"].append(provider._parse_header_value(msg.get("Subject")))
                         entry["refs"].append([folder, int(uid)])
@@ -666,13 +699,13 @@ def scan_mailbox(provider, folders: list[str], batch_size: int = 500) -> dict:
         logger.info(f"Scanned {folder} -> {category}")
 
     logger.info(f"Scan: {len(senders)} senders, {len(skipped)} folders skipped")
-    return {"senders": senders, "skipped_folders": skipped}
+    return {"senders": senders, "folders": by_folder, "skipped_folders": skipped}
 ```
 
 - [ ] **Step 4: Lancer les tests pour vérifier qu'ils passent**
 
 Run: `uv run pytest -q tests/test_mailbox_scan.py`
-Expected: PASS (4 tests). Si `parse_sender` renvoie une adresse non vide pour un `From` absent, corriger en testant `msg.get("From")` avant l'appel, et le noter dans le rapport.
+Expected: PASS (5 tests). Si `parse_sender` renvoie une adresse non vide pour un `From` absent, corriger en testant `msg.get("From")` avant l'appel, et le noter dans le rapport.
 
 - [ ] **Step 5: Lint et commit**
 
@@ -805,7 +838,7 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
 
 ---
 
-### Task 5: Construction des règles (`taxonomy_build.py`, partie règles)
+### Task 5: Audit des dossiers et construction des règles (`taxonomy_build.py`, partie règles)
 
 **Files:**
 - Create: `src/mailtag/taxonomy_build.py`
@@ -820,6 +853,9 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
   - `learned_senders(senders: dict, crosscheck: dict, validated: dict, min_mails: int, agreements: int) -> dict[str, dict]` (valeurs `{"category", "agreements"}`)
   - `domain_rules(senders: dict, validated: dict, learned: dict, min_purity: float) -> dict[str, str]`
   - `rules_precision(senders: dict, crosscheck: dict, validated: dict) -> tuple[int, float]` : nombre d'expéditeurs revus où dossier = Gemma, et part de ceux où cette catégorie égale ta décision.
+  - `folder_disagreement(folder: dict, crosscheck: dict) -> float` : part des mails du dossier dont l'expéditeur a une catégorie Gemma différente de celle du dossier (0.0 pour un dossier vide)
+  - `gemma_proposals(folder: dict, crosscheck: dict) -> list[tuple[str, int]]` : catégories Gemma des expéditeurs du dossier (hors illisibles), avec leur nombre de mails, par nombre décroissant
+  - `folder_queue(folders: dict, crosscheck: dict, reviewed: dict, min_rate: float = 0.30) -> list[str]` : dossiers absents de `reviewed`, contestés à `min_rate` ou plus, du plus contesté au moins contesté, puis du plus gros au plus petit
 
 - [ ] **Step 1: Écrire les tests qui échouent**
 
@@ -831,6 +867,9 @@ import pytest
 from mailtag.taxonomy_build import (
     domain_rules,
     folder_category,
+    folder_disagreement,
+    folder_queue,
+    gemma_proposals,
     learned_senders,
     review_queue,
     rules_precision,
@@ -893,6 +932,37 @@ def test_rules_precision():
                  "mixed@shop.ch": "Santé"}  # fmt: skip
     # mixed: dossier Santé != Gemma Achats -> hors mesure ; 3 accords dont 2 justes
     assert rules_precision(SENDERS, CROSS, validated) == (3, pytest.approx(2 / 3))
+
+
+FOLDERS = {
+    "Contacts/Twint": {"category": "Contacts", "senders": {"noreply@twint.ch": 8, "friend@gmail.com": 2}},
+    "Finance/BCV": {"category": "Banque & Placements", "senders": {"info@bcv.ch": 30}},
+    "Shops/Mixed": {"category": "Achats", "senders": {"a@x.ch": 6, "b@x.ch": 4}},
+    "Empty": {"category": "Santé", "senders": {}},
+}
+FOLDER_CROSS = {"noreply@twint.ch": "Banque & Placements", "friend@gmail.com": "Contacts",
+                "info@bcv.ch": "Banque & Placements", "a@x.ch": "Achats", "b@x.ch": None}  # fmt: skip
+
+
+def test_folder_disagreement_counts_mails():
+    assert folder_disagreement(FOLDERS["Contacts/Twint"], FOLDER_CROSS) == pytest.approx(0.8)
+    assert folder_disagreement(FOLDERS["Finance/BCV"], FOLDER_CROSS) == 0.0
+    assert folder_disagreement(FOLDERS["Shops/Mixed"], FOLDER_CROSS) == pytest.approx(0.4)  # unreadable counts
+    assert folder_disagreement(FOLDERS["Empty"], FOLDER_CROSS) == 0.0
+
+
+def test_gemma_proposals():
+    assert gemma_proposals(FOLDERS["Contacts/Twint"], FOLDER_CROSS) == [
+        ("Banque & Placements", 8), ("Contacts", 2)
+    ]
+
+
+def test_folder_queue_most_contested_first_and_skips_reviewed():
+    assert folder_queue(FOLDERS, FOLDER_CROSS, reviewed={}) == ["Contacts/Twint", "Shops/Mixed"]
+    assert folder_queue(FOLDERS, FOLDER_CROSS, reviewed={"Contacts/Twint": "Banque & Placements"}) == [
+        "Shops/Mixed"
+    ]
+    assert folder_queue(FOLDERS, FOLDER_CROSS, reviewed={}, min_rate=0.5) == ["Contacts/Twint"]
 ```
 
 - [ ] **Step 2: Lancer les tests pour vérifier qu'ils échouent**
@@ -961,6 +1031,31 @@ def domain_rules(senders: dict, validated: dict, learned: dict, min_purity: floa
     return rules
 
 
+def folder_disagreement(folder: dict, crosscheck: dict) -> float:
+    """Share of the folder's mails whose sender Gemma puts in another category (or could not read)."""
+    total = sum(folder["senders"].values())
+    if not total:
+        return 0.0
+    other = sum(n for s, n in folder["senders"].items() if crosscheck.get(s) != folder["category"])
+    return other / total
+
+
+def gemma_proposals(folder: dict, crosscheck: dict) -> list[tuple[str, int]]:
+    """Gemma categories of the folder's senders, weighted by mails, most frequent first."""
+    counts: Counter = Counter()
+    for sender, n in folder["senders"].items():
+        if crosscheck.get(sender):
+            counts[crosscheck[sender]] += n
+    return counts.most_common()
+
+
+def folder_queue(folders: dict, crosscheck: dict, reviewed: dict, min_rate: float = 0.30) -> list[str]:
+    """Folders to audit: not yet reviewed, contested at `min_rate` or more, most contested first."""
+    rates = {f: folder_disagreement(e, crosscheck) for f, e in folders.items() if f not in reviewed}
+    todo = [f for f, rate in rates.items() if rate >= min_rate]
+    return sorted(todo, key=lambda f: (-rates[f], -sum(folders[f]["senders"].values())))
+
+
 def rules_precision(senders: dict, crosscheck: dict, validated: dict) -> tuple[int, float]:
     """On reviewed senders where folder and Gemma agree, how often that agreement matches the user."""
     agreed = [
@@ -984,7 +1079,7 @@ uv run ruff format src/mailtag/taxonomy_build.py tests/test_taxonomy_build.py
 uv run ruff check src/mailtag/taxonomy_build.py tests/test_taxonomy_build.py
 uv run pytest -q
 git add src/mailtag/taxonomy_build.py tests/test_taxonomy_build.py
-git commit -m "feat(taxonomy): learned sender, domain rules and review queue
+git commit -m "feat(taxonomy): folder audit, learned sender and domain rules, review queue
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
@@ -1674,8 +1769,9 @@ def scan() -> None:
     from mailtag.mailbox_scan import scan_mailbox
 
     folders = json.loads(Path(CONFIG.taxonomy.legacy_folders_file).read_text(encoding="utf-8"))
+    overrides = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir)).folder_overrides
     with _imap() as provider:
-        result = scan_mailbox(provider, folders)
+        result = scan_mailbox(provider, folders, overrides=overrides)
     write_json_atomic(SCAN, result)
     logger.info(f"Wrote {SCAN}: {len(result['senders'])} senders")
 
@@ -1734,11 +1830,12 @@ Vérifier la signature réelle de `MLXLLM.__init__` (`grep -n "def __init__" -A6
 `scripts/taxonomy_review.py` :
 
 ```python
-"""Local review page: settle folder/Gemma disagreements, biggest senders first (spec section 1.3).
+"""Local review page (spec section 1.3): first audit contested folders, then review senders.
 
     uv run streamlit run scripts/taxonomy_review.py
 
-Every click is written to db/taxonomy/validated.json at once. Nothing leaves this machine.
+Every click is written to db/taxonomy/ at once. Nothing leaves this machine.
+After the folder audit, run `scripts/taxonomy_setup.py scan` again before reviewing senders.
 """
 
 import json
@@ -1751,7 +1848,14 @@ import streamlit as st
 
 from mailtag.config import CONFIG
 from mailtag.taxonomy import TAXONOMY
-from mailtag.taxonomy_build import folder_category, mail_count, review_queue
+from mailtag.taxonomy_build import (
+    folder_category,
+    folder_disagreement,
+    folder_queue,
+    gemma_proposals,
+    mail_count,
+    review_queue,
+)
 from mailtag.taxonomy_store import TaxonomyStore
 
 SCAN = Path("data/mailbox_scan.json")
@@ -1763,10 +1867,50 @@ if not SCAN.exists() or not CROSSCHECK.exists():
     st.error("Lance d'abord `scan` puis `crosscheck` (scripts/taxonomy_setup.py).")
     st.stop()
 
-senders = json.loads(SCAN.read_text(encoding="utf-8"))["senders"]
+scan = json.loads(SCAN.read_text(encoding="utf-8"))
+senders = scan["senders"]
 cross = json.loads(CROSSCHECK.read_text(encoding="utf-8"))
 store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir))
 skipped = st.session_state.setdefault("skipped", set())
+
+# --- Stage 1: folder audit ---
+folders = folder_queue(scan["folders"], cross, store.folder_overrides)
+if folders:
+    folder = folders[0]
+    info = scan["folders"][folder]
+    st.caption(f"Étape 1 — audit des dossiers : {len(folders)} dossiers contestés restants")
+    st.header(folder)
+    st.write(
+        f"Catégorie actuelle : **{info['category']}** · {sum(info['senders'].values())} mails · "
+        f"{folder_disagreement(info, cross):.0%} contestés"
+    )
+    st.write("Gemma propose : " + ", ".join(f"{c} ({n})" for c, n in gemma_proposals(info, cross)))
+    for s, n in sorted(info["senders"].items(), key=lambda kv: -kv[1])[:8]:
+        st.write(f"- {s} ({n}) → Gemma : {cross.get(s) or '(illisible)'}")
+    if st.button(f"Confirmer : {info['category']}"):
+        store.set_folder_category(folder, info["category"])
+        store.save()
+        st.rerun()
+    columns = st.columns(4)
+    for i, category in enumerate(TAXONOMY):
+        if columns[i % 4].button(category, key=f"folder-{folder}-{category}"):
+            store.set_folder_category(folder, category)
+            store.save()
+            st.rerun()
+    if st.button("Aucune catégorie"):
+        store.set_folder_category(folder, None)
+        store.save()
+        st.rerun()
+    st.stop()
+
+if store.folder_overrides and not st.session_state.get("rescanned"):
+    st.info("Audit des dossiers terminé. Relance `scripts/taxonomy_setup.py scan`, puis recharge cette page.")
+    if st.button("C'est fait"):
+        st.session_state["rescanned"] = True
+        st.rerun()
+    st.stop()
+
+# --- Stage 2: sender review ---
 queue = [s for s in review_queue(senders, cross, store.validated) if s not in skipped]
 
 st.caption(f"{len(store.validated)} expéditeurs validés · {len(queue)} restants")
@@ -1796,7 +1940,7 @@ if st.button("Passer"):
 Dans `CLAUDE.md`, section `### Taxonomy mode` (ajoutée par la spec 1), ajouter à la fin :
 
 ```markdown
-**Learned signals** (`docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md`): in taxonomy mode, Signals 1, 3 and 4 come from `TaxonomyStore` (`db/taxonomy/validated.json`, `senders.json`, `domains.json`); Signal 2 (labels) is not used; nomic loads `data/taxonomy_centroids.npz`. A nomic/Gemma agreement counts for the sender; after `learn_min_agreements` (2) agreements the sender becomes a rule, and a contradiction removes it. Emails the user files out of `9-A revoir` go to `validated.json`. Preparation (no email is moved): `scripts/taxonomy_setup.py scan`, `crosscheck`, then `streamlit run scripts/taxonomy_review.py`, then `build`.
+**Learned signals** (`docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md`): old folders map to categories through `map_folder`, overridden by the folder audit (`db/taxonomy/folder_overrides.json`). In taxonomy mode, Signals 1, 3 and 4 come from `TaxonomyStore` (`db/taxonomy/validated.json`, `senders.json`, `domains.json`); Signal 2 (labels) is not used; nomic loads `data/taxonomy_centroids.npz`. A nomic/Gemma agreement counts for the sender; after `learn_min_agreements` (2) agreements the sender becomes a rule, and a contradiction removes it. Emails the user files out of `9-A revoir` go to `validated.json`. Preparation (no email is moved): `scripts/taxonomy_setup.py scan`, `crosscheck`, then `streamlit run scripts/taxonomy_review.py`, then `build`.
 ```
 
 - [ ] **Step 4: Lancer les tests pour vérifier qu'ils passent**
@@ -2040,7 +2184,7 @@ Ces étapes utilisent ta vraie boîte ; aucune ne déplace de mail.
 
 1. `uv run python scripts/taxonomy_setup.py scan` (quelques minutes).
 2. `uv run python scripts/taxonomy_setup.py crosscheck` en tâche de fond (environ 1 s par expéditeur ; reprise possible).
-3. Ta revue : `uv run streamlit run scripts/taxonomy_review.py` (environ 1 heure).
+3. Ta revue : `uv run streamlit run scripts/taxonomy_review.py`. D'abord l'audit des dossiers contestés, puis relancer `scan`, puis la revue des expéditeurs (environ 1 heure en tout).
 4. `uv run python scripts/taxonomy_setup.py build`.
 5. `uv run python scripts/eval_embeddings.py chain -n 500` : fixe `nomic_threshold` dans `config.toml` et vérifie les 90 %.
 6. Essai à blanc avec le mode activé pour ce seul processus : couverture ≥ 60 % attendue.

@@ -41,10 +41,11 @@ Commandes de `scripts/taxonomy_setup.py`. Aucune ne déplace de mail. Chacune pe
 
 ### 1.1 `scan` : lecture seule d'IMAP
 
-- Pour chacun des dossiers de `data/legacy_folders.json` dont `map_folder` donne une catégorie : `BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]` de tous les mails, par lots.
+- Pour chacun des dossiers de `data/legacy_folders.json` qui a une catégorie — celle de `db/taxonomy/folder_overrides.json` s'il y en a une, sinon celle des 177 règles de `map_folder` : `BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]` de tous les mails, par lots.
 - Résultat `data/mailbox_scan.json`, par expéditeur (adresse en minuscules) : nom, domaine, nombre de mails par catégorie, jusqu'à 5 sujets d'exemple, et jusqu'à 5 références `(dossier, uid)` pour lire plus tard le contenu d'un échantillon.
 - Dossiers sans catégorie (`Promotions`, `Spam`, `INBOX`…) : ignorés.
 - Dossier illisible : sauté, noté dans le journal ; les autres continuent.
+- Résultat aussi, par dossier : sa catégorie et le nombre de mails de chaque expéditeur (pour l'audit des dossiers).
 - La **catégorie du dossier** d'un expéditeur est sa catégorie majoritaire.
 
 ### 1.2 `crosscheck` : Gemma par expéditeur
@@ -56,6 +57,14 @@ Commandes de `scripts/taxonomy_setup.py`. Aucune ne déplace de mail. Chacune pe
 
 ### 1.3 `review` : ta revue (page Streamlit locale, `scripts/taxonomy_review.py`)
 
+**Étape 1 — audit des dossiers.** Les 177 règles de `map_folder` n'ont jamais été validées, et tout le reste en dépend.
+- Pour chaque dossier : part de ses mails dont l'expéditeur a une catégorie Gemma différente de celle du dossier.
+- File : dossiers contestés à 30 % ou plus, du plus contesté au moins contesté (à égalité, le plus gros d'abord).
+- Chaque fiche : chemin du dossier, catégorie actuelle, nombre de mails, part contestée, catégories proposées par Gemma pour ses expéditeurs (avec leur nombre de mails), quelques expéditeurs. Un bouton par catégorie, « aucune catégorie » et « confirmer » (garde l'actuelle).
+- Chaque clic écrit dans `db/taxonomy/folder_overrides.json` (dossier → catégorie, ou `null` pour « aucune »). Un dossier traité ne revient pas.
+- Après l'audit : relancer `scan` (quelques minutes), pour que les expéditeurs reprennent les catégories corrigées.
+
+**Étape 2 — revue des expéditeurs.**
 - File, dans l'ordre :
   1. expéditeurs dont la catégorie du dossier diffère de celle de Gemma, par nombre de mails décroissant ;
   2. puis expéditeurs d'accord, par nombre de mails décroissant.
@@ -79,6 +88,7 @@ Le mode taxonomie lit uniquement ses propres fichiers. Le flux actuel garde les 
 | `db/taxonomy/validated.json` | expéditeur → catégorie (ta revue, mails sortis de `9-A revoir`) |
 | `db/taxonomy/senders.json` | expéditeur → `{category, agreements}` (appris) |
 | `db/taxonomy/domains.json` | domaine → catégorie |
+| `db/taxonomy/folder_overrides.json` | ancien dossier → catégorie corrigée (ou `null`), prioritaire sur `map_folder` |
 | `data/taxonomy_centroids.npz` | 19 centroïdes nomic |
 
 Les anciennes bases (`db/*.json`, en chemins de dossier) ne sont plus lues en mode taxonomie : leur connaissance est récupérée par `scan`. `to_category` ne sert plus qu'à `scan`.
