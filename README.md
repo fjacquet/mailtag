@@ -71,8 +71,8 @@ llm_max_tokens = 128
 ### Gmail Setup
 
 Gmail runs through the **Gmail API** (OAuth), not IMAP. Create an OAuth desktop client in
-[Google Cloud Console](https://console.cloud.google.com/), save it as `credentials.json`, and run
-`run --provider gmail --validate` once to open the browser and save `token.json`. See the
+[Google Cloud Console](https://console.cloud.google.com/), save it as `secrets/credentials.json`, and run
+`run --provider gmail --validate` once to open the browser and save `secrets/token.json`. See the
 [configuration docs](https://fjacquet.github.io/mailtag/getting-started/configuration/#gmail-api-setup) for details.
 
 ## Usage

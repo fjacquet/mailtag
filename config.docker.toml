@@ -26,8 +26,8 @@ user = "${IMAP_USER}"
 password = "${IMAP_PASSWORD}"
 
 [gmail]
-credentials_file = "credentials.json"
-token_file = "token.json"
+credentials_file = "secrets/credentials.json"
+token_file = "secrets/token.json"
 
 [fast_parse]
 batch_size = 500
