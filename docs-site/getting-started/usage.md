@@ -16,7 +16,7 @@ python src/main.py run --provider imap --validate
 python src/main.py run --provider gmail
 ```
 
-In taxonomy mode, `run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `9-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
+In taxonomy mode, `run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
 
 ## Taxonomy Setup
 
@@ -49,11 +49,20 @@ uv run python scripts/taxonomy_setup.py prune              # list the emptied le
 uv run python scripts/taxonomy_setup.py prune --apply      # delete them
 ```
 
-- Each mail goes to its sender's rule (validated, learned, then domain), else to its folder's audited category, else to `9-A revoir` (where filing it teaches the rule).
+- Each mail goes to its sender's rule (validated, learned, then domain), else to its folder's audited category, else to `5-A revoir` (where filing it teaches the rule).
 - Category, action and system folders (INBOX, Sent, Trash, Spam, Promotions, À Classer…) are never migrated or deleted. `Contacts/<person>` folders are migrated into `Contacts`.
 - `migrate --apply` can be re-run: moved mail has left its folder, so a second dry run should show nothing left.
 - `prune` deletes only legacy folders that are empty and whose subfolders are all deletable, deepest first.
 - Do not run `run` or `serve` during `migrate --apply`.
+
+## PARA Folders and Standard Promotions
+
+```bash
+uv run python scripts/taxonomy_setup.py reorganize            # list renames and merges
+uv run python scripts/taxonomy_setup.py reorganize --apply    # apply them
+```
+
+Renames each flat category folder into its PARA folder (`Santé` → `Domaines/Santé`, `Achats` → `Archive/Achats`, `Veille & Newsletters pro` → `Ressources/Veille & Newsletters pro`) with IMAP RENAME (no mail is copied), renames `9-A revoir` to `5-A revoir`, and merges `5-Promos` into the standard `Promotions` folder. When both an old and a new folder exist, their mail is merged instead of overwritten. Re-running it does nothing once done.
 
 ## Database Management
 
@@ -103,7 +112,7 @@ In taxonomy mode:
 
 | File | Purpose |
 |------|---------|
-| `db/taxonomy/validated.json` | Senders you confirmed (review page, mail filed out of `9-A revoir`) |
+| `db/taxonomy/validated.json` | Senders you confirmed (review page, mail filed out of `5-A revoir`) |
 | `db/taxonomy/senders.json` | Learned senders and their agreement counts |
 | `db/taxonomy/domains.json` | Business domain rules |
 | `db/taxonomy/folder_overrides.json` | Folder audit decisions |

@@ -8,11 +8,12 @@ from datetime import date
 from loguru import logger
 
 from .pending_archive import PendingArchive
-from .taxonomy import _NOT_A_CATEGORY, ACTION_FOLDERS, REVIEW, TAXONOMY, to_category
+from .taxonomy import _NOT_A_CATEGORY, ACTION_FOLDERS, PARA, REVIEW, TAXONOMY, category_folder, to_category
 from .taxonomy_store import normalize_address
 from .utils.email_parsing import parse_sender
 
-_PROTECTED = set(TAXONOMY) | set(ACTION_FOLDERS) | _NOT_A_CATEGORY | {"INBOX"}
+_PARA_FOLDERS = {category_folder(c) for c in TAXONOMY} | set(PARA.values()) | {"Projets"}
+_PROTECTED = set(TAXONOMY) | set(ACTION_FOLDERS) | _NOT_A_CATEGORY | {"INBOX"} | _PARA_FOLDERS
 _FETCH = b"BODY.PEEK[HEADER.FIELDS (FROM MESSAGE-ID)]"
 
 
@@ -184,3 +185,49 @@ def delete_empty_folders(client, removable: list[str], live_folders: list[str]) 
         deleted.append(folder)
         logger.info(f"Deleted {folder}")
     return deleted
+
+
+# Folders renamed or merged when adopting the standard Promotions folder and PARA (old -> new)
+_REORGANIZE = {**{c: category_folder(c) for c in TAXONOMY}, "9-A revoir": REVIEW, "5-Promos": "Promotions"}
+
+
+def reorganize_plan(live_folders: list[str]) -> dict:
+    """Old folder -> new one: a rename when the new one does not exist yet, else a merge of the mails."""
+    live = set(live_folders)
+    plan: dict[str, list] = {"renames": [], "merges": []}
+    for old, new in _REORGANIZE.items():
+        if old in live:
+            plan["merges" if new in live else "renames"].append((old, new))
+    return plan
+
+
+def reorganize(provider, plan: dict, apply: bool, batch_size: int = 500) -> dict:
+    """Rename folders (IMAP RENAME, no mail copied) and merge duplicates, then delete the emptied ones."""
+    client = provider.client
+    failed: list[str] = []
+    for old, new in plan["renames"]:
+        logger.info(f"Rename {old} -> {new}")
+        if not apply:
+            continue
+        try:
+            client.rename_folder(old, new)
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not rename {old}: {e}")
+            failed.append(old)
+    for old, new in plan["merges"]:
+        try:
+            client.select_folder(old, readonly=not apply)
+            uids = client.search(["ALL"])
+            logger.info(f"Merge {len(uids)} mails {old} -> {new}")
+            if not apply:
+                continue
+            for start in range(0, len(uids), batch_size):
+                provider.batch_move_emails(uids[start : start + batch_size], new)
+            if client.search(["ALL"]):
+                raise imaplib.IMAP4.error(f"{old} is not empty after the merge")
+            client.select_folder("INBOX", readonly=True)  # some servers refuse to delete the selected folder
+            client.delete_folder(old)
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not merge {old}: {e}")
+            failed.append(old)
+    return {"renames": plan["renames"], "merges": plan["merges"], "failed": failed}

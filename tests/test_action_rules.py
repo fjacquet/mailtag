@@ -8,7 +8,7 @@ def act(category, sender="alice@example.ch", subject="Bonjour", *, unsub=False, 
 
 
 def test_review_category_goes_to_review():
-    assert act("9-A revoir") == "9-A revoir"
+    assert act("5-A revoir") == "5-A revoir"
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ def test_bulk_mail_is_not_to_do():
     "subject", ["-30% sur tout", "Offre spéciale", "Soldes d'été", "Promo", "Big SALE", "Rabatt"]
 )
 def test_promo_with_unsubscribe_is_promo(subject):
-    assert act("Achats", "shop@x.ch", subject, unsub=True, bulk=True) == "5-Promos"
+    assert act("Achats", "shop@x.ch", subject, unsub=True, bulk=True) == "Promotions"
 
 
 def test_promo_word_without_unsubscribe_is_not_promo():

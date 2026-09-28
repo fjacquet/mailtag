@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from loguru import logger
 
 from .pending_archive import PendingArchive
-from .taxonomy import ACTION_FOLDERS, REVIEW, TAXONOMY
+from .taxonomy import ACTION_FOLDERS, REVIEW, TAXONOMY, category_folder
 
 _MESSAGE_ID_FETCH = b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"
 
@@ -34,9 +34,9 @@ def _learn_from_review(client, pending: PendingArchive, rules, present: set[str]
         if not waiting:
             break
         try:
-            if not client.folder_exists(category):
+            if not client.folder_exists(category_folder(category)):
                 continue
-            client.select_folder(category)
+            client.select_folder(category_folder(category))
             found_mids = [mid for mid in list(waiting) if client.search(["HEADER", "Message-ID", mid])]
         except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Could not read folder {category}: {e}")
@@ -90,7 +90,7 @@ def run_archive(
             if validate:
                 continue
             try:
-                provider.batch_move_emails(uids, category)
+                provider.batch_move_emails(uids, category_folder(category))
             except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Could not archive {len(uids)} emails to {category}: {e}")
                 continue

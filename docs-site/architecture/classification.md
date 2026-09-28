@@ -98,7 +98,7 @@ Email arrives
 [6. Gemma agrees with nomic's top choice]            --match--> category (the sender earns one agreement)
     |
     v
-"9-A revoir"
+"5-A revoir"
 ```
 
 Signal 2 (server labels) is not used. The owner's own addresses (`own_addresses`) never become a rule and are never learned from.
@@ -111,12 +111,12 @@ A classified email goes to an action folder; its category is remembered in `db/p
 |--------|------|
 | `2-A payer` | money category (bank, energy, insurance, taxes) and a bill-like subject |
 | `1-A traiter` | sent by a person |
-| `5-Promos` | bulk mail with an unsubscribe link and a promo subject |
+| `Promotions` (standard folder) | bulk mail with an unsubscribe link and a promo subject |
 | `3-A lire` | newsletters, media |
 | `4-Pour info` | everything else |
-| `9-A revoir` | no signal decided |
+| `5-A revoir` | no signal decided |
 
-Emails that are seen, unflagged and older than `archive_after_days` move from their action folder into their category. When you file a mail out of `9-A revoir` into a category, its sender becomes a validated rule.
+Emails that are seen, unflagged and older than `archive_after_days` move from their action folder into their category folder. Category folders follow PARA: `Domaines/` (areas of responsibility), `Ressources/` (topics of interest) and the standard `Archive/` (Achats, Colis & Livraisons); projects are folders you create yourself. When you file a mail out of `5-A revoir` into a category, its sender becomes a validated rule.
 
 ### Where the rules come from
 
