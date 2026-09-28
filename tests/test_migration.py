@@ -5,7 +5,13 @@ import pytest
 
 from mailtag.config import FastParseConfig, ImapConfig
 from mailtag.imap_service import ImapService
-from mailtag.migration import destination_for, folders_to_migrate, migrate_folder, migrate_mailbox
+from mailtag.migration import (
+    destination_for,
+    empty_legacy_folders,
+    folders_to_migrate,
+    migrate_folder,
+    migrate_mailbox,
+)
 from mailtag.pending_archive import PendingArchive
 from mailtag.taxonomy import REVIEW
 
@@ -254,3 +260,65 @@ def test_migrate_mailbox_uses_folder_override_and_counts_review_total(provider, 
     assert report["folders"] == {"Finance/Locale/BCV": {REVIEW: 1}}
     assert report["review_total"] == 1
     assert pending.get("<1>") is not None
+
+
+def test_empty_legacy_folders_only_empty_and_old():
+    client = FakeClient(
+        {
+            "Voyages/Sixt": {},
+            "Voyages/Hotels": {1: mail("a@x.ch")},
+            "9-A revoir": {},
+        }
+    )
+    legacy = ["Voyages/Sixt", "Voyages/Hotels", "9-A revoir"]
+    live_folders = ["Voyages/Sixt", "Voyages/Hotels", "9-A revoir"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == ["Voyages/Sixt"]
+
+
+def test_parent_kept_when_child_has_mail():
+    client = FakeClient({"Voyages": {}, "Voyages/Sixt": {1: mail("a@x.ch")}})
+    legacy = ["Voyages", "Voyages/Sixt"]
+    live_folders = ["Voyages", "Voyages/Sixt"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == []
+
+
+def test_parent_kept_when_child_is_not_a_legacy_folder():
+    client = FakeClient({"Voyages": {}, "Voyages/NewStuff": {}})
+    legacy = ["Voyages"]
+    live_folders = ["Voyages", "Voyages/NewStuff"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == []
+
+
+def test_empty_parent_and_child_both_removable_deepest_first():
+    client = FakeClient({"Voyages": {}, "Voyages/Sixt": {}})
+    legacy = ["Voyages", "Voyages/Sixt"]
+    live_folders = ["Voyages", "Voyages/Sixt"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == ["Voyages/Sixt", "Voyages"]
+
+
+def test_protected_folders_never_included_even_if_empty():
+    client = FakeClient({"Achats": {}, "9-A revoir": {}, "INBOX": {}})
+    legacy = ["Achats", "9-A revoir", "INBOX"]
+    live_folders = ["Achats", "9-A revoir", "INBOX"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == []
+
+
+def test_folder_no_longer_live_is_skipped():
+    client = FakeClient({})
+    legacy = ["Voyages/Gone"]
+    live_folders = []
+
+    assert empty_legacy_folders(client, legacy, live_folders) == []
+
+
+def test_broken_folder_is_treated_as_not_removable():
+    client = FakeClient({"Voyages/Sixt": {}}, broken_folders={"Voyages/Sixt"})
+    legacy = ["Voyages/Sixt"]
+    live_folders = ["Voyages/Sixt"]
+
+    assert empty_legacy_folders(client, legacy, live_folders) == []

@@ -120,3 +120,28 @@ def migrate_mailbox(
         "review_total": totals.get(REVIEW, 0),
         "skipped_folders": skipped,
     }
+
+
+def empty_legacy_folders(client, legacy: list[str], live_folders: list[str]) -> list[str]:
+    """Legacy folders with no mail, whose live children are also removable; deepest first.
+
+    A folder counts as removable only if every still-existing folder nested under it (a
+    protected folder, a folder with mail, or one that never was a legacy folder) is itself
+    removable - so a parent is never listed ahead of a child that must stay.
+    """
+    candidates = set(folders_to_migrate(legacy)) & set(live_folders)
+    order = sorted(candidates, key=lambda f: (-f.count("/"), f))
+    removable: dict[str, bool] = {}
+
+    for folder in order:
+        try:
+            client.select_folder(folder, readonly=True)
+            is_empty = client.search(["ALL"]) == []
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not read folder {folder}: {e}")
+            is_empty = False
+        prefix = f"{folder}/"
+        children = [f for f in live_folders if f.startswith(prefix)]
+        removable[folder] = is_empty and all(removable.get(child, False) for child in children)
+
+    return [folder for folder in order if removable[folder]]
