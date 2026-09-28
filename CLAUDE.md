@@ -178,7 +178,7 @@ Two config sources:
 
 Spec: `docs/superpowers/specs/2026-09-28-gmail-api-taxonomy-design.md`. `run --provider gmail` uses
 `GmailApiService` (`src/mailtag/gmail_api.py`), which authenticates via `gmail_auth.get_gmail_service`
-(OAuth desktop client `credentials.json` + saved `token.json`, scope `gmail.modify`) and runs the same
+(OAuth desktop client `secrets/credentials.json` + saved `secrets/token.json`, scope `gmail.modify`) and runs the same
 taxonomy flow as Infomaniak: `GmailLabelClient` translates `select_folder`/`search`/`fetch`/`move`/
 `folder_exists`/`create_folder`/`list_folders` into Gmail API calls. Folder ↔ Gmail mapping: `INBOX` →
 system label `INBOX` excluding `category:promotions`; junk folder → system label `SPAM`; `Promotions` →

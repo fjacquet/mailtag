@@ -23,8 +23,8 @@ user = "${IMAP_USER}"
 password = "${IMAP_PASSWORD}"
 
 [gmail]
-credentials_file = "credentials.json"
-token_file = "token.json"
+credentials_file = "secrets/credentials.json"
+token_file = "secrets/token.json"
 pending_archive_file = "db/pending_archive_gmail.json"
 folder_cache_file = "data/gmail_labels.json"
 junk_folder_name = "SPAM"
@@ -79,7 +79,7 @@ file = "mailtag.log"
 ### `[gmail]`
 
 Gmail runs through the **Gmail API** (OAuth), not IMAP: `credentials_file` and `token_file` point to the
-OAuth desktop client (`credentials.json`) and the saved user token (`token.json`).
+OAuth desktop client (`secrets/credentials.json`) and the saved user token (`secrets/token.json`).
 
 | Key | Meaning |
 |-----|---------|
@@ -98,7 +98,7 @@ Secrets and environment-specific values:
 IMAP_USER=your-email@example.com
 IMAP_PASSWORD=your-app-password
 
-# Gmail through the API: no environment variables needed, only credentials.json/token.json (below)
+# Gmail through the API: no environment variables needed, only secrets/credentials.json and secrets/token.json (below)
 
 # Optional: cloud AI provider (overrides MLX for Signal 6)
 # MODEL=gemini/gemini-2.5-flash
@@ -112,12 +112,12 @@ is the provider `run --provider gmail` uses; `GmailService` stays in the codebas
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the Gmail API and
    create an OAuth 2.0 Client ID for a **Desktop app**
-2. Download the JSON file and save it as `credentials.json` in the project root
+2. Download the JSON file and save it as `secrets/credentials.json` (the `secrets/` directory is git-ignored)
 3. Run `python src/main.py run --provider gmail --validate` once: it opens a browser for consent and saves
-   `token.json`
+   `secrets/token.json`
 
 While the OAuth app is in "Testing" (the default until you publish it), the token expires after **7 days**
-and the browser flow runs again. Never commit `credentials.json` or `token.json`.
+and the browser flow runs again. Never commit anything in `secrets/`.
 
 Gmail labels act as folders: moving a mail out of `INBOX` removes the `INBOX` label (Gmail's own "archive"),
 and the mail stays in "All Mail". `Promotions` reuses Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`)

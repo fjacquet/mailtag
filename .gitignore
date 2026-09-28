@@ -145,6 +145,7 @@ dmypy.json
 logs/*.log*
 test*.log
 .env
+secrets/
 credentials.json
 db/
 token.json

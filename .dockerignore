@@ -28,6 +28,7 @@ docs-site/
 
 # Secrets and credentials
 .env
+secrets/
 credentials.json
 token.json
 
