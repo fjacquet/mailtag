@@ -31,8 +31,16 @@ from mailtag.routing import RoutedMail, route_to_action_folders
 # --------------------------------------------------------------------------------------------------
 
 
-def http_error(status: int = 500) -> HttpError:
-    return HttpError(httplib2.Response({"status": status}), b"boom")
+def http_error(status: int = 500, content: bytes = b"boom") -> HttpError:
+    return HttpError(httplib2.Response({"status": status}), content)
+
+
+RATE_LIMITED = b'{"error": {"errors": [{"reason": "rateLimitExceeded"}]}}'
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(mocker):
+    return mocker.patch("mailtag.gmail_api.time.sleep")
 
 
 class _Req:
@@ -316,9 +324,9 @@ class TestGmailLabelClientFolders:
         with pytest.raises(ConnectionError):
             client.list_folders()
 
-    def test_http_error_429_becomes_connection_error(self):
+    def test_http_error_400_becomes_connection_error(self):
         client, fake = make_client()
-        fake.error = http_error(429)
+        fake.error = http_error(400)
         with pytest.raises(ConnectionError):
             client.list_folders()
 
@@ -496,6 +504,50 @@ class TestExecuteRetries:
         GmailLabelClient._execute(request)
 
         request.execute.assert_called_once_with(num_retries=5)
+
+    def test_rate_limit_waits_out_the_minute_then_retries(self, mocker, no_sleep):
+        request = mocker.Mock()
+        request.execute.side_effect = [http_error(403, RATE_LIMITED), {"ok": 1}]
+
+        assert GmailLabelClient._execute(request) == {"ok": 1}
+
+        no_sleep.assert_any_call(60)
+
+    def test_429_waits_then_retries(self, mocker, no_sleep):
+        request = mocker.Mock()
+        request.execute.side_effect = [http_error(429), {"ok": 1}]
+
+        assert GmailLabelClient._execute(request) == {"ok": 1}
+
+        no_sleep.assert_any_call(60)
+
+    def test_rate_limit_gives_up_after_five_waits(self, mocker, no_sleep):
+        request = mocker.Mock()
+        request.execute.side_effect = http_error(403, RATE_LIMITED)
+
+        with pytest.raises(ConnectionError):
+            GmailLabelClient._execute(request)
+
+        assert [c.args for c in no_sleep.call_args_list].count((60,)) == 5
+
+    def test_other_403_is_not_retried(self, mocker, no_sleep):
+        request = mocker.Mock()
+        request.execute.side_effect = http_error(403, b'{"error": {"errors": [{"reason": "forbidden"}]}}')
+
+        with pytest.raises(ConnectionError):
+            GmailLabelClient._execute(request)
+
+        assert request.execute.call_count == 1
+
+    def test_calls_are_paced_under_the_per_user_quota(self, mocker, no_sleep):
+        mocker.patch("mailtag.gmail_api.time.monotonic", return_value=100.0)
+        request = mocker.Mock()
+
+        GmailLabelClient._execute(request)
+        GmailLabelClient._execute(request)
+
+        waits = [c.args[0] for c in no_sleep.call_args_list]
+        assert waits and 0 < waits[-1] <= 0.05
 
 
 # --------------------------------------------------------------------------------------------------

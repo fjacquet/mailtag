@@ -3,6 +3,7 @@ calls (spec docs/superpowers/specs/2026-09-28-gmail-api-taxonomy-design.md)."""
 
 import base64
 import re
+import time
 from contextlib import contextmanager
 
 import httplib2
@@ -19,6 +20,16 @@ _CATEGORIES = ("CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATE
 
 _HEADER_FIELDS_RE = re.compile(rb"HEADER\.FIELDS \(([^)]*)\)")
 _MOVE_CHUNK = 1000
+# Gmail allows 250 quota units per second per user and messages.get costs 5: pace calls under 40 a second.
+_MIN_INTERVAL = 0.025
+# The quota is counted per minute: a rate-limited call waits the minute out, at most this many times.
+_RATE_LIMIT_WAIT = 60
+_RATE_LIMIT_TRIES = 5
+_last_call = 0.0
+
+
+def _rate_limited(e: HttpError) -> bool:
+    return e.resp.status == 429 or (e.resp.status == 403 and "ratelimitexceeded" in str(e.content).lower())
 
 
 def selection(folder: str, label_ids: dict[str, str], junk: str) -> tuple[list[str], str]:
@@ -68,14 +79,26 @@ class GmailLabelClient:
 
     @staticmethod
     def _execute(request, ignore_status: int | None = None):
-        try:
-            return request.execute(num_retries=5)
-        except HttpError as e:
-            if ignore_status is not None and e.resp.status == ignore_status:
-                return None
-            raise ConnectionError(str(e)) from e
-        except (httplib2.HttpLib2Error, OSError) as e:
-            raise ConnectionError(str(e)) from e
+        global _last_call
+        waits = 0
+        while True:
+            pause = _last_call + _MIN_INTERVAL - time.monotonic()
+            if pause > 0:
+                time.sleep(pause)
+            _last_call = time.monotonic()
+            try:
+                return request.execute(num_retries=5)
+            except HttpError as e:
+                if ignore_status is not None and e.resp.status == ignore_status:
+                    return None
+                if _rate_limited(e) and waits < _RATE_LIMIT_TRIES:
+                    waits += 1
+                    logger.warning(f"Gmail quota reached, pausing {_RATE_LIMIT_WAIT}s ({waits})")
+                    time.sleep(_RATE_LIMIT_WAIT)
+                    continue
+                raise ConnectionError(str(e)) from e
+            except (httplib2.HttpLib2Error, OSError) as e:
+                raise ConnectionError(str(e)) from e
 
     def _canonical(self, name: str) -> str:
         """Existing label name matching `name` case-insensitively, else `name` unchanged."""
