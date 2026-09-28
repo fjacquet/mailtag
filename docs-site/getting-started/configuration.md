@@ -26,6 +26,15 @@ password = "${IMAP_PASSWORD}"
 credentials_file = "credentials.json"
 token_file = "token.json"
 
+[gmail_imap]
+host = "imap.gmail.com"
+user = "${GMAIL_IMAP_USER}"
+password = "${GMAIL_IMAP_PASSWORD}"
+use_gmail_extensions = true
+junk_folder_name = "[Gmail]/Spam"
+pending_archive_file = "db/pending_archive_gmail.json"
+folder_cache_file = "data/gmail_folders.json"
+
 [fast_parse]
 batch_size = 500
 folder_cache_ttl_hours = 24
@@ -72,6 +81,21 @@ file = "mailtag.log"
 | `sender_min_mails` | mails needed before a folder/Gemma agreement becomes a sender rule; also the review page's minimum |
 | `own_addresses` | your own addresses: never a rule, never learned from, skipped by `scan` |
 
+### `[gmail_imap]`
+
+Gmail runs as a **second IMAP account** (not the Gmail API): with 2-Step Verification on, an app password is
+enough, since IMAP is always on for Gmail. Absent section, or missing/unsubstituted credentials: no Gmail
+account, and no error at load — the Infomaniak account keeps running.
+
+| Key | Meaning |
+|-----|---------|
+| `host` | IMAP host, `imap.gmail.com` by default |
+| `user`, `password` | from `.env` (`GMAIL_IMAP_USER`, `GMAIL_IMAP_PASSWORD`) |
+| `use_gmail_extensions` | `true` by default |
+| `junk_folder_name` | Gmail's Spam folder, `"[Gmail]/Spam"` by default |
+| `pending_archive_file` | this account's own pending-archive file, so its sweep never sees the other account's mails as orphans |
+| `folder_cache_file` | this account's own folder cache; it is never refreshed into `data/imap_folders.json` (Infomaniak's) |
+
 ## .env
 
 Secrets and environment-specific values:
@@ -80,18 +104,27 @@ Secrets and environment-specific values:
 IMAP_USER=your-email@example.com
 IMAP_PASSWORD=your-app-password
 
+# Gmail as a second IMAP account
+GMAIL_IMAP_USER=your-email@gmail.com
+GMAIL_IMAP_PASSWORD=your-google-app-password
+
 # Optional: cloud AI provider (overrides MLX for Signal 6)
 # MODEL=gemini/gemini-2.5-flash
 # GEMINI_API_KEY=your-key
 ```
 
-## Gmail OAuth Setup
+## Gmail IMAP Setup
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project and enable the **Gmail API**
-3. Create **OAuth 2.0 Desktop** credentials
-4. Download as `credentials.json` in the project root
-5. First run will prompt for browser authorization
+The CLI no longer uses the Gmail API/OAuth path (`GmailService` stays in the codebase, unused by `run`).
+Gmail talks IMAP, always on since January 2025:
+
+1. Turn on 2-Step Verification on your Google account
+2. Create an app password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+3. Set `GMAIL_IMAP_USER` and `GMAIL_IMAP_PASSWORD` in `.env`
+
+Gmail labels act as IMAP folders: moving a mail removes the source label and adds the target label, and
+the mail stays in "All Mail". Only new mail is classified — no `scan`, `migrate` or `prune` for Gmail, and
+old labels are never touched.
 
 ## Dynamic vs Static Classification
 

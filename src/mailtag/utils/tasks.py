@@ -9,7 +9,7 @@ from loguru import logger
 
 from mailtag.archive import run_archive
 from mailtag.classifier import Classifier
-from mailtag.config import CONFIG
+from mailtag.config import CONFIG, ImapConfig
 from mailtag.database import ClassificationDatabase
 from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
@@ -199,6 +199,16 @@ def _run_domain_classification_pass(
     return uids_for_pass3
 
 
+def pending_archive_path(config: ImapConfig, default: str) -> Path:
+    """Each IMAP account keeps its own pending archive: one account's sweep cannot see the
+    other's mails and would remove their entries as orphans."""
+    return Path(config.pending_archive_file or default)
+
+
+def junk_folder(provider: ImapService) -> str | None:
+    return provider.config.junk_folder_name or provider.fast_parse_config.junk_folder_name
+
+
 def run_classification(provider_instance: Provider, database: ClassificationDatabase, validate: bool) -> None:
     """Runs the email classification process using a given provider instance."""
     try:
@@ -209,21 +219,25 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                 CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
             )
             classifier = Classifier(gmail_config, database)
-        pending = (
-            PendingArchive(Path(CONFIG.taxonomy.pending_archive_file)) if CONFIG.taxonomy.enabled else None
-        )
+        if isinstance(provider_instance, ImapService):
+            pending_file = pending_archive_path(
+                provider_instance.config, CONFIG.taxonomy.pending_archive_file
+            )
+        else:
+            pending_file = Path(CONFIG.taxonomy.pending_archive_file)
+        pending = PendingArchive(pending_file) if CONFIG.taxonomy.enabled else None
 
         with provider_instance.connect() as provider:
             if isinstance(provider, ImapService):
                 provider.get_folder_hierarchy()
 
                 # --- Fast Parse (Pass 1) on Junk Folder ---
-                junk_folder = provider.fast_parse_config.junk_folder_name
-                if junk_folder:
+                junk = junk_folder(provider)
+                if junk:
                     _run_fast_parse_on_folder(
                         provider,
                         database,
-                        junk_folder,
+                        junk,
                         validate,
                         pending=pending,
                         rules=classifier.taxonomy_store,

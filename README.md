@@ -70,13 +70,16 @@ llm_max_tokens = 128
 
 ### Gmail Setup
 
-Requires OAuth credentials from the [Google Cloud Console](https://console.cloud.google.com/) — enable Gmail API, create OAuth Desktop credentials, save as `credentials.json`. See `config.toml` `[gmail]` section.
+Gmail runs as a second **IMAP** account (`[gmail_imap]` in `config.toml`), not the Gmail API. Turn on
+2-Step Verification, create an app password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords),
+and set `GMAIL_IMAP_USER`/`GMAIL_IMAP_PASSWORD` in `.env`. See the [configuration docs](https://fjacquet.github.io/mailtag/getting-started/configuration/) for details.
 
 ## Usage
 
 ```bash
 python src/main.py run --provider all              # Classify all providers
 python src/main.py run --provider imap             # IMAP only
+python src/main.py run --provider gmail             # Gmail (as a second IMAP account) only
 python src/main.py run --provider imap --validate  # Read-only (no moves)
 python src/main.py filters                         # Generate email filters
 python src/main.py analyze-domains                 # Find domain candidates

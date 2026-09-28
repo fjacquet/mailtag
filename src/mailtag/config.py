@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
 
@@ -35,6 +36,10 @@ class ImapConfig:
     user: str
     password: str
     use_gmail_extensions: bool = False
+    # Per-account overrides (the Gmail account sets them; None = the global setting)
+    pending_archive_file: str | None = None
+    folder_cache_file: str = "data/imap_folders.json"
+    junk_folder_name: str | None = None
 
 
 @dataclass
@@ -115,12 +120,34 @@ class AppConfig:
     mlx: MLXConfig
     webhook: WebhookConfig = None  # type: ignore[assignment]
     taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
+    gmail_imap: ImapConfig | None = None
 
     def __post_init__(self):
         if self.webhook is None:
             self.webhook = WebhookConfig()
         if self.taxonomy is None:
             self.taxonomy = TaxonomyConfig()
+
+
+def _load_gmail_imap(data: dict) -> ImapConfig | None:
+    """Gmail as a second IMAP account (app password); None when absent or without credentials."""
+    section = data.get("gmail_imap")
+    if not section:
+        return None
+    user = os.getenv("GMAIL_IMAP_USER") or section.get("user", "")
+    password = os.getenv("GMAIL_IMAP_PASSWORD") or section.get("password", "")
+    if not user or not password or user.startswith("${") or password.startswith("${"):
+        logger.info("[gmail_imap] has no credentials in .env: Gmail account disabled")
+        return None
+    return ImapConfig(
+        host=section.get("host", "imap.gmail.com"),
+        user=user,
+        password=password,
+        use_gmail_extensions=section.get("use_gmail_extensions", True),
+        pending_archive_file=section.get("pending_archive_file", "db/pending_archive_gmail.json"),
+        folder_cache_file=section.get("folder_cache_file", "data/gmail_folders.json"),
+        junk_folder_name=section.get("junk_folder_name", "[Gmail]/Spam"),
+    )
 
 
 def _dataclass_from_dict(cls, data: dict):
@@ -216,6 +243,7 @@ def load_config(path: Path) -> AppConfig:
                 mlx=mlx_config,
                 webhook=webhook_config,
                 taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
+                gmail_imap=_load_gmail_imap(data),
             )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e

@@ -43,6 +43,11 @@ def mock_app_config(mocker: MockerFixture):
         credentials_file="creds.json",
         token_file="token.json",
     )
+    mock_config.gmail_imap = ImapConfig(
+        host="imap.gmail.com",
+        user="gmail@test.com",
+        password="testpass",
+    )
     mock_config.mlx = MLXConfig(enabled=False)
     return mock_config
 
@@ -64,9 +69,8 @@ class TestMain:
 
         runner = CliRunner()
         mock_run = mocker.patch("main.run_classification")
-        # Mock the provider classes to avoid actual IMAP/Gmail connections
+        # Mock the provider classes to avoid actual IMAP connections
         mocker.patch("main.ImapService")
-        mocker.patch("main.GmailService")
         # Mock refresh_imap_folders to avoid actual server calls
         mocker.patch("main.refresh_imap_folders")
 
@@ -75,17 +79,51 @@ class TestMain:
         assert mock_run.call_count == 2
 
     def test_main_provider_selection_gmail(self, mocker: MockerFixture, mock_app_config):
-        """Tests that the correct provider is used when selected."""
+        """--provider gmail builds an ImapService from CONFIG.gmail_imap, no folder refresh."""
         from main import cli
 
         runner = CliRunner()
         mock_run = mocker.patch("main.run_classification")
-        # Patch at the module level where it's imported into main
-        mocker.patch("main.PROVIDER_CLASSES", {"gmail": mocker.MagicMock()})
+        mock_imap_service = mocker.patch("main.ImapService")
+        mock_refresh = mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run", "--provider", "gmail"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
+        mock_imap_service.assert_called_once_with(mock_app_config.gmail_imap, mock_app_config.fast_parse)
+        mock_refresh.assert_not_called()
         mock_run.assert_called_once()
+
+    def test_main_provider_all_without_gmail_imap_runs_infomaniak_only(
+        self, mocker: MockerFixture, mock_app_config
+    ):
+        """No [gmail_imap]: --provider all runs Infomaniak only, no error."""
+        from main import cli
+
+        mock_app_config.gmail_imap = None
+        runner = CliRunner()
+        mock_run = mocker.patch("main.run_classification")
+        mocker.patch("main.ImapService")
+        mocker.patch("main.refresh_imap_folders")
+
+        result = runner.invoke(cli, ["run", "--provider", "all"])
+        assert result.exit_code == 0, f"CLI failed with: {result.output}"
+        mock_run.assert_called_once()
+
+    def test_main_provider_gmail_without_gmail_imap_runs_nothing(
+        self, mocker: MockerFixture, mock_app_config
+    ):
+        """No [gmail_imap]: --provider gmail runs nothing, no error."""
+        from main import cli
+
+        mock_app_config.gmail_imap = None
+        runner = CliRunner()
+        mock_run = mocker.patch("main.run_classification")
+        mocker.patch("main.ImapService")
+        mocker.patch("main.refresh_imap_folders")
+
+        result = runner.invoke(cli, ["run", "--provider", "gmail"])
+        assert result.exit_code == 0, f"CLI failed with: {result.output}"
+        mock_run.assert_not_called()
 
     def test_main_validate_mode(self, mocker: MockerFixture, mock_app_config):
         """
@@ -96,9 +134,8 @@ class TestMain:
 
         runner = CliRunner()
         mock_run = mocker.patch("main.run_classification")
-        # Mock the provider classes to avoid actual IMAP/Gmail connections
+        # Mock the provider classes to avoid actual IMAP connections
         mocker.patch("main.ImapService")
-        mocker.patch("main.GmailService")
         # Mock refresh_imap_folders to avoid actual server calls
         mocker.patch("main.refresh_imap_folders")
 
