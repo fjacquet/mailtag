@@ -5,7 +5,11 @@
     uv run streamlit run scripts/taxonomy_review.py     # review disagreements
     uv run python scripts/taxonomy_setup.py build       # rules, corpus and the 19 nomic centroids
 
-No step moves an email.
+No preparation step moves an email. Legacy folder migration (docs/superpowers/specs/
+2026-09-28-migration-dossiers-design.md), a dry run unless given --apply:
+
+    uv run python scripts/taxonomy_setup.py migrate [--apply]  # legacy folder mail -> the 19 categories
+    uv run python scripts/taxonomy_setup.py prune [--apply]    # delete emptied legacy folders
 """
 
 import argparse
@@ -164,6 +168,7 @@ def prune(apply: bool) -> None:
             if client.search(["ALL"]):
                 logger.warning(f"Skipping {folder}: no longer empty")
                 continue
+            client.select_folder("INBOX", readonly=True)  # some servers refuse to delete the selected folder
             client.delete_folder(folder)
             logger.info(f"Deleted {folder}")
 

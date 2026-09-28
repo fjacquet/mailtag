@@ -63,7 +63,7 @@ def migrate_folder(
             if destination == folder:
                 continue
             by_destination[destination].append(uid)
-            if destination == REVIEW:
+            if destination == REVIEW and address not in own:  # never learn a rule for the owner
                 message_id = str(msg.get("Message-ID") or "").strip()
                 if message_id:
                     review_entries[uid] = (message_id, address)
@@ -79,7 +79,8 @@ def migrate_folder(
                 if entry:
                     message_id, sender = entry
                     pending.add(message_id, None, sender, today.isoformat())
-        provider.batch_move_emails(dest_uids, destination)
+        for start in range(0, len(dest_uids), batch_size):
+            provider.batch_move_emails(dest_uids[start : start + batch_size], destination)
 
     if apply:
         pending.save()

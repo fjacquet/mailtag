@@ -195,6 +195,30 @@ def test_mail_without_message_id_goes_to_review_without_pending_entry(provider, 
     assert client.folders[REVIEW] == {1: mail("a@x.ch", None)}
 
 
+def test_own_address_sent_to_review_gets_no_pending_entry(provider, pending):
+    """Filing it later must not turn the owner's address into a validated rule."""
+    client = FakeClient({"Finance/Locale/BCV": {1: mail("me@x.ch", "<1>")}})
+    moving(provider, client)
+
+    migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), {"me@x.ch"}, pending, TODAY, apply=True)
+
+    assert pending.items() == []
+    assert client.folders[REVIEW] == {1: mail("me@x.ch", "<1>")}
+
+
+def test_moves_are_sent_in_batches(mocker, provider, pending):
+    client = FakeClient({"Voyages": {1: mail("a@x.ch", "<1>"), 2: mail("b@x.ch", "<2>")}})
+    moving(provider, client)
+    spy = mocker.spy(provider, "batch_move_emails")
+
+    migrate_folder(
+        provider, "Voyages", "Achats", FakeRules(), set(), pending, TODAY, apply=True, batch_size=1
+    )
+
+    assert spy.call_count == 2
+    assert client.folders["Achats"] == {1: mail("a@x.ch", "<1>"), 2: mail("b@x.ch", "<2>")}
+
+
 def test_mail_whose_destination_is_its_own_folder_is_not_moved(provider, pending):
     client = FakeClient({"Achats": {1: mail("a@x.ch", "<1>")}})
     moving(provider, client)
