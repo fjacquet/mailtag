@@ -23,15 +23,9 @@ except ValueError as e:
     sys.exit(1)
 from mailtag.database import ClassificationDatabase
 from mailtag.filter_generator import FilterGenerator
-from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
 from mailtag.logging_config import setup_logging
 from mailtag.utils.tasks import run_classification
-
-PROVIDER_CLASSES = {
-    "imap": ImapService,
-    "gmail": GmailService,
-}
 
 
 def refresh_imap_folders(imap_service: ImapService) -> None:
@@ -77,30 +71,16 @@ def start_classification_run(provider, validate):
     database = ClassificationDatabase(suggestion_db_path, validated_db_path, read_only=validate)
 
     providers_to_run = []
-    if provider == "all":
-        if CONFIG.imap:
-            imap_service = ImapService(CONFIG.imap, CONFIG.fast_parse)
-            # Refresh IMAP folders at startup if configured
-            if CONFIG.general.use_imap_folders_for_classification:
-                logger.info("Refreshing IMAP folders at startup...")
-                refresh_imap_folders(imap_service)
-            providers_to_run.append(imap_service)
-        if CONFIG.gmail:
-            providers_to_run.append(GmailService(CONFIG.gmail))
-    else:
-        provider_class = PROVIDER_CLASSES.get(provider)
-        if not provider_class:
-            raise ValueError(f"Invalid provider: {provider}")
-
-        if provider == "imap" and CONFIG.imap:
-            imap_service = provider_class(CONFIG.imap, CONFIG.fast_parse)
-            # Refresh IMAP folders at startup if configured
-            if CONFIG.general.use_imap_folders_for_classification:
-                logger.info("Refreshing IMAP folders at startup...")
-                refresh_imap_folders(imap_service)
-            providers_to_run.append(imap_service)
-        elif provider == "gmail" and CONFIG.gmail:
-            providers_to_run.append(provider_class(CONFIG.gmail))
+    if provider in ("imap", "all") and CONFIG.imap:
+        imap_service = ImapService(CONFIG.imap, CONFIG.fast_parse)
+        # Refresh IMAP folders at startup if configured
+        if CONFIG.general.use_imap_folders_for_classification:
+            logger.info("Refreshing IMAP folders at startup...")
+            refresh_imap_folders(imap_service)
+        providers_to_run.append(imap_service)
+    # Gmail runs over IMAP ([gmail_imap]); its folders never replace data/imap_folders.json
+    if provider in ("gmail", "all") and CONFIG.gmail_imap:
+        providers_to_run.append(ImapService(CONFIG.gmail_imap, CONFIG.fast_parse))
 
     if not providers_to_run:
         logger.warning("No providers configured or selected. Check your config.toml.")
