@@ -1,4 +1,5 @@
-"""Local review page (spec section 1.3): first audit contested folders, then review senders.
+"""Local review page (spec section 1.3): audit contested folders, review senders, then check
+senders learned during runs.
 
     uv run streamlit run scripts/taxonomy_review.py
 
@@ -22,6 +23,7 @@ from mailtag.taxonomy_build import (
     folder_disagreement,
     folder_queue,
     gemma_proposals,
+    learned_to_review,
     mail_count,
     review_queue,
 )
@@ -82,7 +84,35 @@ queue = [s for s in review_queue(senders, cross, store.validated) if s not in sk
 
 st.caption(f"{len(store.validated)} expéditeurs validés · {len(queue)} restants")
 if not queue:
-    st.success("Revue terminée.")
+    # --- Stage 3: senders promoted during runs (not in the scan) ---
+    learned = [
+        s
+        for s in learned_to_review(
+            store.senders, senders, store.validated, CONFIG.taxonomy.learn_min_agreements
+        )
+        if s not in skipped
+    ]
+    if not learned:
+        st.success("Revue terminée.")
+        st.stop()
+    sender = learned[0]
+    entry = store.senders[sender]
+    st.caption(f"Expéditeurs appris pendant les passages : {len(learned)} à vérifier")
+    st.header(sender)
+    st.write(f"Appris : **{entry['category']}** · {entry['agreements']} accords nomic et Gemma")
+    if st.button(f"Confirmer : {entry['category']}"):
+        store.set_validated(sender, entry["category"])
+        store.save()
+        st.rerun()
+    columns = st.columns(4)
+    for i, category in enumerate(TAXONOMY):
+        if columns[i % 4].button(category, key=f"learned-{sender}-{category}"):
+            store.set_validated(sender, category)
+            store.save()
+            st.rerun()
+    if st.button("Passer"):
+        skipped.add(sender)
+        st.rerun()
     st.stop()
 
 sender = queue[0]

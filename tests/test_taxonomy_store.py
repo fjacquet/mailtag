@@ -150,3 +150,50 @@ def test_concurrent_learning_and_saves_are_safe(tmp_path):
 
     assert errors == []
     assert len(TaxonomyStore(tmp_path).senders) == 8 * 400
+
+
+def test_two_processes_keep_each_others_rules(tmp_path):
+    """The webhook API and a `run` each hold a store on the same files."""
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("a@x.ch", "Santé")
+    run.record_agreement("b@x.ch", "Achats")
+    run.set_validated("v@x.ch", "Achats")
+    api.save()
+    run.save()
+
+    disk = TaxonomyStore(tmp_path)
+    assert disk.senders == {
+        "a@x.ch": {"category": "Santé", "agreements": 1},
+        "b@x.ch": {"category": "Achats", "agreements": 1},
+    }
+    assert disk.validated == {"v@x.ch": "Achats"}
+
+
+def test_agreements_from_two_processes_add_up(tmp_path):
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("a@x.ch", "Santé")
+    run.record_agreement("a@x.ch", "Santé")
+    api.save()
+    run.save()
+
+    assert TaxonomyStore(tmp_path).category_for("a@x.ch") == "Santé"
+
+
+def test_lookup_sees_what_another_process_saved(tmp_path):
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    run.set_validated("v@x.ch", "Achats")
+    run.save()
+
+    assert api.category_for("v@x.ch") == "Achats"
+
+
+def test_validation_elsewhere_wins_over_local_learning(tmp_path):
+    api, review = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("s@x.ch", "Santé")
+    review.set_validated("s@x.ch", "Achats")
+    review.save()
+    api.save()
+
+    disk = TaxonomyStore(tmp_path)
+    assert disk.validated == {"s@x.ch": "Achats"}
+    assert "s@x.ch" not in disk.senders

@@ -1,5 +1,6 @@
 """Taxonomy rules: validated senders, learned senders and domains (spec sections 2 to 5)."""
 
+import fcntl
 import json
 import os
 import tempfile
@@ -43,23 +44,87 @@ def _load(path: Path) -> dict:
 
 
 class TaxonomyStore:
-    """Signals 1, 3 and 4 of the taxonomy mode, and learning from nomic/Gemma agreements."""
+    """Signals 1, 3 and 4 of the taxonomy mode, and learning from nomic/Gemma agreements.
+
+    Several processes share these files (the webhook API and a `run`). Each store keeps its
+    changes as a list of operations; `save` takes a file lock, reloads the files, replays the
+    operations and writes, so no process overwrites another's rules. Lookups reload the files
+    when another process has saved since.
+    """
 
     def __init__(self, directory: Path, min_agreements: int = 2, read_only: bool = False):
         self.directory = Path(directory)
         self.min_agreements = min_agreements
         self.read_only = read_only
-        self.validated: dict[str, str] = _load(self.directory / "validated.json")
-        self.senders: dict[str, dict] = _load(self.directory / "senders.json")
-        self.domains: dict[str, str] = _load(self.directory / "domains.json")
-        self.folder_overrides: dict[str, str | None] = _load(self.directory / "folder_overrides.json")
-        self._dirty: set[str] = set()
+        self._ops: list[tuple] = []
+        self._stamps: dict[str, tuple | None] = {}
         # One store is shared by the webhook API's thread pool
         self._lock = threading.RLock()
+        self._reload()
+
+    def _path(self, name: str) -> Path:
+        return self.directory / f"{name}.json"
+
+    def _stamp(self, name: str) -> tuple | None:
+        try:
+            stat = self._path(name).stat()
+        except FileNotFoundError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    def _reload(self) -> None:
+        for name in _FILES:
+            self._stamps[name] = self._stamp(name)
+            setattr(self, name, _load(self._path(name)))
+
+    def _refresh(self) -> None:
+        """Pick up what another process saved, keeping this store's unsaved operations."""
+        if any(self._stamp(name) != self._stamps.get(name) for name in _FILES):
+            self._reload()
+            for op in self._ops:
+                self._apply(op)
+
+    def _apply(self, op: tuple) -> set[str]:
+        """Apply one operation to the in-memory rules; return the files it changed."""
+        kind, *args = op
+        if kind == "agree":
+            sender, category = args
+            if sender in self.validated:
+                return set()
+            entry = self.senders.get(sender)
+            if entry is None:
+                self.senders[sender] = {"category": category, "agreements": 1}
+            elif entry["category"] == category:
+                entry["agreements"] += 1
+            else:
+                logger.info(f"Contradiction for {sender}: {entry['category']} vs {category}, entry removed")
+                del self.senders[sender]
+            return {"senders"}
+        if kind == "validate":
+            sender, category = args
+            self.validated[sender] = category
+            if self.senders.pop(sender, None) is not None:
+                return {"validated", "senders"}
+            return {"validated"}
+        if kind == "folder":
+            folder, category = args
+            self.folder_overrides[folder] = category
+            return {"folder_overrides"}
+        learned, domains = args  # "replace"
+        self.senders = {**self.senders, **{s: dict(e) for s, e in learned.items()}}
+        self.domains = dict(domains)
+        return {"senders", "domains"}
+
+    def _record(self, op: tuple) -> None:
+        with self._lock:
+            self._refresh()
+            self._apply(op)
+            self._ops.append(op)
 
     def category_for(self, sender_address: str) -> str | None:
         sender = normalize_address(sender_address)
         with self._lock:
+            self._refresh()
             return self._category_for(sender)
 
     def _category_for(self, sender: str) -> str | None:
@@ -75,45 +140,37 @@ class TaxonomyStore:
 
     def record_agreement(self, sender_address: str, category: str) -> None:
         sender = normalize_address(sender_address)
-        with self._lock:
-            if not sender or sender in self.validated:
-                return
-            entry = self.senders.get(sender)
-            if entry is None:
-                self.senders[sender] = {"category": category, "agreements": 1}
-            elif entry["category"] == category:
-                entry["agreements"] += 1
-            else:
-                logger.info(f"Contradiction for {sender}: {entry['category']} vs {category}, entry removed")
-                del self.senders[sender]
-            self._dirty.add("senders")
+        if sender:
+            self._record(("agree", sender, category))
 
     def set_validated(self, sender_address: str, category: str) -> None:
-        sender = normalize_address(sender_address)
-        with self._lock:
-            self.validated[sender] = category
-            self._dirty.add("validated")
-            if self.senders.pop(sender, None) is not None:
-                self._dirty.add("senders")
+        self._record(("validate", normalize_address(sender_address), category))
 
     def set_folder_category(self, folder: str, category: str | None) -> None:
         """Audit decision for an old folder; None means the folder holds no category."""
-        with self._lock:
-            self.folder_overrides[folder] = category
-            self._dirty.add("folder_overrides")
+        self._record(("folder", folder, category))
 
     def replace_rules(self, learned: dict[str, dict], domains: dict[str, str]) -> None:
         """Install rules from `build`; runtime entries for senders `build` does not know are kept."""
-        with self._lock:
-            self.senders = {**self.senders, **learned}
-            self.domains = dict(domains)
-            self._dirty.update({"senders", "domains"})
+        self._record(("replace", {s: dict(e) for s, e in learned.items()}, dict(domains)))
 
     def save(self) -> None:
         if self.read_only:
             return
         with self._lock:
-            for name in _FILES:
-                if name in self._dirty:
-                    write_json_atomic(self.directory / f"{name}.json", getattr(self, name))
-            self._dirty.clear()
+            if not self._ops:
+                return
+            self.directory.mkdir(parents=True, exist_ok=True)
+            with (self.directory / ".lock").open("w") as lock_file:
+                fcntl.flock(lock_file, fcntl.LOCK_EX)
+                try:
+                    self._reload()
+                    changed: set[str] = set()
+                    for op in self._ops:
+                        changed |= self._apply(op)
+                    for name in changed:
+                        write_json_atomic(self._path(name), getattr(self, name))
+                        self._stamps[name] = self._stamp(name)
+                    self._ops.clear()
+                finally:
+                    fcntl.flock(lock_file, fcntl.LOCK_UN)

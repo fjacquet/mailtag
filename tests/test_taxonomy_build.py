@@ -13,6 +13,7 @@ from mailtag.taxonomy_build import (
     folder_queue,
     gemma_proposals,
     learned_senders,
+    learned_to_review,
     review_queue,
     rules_precision,
 )
@@ -191,3 +192,19 @@ def test_build_centroids_groups_production_texts_by_category(mocker):
     router_cls.return_value.build_from_examples.assert_called_once_with(
         {"Achats": ["Email from A: S"], "Santé": ["Email from b@x.ch: T\nB"]}
     )
+
+
+def test_learned_to_review_lists_promoted_senders_scan_does_not_know():
+    learned = {
+        "new@shop.ch": {"category": "Achats", "agreements": 3},
+        "newer@shop.ch": {"category": "Santé", "agreements": 5},
+        "learning@shop.ch": {"category": "Achats", "agreements": 1},
+        "big@shop.ch": {"category": "Achats", "agreements": 2},
+        "checked@shop.ch": {"category": "Achats", "agreements": 4},
+    }
+    validated = {"checked@shop.ch": "Achats"}
+
+    assert learned_to_review(learned, SENDERS, validated, min_agreements=2) == [
+        "newer@shop.ch",
+        "new@shop.ch",
+    ]

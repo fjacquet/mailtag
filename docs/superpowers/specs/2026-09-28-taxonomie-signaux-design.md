@@ -70,6 +70,8 @@ Commandes de `scripts/taxonomy_setup.py`. Aucune ne déplace de mail. Chacune pe
   2. puis expéditeurs d'accord, par nombre de mails décroissant.
 - Chaque fiche : adresse, nom, nombre de mails, sujets d'exemple, catégorie du dossier, catégorie Gemma. Un bouton par catégorie (les 19), et « passer ».
 - Chaque clic écrit immédiatement dans `db/taxonomy/validated.json` (écriture atomique). La page reprend là où tu t'étais arrêté.
+**Étape 3 — expéditeurs appris pendant les passages.** Une fois la file vide, la page liste les expéditeurs promus au fil des passages (inconnus du scan, non validés), du plus grand nombre d'accords au plus petit : « confirmer » ou choisir une autre catégorie les inscrit dans `validated.json`.
+
 - Tout reste sur ton Mac : rien n'est publié.
 
 ### 1.4 `build` : construction des règles et des centroïdes
