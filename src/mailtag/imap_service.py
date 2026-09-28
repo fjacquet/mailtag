@@ -46,7 +46,7 @@ class ImapService(EmailProvider):
         self.config = config
         self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
-        self.folder_cache_path = Path("data/imap_folders.json")
+        self.folder_cache_path = Path(config.folder_cache_file)
 
         # Thread management for metrics logging
         self._metrics_stop_event = threading.Event()

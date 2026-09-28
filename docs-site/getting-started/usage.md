@@ -18,6 +18,13 @@ python src/main.py run --provider gmail
 
 In taxonomy mode, `run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
 
+Gmail runs as a second IMAP account (`[gmail_imap]`): the `db/taxonomy/` rules and centroids are shared
+with Infomaniak, but each account keeps its own pending archive, junk folder and folder cache — Gmail's
+folder listing never replaces `data/imap_folders.json`. On Gmail, "moving" a mail removes the source label
+and adds the target label (the mail stays in "All Mail"); labels for action folders and categories are
+created on demand. Gmail is new-mail only: there is no `scan`, `migrate` or `prune` for it, and its old
+labels are never touched.
+
 ## Taxonomy Setup
 
 One-time preparation of the taxonomy rules from the legacy folders. No step moves an email.
@@ -117,7 +124,9 @@ In taxonomy mode:
 | `db/taxonomy/domains.json` | Business domain rules |
 | `db/taxonomy/folder_overrides.json` | Folder audit decisions |
 | `db/taxonomy/control.json` | Rule control sample |
-| `db/pending_archive.json` | Category of each email waiting in an action folder |
+| `db/pending_archive.json` | Category of each email waiting in an action folder (Infomaniak) |
+| `db/pending_archive_gmail.json` | Same, for the Gmail IMAP account |
+| `data/gmail_folders.json` | Cached Gmail (label) folder structure |
 | `data/taxonomy_centroids.npz` | The 19 nomic centroids |
 | `data/mailbox_scan.json`, `data/sender_crosscheck.json` | Scan and Gemma opinions per sender |
 | `data/migration_report.json` | Last `migrate` plan or result |

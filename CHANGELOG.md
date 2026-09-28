@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Owner's addresses** (`own_addresses`) are never a rule and never learned from (#41)
 - **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply` (#43)
 - **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders
+- **Gmail as a second IMAP account** (`[gmail_imap]`): `run --provider gmail` classifies new Gmail mail through IMAP (app password) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk folder and folder cache. The Gmail API/OAuth path (`GmailService`) is no longer used by the CLI (#44)
 
 ### Changed
 
