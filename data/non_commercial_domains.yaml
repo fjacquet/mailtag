@@ -10,6 +10,18 @@ non_commercial_domains:
   - hotmail.com
   - aol.com
   - icloud.com
+  - me.com
+  - mac.com
+  - googlemail.com
+  - msn.com
+  - live.com
+  - live.fr
+  - outlook.fr
+  - hotmail.fr
+  - hotmail.ch
+  - yahoo.fr
+  - yahoo.co.uk
+  - ymail.com
   
   # Privacy-focused providers
   - protonmail.com
@@ -26,6 +38,17 @@ non_commercial_domains:
   - laposte.net
   - free.fr
   - wanadoo.fr
+  - sfr.fr
+  - neuf.fr
+  - bbox.fr
+  - gmx.ch
+  - gmx.fr
+  - gmx.net
+  - sunrise.ch
+  - hispeed.ch
+  - vtxnet.ch
+  - netplus.ch
+  - bluemail.ch
   
   # Other common personal providers
   - yandex.com
@@ -33,6 +56,10 @@ non_commercial_domains:
   - qq.com
   - 163.com
   - sina.com
+
+  # The owner's own domains: people, not a company
+  - ljf.ch
+  - ljfch.onmicrosoft.com
   
 # Configuration
 settings:
