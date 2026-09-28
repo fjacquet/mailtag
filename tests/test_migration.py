@@ -508,3 +508,13 @@ def test_reorganize_failed_rename_is_reported_and_others_continue(provider):
 def test_para_folders_are_protected_from_migration_and_prune():
     legacy = ["Domaines/Santé", "Archive/Achats", "Domaines", "Ressources", "Voyages"]
     assert folders_to_migrate(legacy) == ["Voyages"]
+
+
+def test_reorganize_merges_duplicate_system_folders_into_the_providers_ones():
+    from mailtag.migration import reorganize_plan
+
+    live = ["INBOX", "Archive", "Archives", "Spam", "Junk", "Trash", "Deleted Messages", "Sent",
+            "Sent Messages"]  # fmt: skip
+    assert reorganize_plan(live)["merges"] == [
+        ("Archives", "Archive"), ("Junk", "Spam"), ("Deleted Messages", "Trash"), ("Sent Messages", "Sent")
+    ]  # fmt: skip

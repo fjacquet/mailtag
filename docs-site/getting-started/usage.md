@@ -69,7 +69,7 @@ uv run python scripts/taxonomy_setup.py reorganize            # list renames and
 uv run python scripts/taxonomy_setup.py reorganize --apply    # apply them
 ```
 
-Renames each flat category folder into its PARA folder (`Santé` → `Domaines/Santé`, `Achats` → `Archive/Achats`, `Veille & Newsletters pro` → `Ressources/Veille & Newsletters pro`) with IMAP RENAME (no mail is copied), renames `9-A revoir` to `5-A revoir`, and merges `5-Promos` into the standard `Promotions` folder. When both an old and a new folder exist, their mail is merged instead of overwritten. Re-running it does nothing once done.
+Renames each flat category folder into its PARA folder (`Santé` → `Domaines/Santé`, `Achats` → `Archive/Achats`, `Veille & Newsletters pro` → `Ressources/Veille & Newsletters pro`) with IMAP RENAME (no mail is copied), renames `9-A revoir` to `5-A revoir`, and merges `5-Promos` into the standard `Promotions` folder. When both an old and a new folder exist, their mail is merged instead of overwritten. It also merges duplicate system folders created by mail clients into the ones Infomaniak's webmail uses: `Archives` → `Archive`, `Junk` → `Spam`, `Deleted Messages` → `Trash`, `Sent Messages` → `Sent` (set your mail client to use these folders, or it may recreate the others). Re-running it does nothing once done.
 
 ## Database Management
 
