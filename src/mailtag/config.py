@@ -1,6 +1,6 @@
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -100,6 +100,8 @@ class TaxonomyConfig:
     learn_min_agreements: int = 2
     domain_min_purity: float = 0.90
     sender_min_mails: int = 2
+    # The owner's addresses: their mails say nothing about the category (NAS alerts, notes to self)
+    own_addresses: list[str] = field(default_factory=list)
 
 
 @dataclass

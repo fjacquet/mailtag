@@ -14,7 +14,9 @@ _FETCH = b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"
 _SAMPLES = 5
 
 
-def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, batch_size: int = 500) -> dict:
+def scan_mailbox(
+    provider, folders: list[str], overrides: dict | None = None, batch_size: int = 500, ignored=frozenset()
+) -> dict:
     """Sender -> name, domain, mails per category, sample subjects and (folder, uid) references."""
     client = provider.client
     overrides = overrides or {}
@@ -42,7 +44,7 @@ def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, ba
                     msg = email.message_from_bytes(data[key])
                     name, address = parse_sender(provider._parse_header_value(msg.get("From")))
                     address = normalize_address(address)
-                    if not address:
+                    if not address or address in ignored:
                         continue
                     entry = local_senders.setdefault(
                         address,
