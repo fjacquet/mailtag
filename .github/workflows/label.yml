@@ -16,6 +16,6 @@ jobs:
       issues: write
 
     steps:
-    - uses: actions/labeler@v4
-      with:
-        repo-token: "${{ secrets.GH_TOKEN }}"
+      - uses: actions/labeler@v4
+        with:
+          repo-token: "${{ secrets.GH_TOKEN }}"
