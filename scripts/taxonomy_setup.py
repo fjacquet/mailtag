@@ -29,6 +29,15 @@ def missing_inputs(paths: list[Path]) -> list[Path]:
     return [p for p in paths if not p.exists()]
 
 
+def needs_rescan(scan_path: Path, overrides_path: Path) -> bool:
+    """True if the folder audit ran after the last scan, so the scan is stale."""
+    if not overrides_path.exists():
+        return False
+    if not scan_path.exists():
+        return True
+    return scan_path.stat().st_mtime < overrides_path.stat().st_mtime
+
+
 def _read(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 

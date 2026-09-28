@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import streamlit as st
+from taxonomy_setup import needs_rescan
 
 from mailtag.config import CONFIG
 from mailtag.taxonomy import TAXONOMY
@@ -28,6 +29,7 @@ from mailtag.taxonomy_store import TaxonomyStore
 
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
+OVERRIDES = Path(CONFIG.taxonomy.taxonomy_db_dir) / "folder_overrides.json"
 
 st.set_page_config(page_title="MailTag — revue des expéditeurs", layout="wide")
 
@@ -71,11 +73,8 @@ if folders:
         st.rerun()
     st.stop()
 
-if store.folder_overrides and not st.session_state.get("rescanned"):
+if needs_rescan(SCAN, OVERRIDES):
     st.info("Audit des dossiers terminé. Relance `scripts/taxonomy_setup.py scan`, puis recharge cette page.")
-    if st.button("C'est fait"):
-        st.session_state["rescanned"] = True
-        st.rerun()
     st.stop()
 
 # --- Stage 2: sender review ---
