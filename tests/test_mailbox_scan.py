@@ -10,11 +10,13 @@ KEY = b"BODY[HEADER.FIELDS (FROM SUBJECT)]"
 
 
 class FakeClient:
-    def __init__(self, folders, broken=()):
+    def __init__(self, folders, broken=(), fail_after_fetch=None):
         self.folders = folders
         self.broken = set(broken)
+        self.fail_after_fetch = fail_after_fetch or {}  # folder -> number of fetches allowed to succeed
         self.current = None
         self.readonly_calls = []
+        self._fetch_counts = {}
 
     def select_folder(self, name, readonly=False):
         self.readonly_calls.append(readonly)
@@ -28,6 +30,12 @@ class FakeClient:
 
     def fetch(self, uids, fields):
         assert fields == [b"BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]"]
+        folder = self.current
+        count = self._fetch_counts.get(folder, 0)
+        limit = self.fail_after_fetch.get(folder)
+        if limit is not None and count >= limit:
+            raise imaplib.IMAP4.error(f"fetch failed in {folder}")
+        self._fetch_counts[folder] = count + 1
         return {u: {KEY: self.folders[self.current][u].encode()} for u in uids}
 
 
@@ -99,6 +107,28 @@ def test_unreadable_folder_is_skipped(provider):
 
     assert result["skipped_folders"] == ["Voyages/Transport"]
     assert "a@x.ch" in result["senders"]
+    assert "Voyages/Transport" not in result["folders"]
+
+
+def test_folder_failing_mid_scan_contributes_nothing(provider):
+    provider.client = FakeClient(
+        {
+            "Voyages": {1: header("a@x.ch", "S1"), 2: header("a@x.ch", "S2")},
+            "Voyages/Transport": {7: header("res@sixt.ch", "Parking")},
+        },
+        fail_after_fetch={"Voyages": 1},
+    )
+
+    result = scan_mailbox(provider, ["Voyages", "Voyages/Transport"], batch_size=1)
+
+    assert result["skipped_folders"] == ["Voyages"]
+    assert "a@x.ch" not in result["senders"]
+    assert "Voyages" not in result["folders"]
+    assert result["senders"]["res@sixt.ch"]["categories"] == {"Transports & Mobilité": 1}
+    assert result["folders"]["Voyages/Transport"] == {
+        "category": "Transports & Mobilité",
+        "senders": {"res@sixt.ch": 1},
+    }
 
 
 def test_mail_without_sender_is_ignored(provider):

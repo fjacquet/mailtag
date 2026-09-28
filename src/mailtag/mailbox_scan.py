@@ -26,7 +26,10 @@ def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, ba
         category = overrides[folder] if folder in overrides else to_category(folder)
         if category is None:
             continue
-        folder_senders = by_folder.setdefault(folder, {"category": category, "senders": {}})["senders"]
+        # Accumulated locally; merged into senders/by_folder only if the whole folder succeeds
+        # (a folder that fails partway through must contribute nothing - spec section 8).
+        folder_senders: dict[str, int] = {}
+        local_senders: dict[str, dict] = {}
         try:
             client.select_folder(folder, readonly=True)
             uids = client.search(["ALL"])
@@ -41,12 +44,12 @@ def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, ba
                     address = normalize_address(address)
                     if not address:
                         continue
-                    entry = senders.setdefault(
+                    entry = local_senders.setdefault(
                         address,
-                        {"name": name, "domain": extract_domain(address), "categories": {},
+                        {"name": name, "domain": extract_domain(address), "count": 0,
                          "subjects": [], "refs": []},
                     )  # fmt: skip
-                    entry["categories"][category] = entry["categories"].get(category, 0) + 1
+                    entry["count"] += 1
                     folder_senders[address] = folder_senders.get(address, 0) + 1
                     if len(entry["refs"]) < _SAMPLES:
                         entry["subjects"].append(provider._parse_header_value(msg.get("Subject")))
@@ -55,6 +58,19 @@ def scan_mailbox(provider, folders: list[str], overrides: dict | None = None, ba
             logger.warning(f"Could not scan folder {folder}: {e}")
             skipped.append(folder)
             continue
+
+        by_folder[folder] = {"category": category, "senders": folder_senders}
+        for address, local in local_senders.items():
+            entry = senders.setdefault(
+                address,
+                {"name": local["name"], "domain": local["domain"], "categories": {},
+                 "subjects": [], "refs": []},
+            )  # fmt: skip
+            entry["categories"][category] = entry["categories"].get(category, 0) + local["count"]
+            remaining = _SAMPLES - len(entry["refs"])
+            if remaining > 0:
+                entry["subjects"].extend(local["subjects"][:remaining])
+                entry["refs"].extend(local["refs"][:remaining])
         logger.info(f"Scanned {folder} -> {category}")
 
     logger.info(f"Scan: {len(senders)} senders, {len(skipped)} folders skipped")
