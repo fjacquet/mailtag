@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `9-A revoir`) and is archived into its category after `archive_after_days` (#36)
+- **Learned taxonomy rules** in `db/taxonomy/`: validated senders, senders learned after two nomic/Gemma agreements, business domain rules, and 19 nomic centroids built from verified mail (#38)
+- **Taxonomy setup** `scripts/taxonomy_setup.py` (`scan`, `crosscheck`, `build`) and the local Streamlit review page `scripts/taxonomy_review.py` (folder audit, sender review, runtime-learned senders, rule control sample) (#38, #39, #40, #41)
+- **Owner's addresses** (`own_addresses`) are never a rule and never learned from (#41)
+- **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply`
+
+### Changed
+
+- Domain rules weigh each sender's validated category, else its audited folder category; the review page only shows senders no rule covers (#41)
+- `nomic_threshold` set to 0.90 in `config.toml` (#42)
+
+### Fixed
+
+- `TaxonomyStore` shared safely between threads and between `serve` and `run` processes (file lock, operation replay) (#39)
+- RFC 2047 encoded sender names decoded; `--validate` leaves the databases untouched (#37)
+
 ## [1.1.1] - 2026-09-13
 
 ### Fixed

@@ -22,6 +22,12 @@ MailTag classifies emails through 6 prioritized signals:
 
 Each signal stops evaluation when it classifies an email. IMAP uses a 3-pass system (headers → domains → full body + AI) for efficiency.
 
+### Taxonomy mode
+
+With `[taxonomy] enabled = true` (as in the shipped `config.toml`), MailTag files mail into **19 business-sector categories** (Banque & Placements, Santé, Achats, Éditeurs IT & Cloud, Contacts…) instead of hundreds of IMAP folders. New mail first lands in an action folder (`1-A traiter`, `2-A payer`, `3-A lire`, `4-Pour info`, `5-Promos`, or `9-A revoir` when unsure) and moves into its category once read and a week old.
+
+The chain: validated sender → learned sender (after two nomic/Gemma agreements) → business domain → nomic centroids (score ≥ `nomic_threshold`) → nomic and Gemma agreeing → `9-A revoir`. Filing a mail out of `9-A revoir` teaches MailTag its sender. The rules were learned from the legacy folders with `scripts/taxonomy_setup.py` and a local Streamlit review page; see the [usage docs](https://fjacquet.github.io/mailtag/getting-started/usage/).
+
 ## Prerequisites
 
 - Python 3.13+
@@ -76,6 +82,17 @@ python src/main.py filters                         # Generate email filters
 python src/main.py analyze-domains                 # Find domain candidates
 python src/main.py db-stats                        # Database health check
 python src/main.py cleanup --consolidate           # Remove old pass3 files
+```
+
+Taxonomy setup and legacy folder migration (dry run unless `--apply`):
+
+```bash
+uv run python scripts/taxonomy_setup.py scan        # read-only pass over the legacy folders
+uv run python scripts/taxonomy_setup.py crosscheck  # Gemma opinion per sender
+uv run streamlit run scripts/taxonomy_review.py     # local review page
+uv run python scripts/taxonomy_setup.py build       # rules and nomic centroids
+uv run python scripts/taxonomy_setup.py migrate [--apply]  # move legacy folder mail into the categories
+uv run python scripts/taxonomy_setup.py prune [--apply]    # delete the emptied legacy folders
 ```
 
 ## Data and Database

@@ -40,10 +40,37 @@ llm_confidence = 0.85
 llm_max_tokens = 128
 llm_temperature = 0.2
 
+[taxonomy]
+enabled = true
+nomic_threshold = 0.90
+llm_batch_size = 8
+archive_after_days = 7
+taxonomy_db_dir = "db/taxonomy"
+centroids_file = "data/taxonomy_centroids.npz"
+learn_min_agreements = 2
+domain_min_purity = 0.90
+sender_min_mails = 2
+own_addresses = ["you@example.com"]
+
 [logging]
 level = "INFO"
 file = "mailtag.log"
 ```
+
+### `[taxonomy]`
+
+| Key | Meaning |
+|-----|---------|
+| `enabled` | `true`: 19 categories and action folders; `false`: legacy folder classification |
+| `nomic_threshold` | nomic alone classifies at or above this score; below, nomic and Gemma must agree |
+| `llm_batch_size` | emails per Gemma call |
+| `archive_after_days` | days before a seen, unflagged email leaves its action folder for its category |
+| `taxonomy_db_dir` | validated, learned and domain rules, folder audit (`db/taxonomy/`) |
+| `centroids_file` | the 19 nomic centroids built from verified mail |
+| `learn_min_agreements` | nomic/Gemma agreements before a sender becomes a rule |
+| `domain_min_purity` | share of a domain's mail in one category needed for a domain rule |
+| `sender_min_mails` | mails needed before a folder/Gemma agreement becomes a sender rule; also the review page's minimum |
+| `own_addresses` | your own addresses: never a rule, never learned from, skipped by `scan` |
 
 ## .env
 

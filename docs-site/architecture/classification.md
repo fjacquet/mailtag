@@ -69,6 +69,59 @@ Fallback to local Gemma 4 E4B model. Returns structured JSON:
 - Model errors route to "(Model Error)"
 - Uses `enable_thinking=False` to prevent thinking tokens from consuming the budget
 
+## Taxonomy Mode
+
+With `[taxonomy] enabled = true` (set in `config.toml` since 2026-09-28; the code default is `false`), MailTag files mail into **19 business-sector categories** instead of the 611 legacy IMAP folders, and new mail first lands in an **action folder**.
+
+### Categories
+
+Banque & Placements, Assurances & Retraite, Impôts & Administration, Énergie & Télécom, Santé, Famille & École, Logement & Maison, Achats, Colis & Livraisons, Transports & Mobilité, Voyages & Loisirs, Médias & Divertissement, Veille & Newsletters pro, Éditeurs IT & Cloud, Outils & Services en ligne, Sécurité & Comptes, Carrière & Formation, Associations & Communauté, Contacts.
+
+### Signal chain
+
+```
+Email arrives
+    |
+    v
+[1. Validated sender]   db/taxonomy/validated.json  --match--> category
+    |
+    v
+[3. Learned sender]     db/taxonomy/senders.json    --match--> category (after 2 nomic/Gemma agreements)
+    |
+    v
+[4. Business domain]    db/taxonomy/domains.json    --match--> category (personal mailboxes excluded)
+    |
+    v
+[5. nomic, 19 centroids] score >= nomic_threshold    --match--> category
+    |
+    v
+[6. Gemma agrees with nomic's top choice]            --match--> category (the sender earns one agreement)
+    |
+    v
+"9-A revoir"
+```
+
+Signal 2 (server labels) is not used. The owner's own addresses (`own_addresses`) never become a rule and are never learned from.
+
+### Action folders
+
+A classified email goes to an action folder; its category is remembered in `db/pending_archive.json`:
+
+| Folder | When |
+|--------|------|
+| `2-A payer` | money category (bank, energy, insurance, taxes) and a bill-like subject |
+| `1-A traiter` | sent by a person |
+| `5-Promos` | bulk mail with an unsubscribe link and a promo subject |
+| `3-A lire` | newsletters, media |
+| `4-Pour info` | everything else |
+| `9-A revoir` | no signal decided |
+
+Emails that are seen, unflagged and older than `archive_after_days` move from their action folder into their category. When you file a mail out of `9-A revoir` into a category, its sender becomes a validated rule.
+
+### Where the rules come from
+
+The rules were learned once from the legacy folders (`scripts/taxonomy_setup.py`, see [Usage](../getting-started/usage.md#taxonomy-setup)): a read-only scan of every folder, a Gemma opinion per sender, a folder audit and a sender review in a local Streamlit page, then `build`. On a random control sample, the learned and domain rules were right for 59 of 60 senders.
+
 ## Metrics
 
 Classification metrics are tracked per signal:
