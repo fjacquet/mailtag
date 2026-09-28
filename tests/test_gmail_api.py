@@ -10,6 +10,7 @@ from datetime import date, datetime
 
 import httplib2
 import pytest
+from google.auth.exceptions import RefreshError
 from googleapiclient.errors import HttpError
 
 from mailtag.archive import run_archive
@@ -38,7 +39,7 @@ class _Req:
     def __init__(self, fn):
         self._fn = fn
 
-    def execute(self):
+    def execute(self, **kwargs):
         return self._fn()
 
 
@@ -60,7 +61,8 @@ def _query_matches(msg: dict, q: str) -> bool:
             if msg.get("date") is None or msg["date"] >= cutoff:
                 return False
         elif token.startswith("rfc822msgid:"):
-            if msg.get("headers", {}).get("Message-ID") != token[len("rfc822msgid:") :]:
+            stored = msg.get("headers", {}).get("Message-ID", "").strip("<>")
+            if stored != token[len("rfc822msgid:") :]:
                 return False
         else:
             raise ValueError(f"FakeGmail cannot interpret query token: {token!r}")
@@ -78,6 +80,7 @@ class FakeGmail:
         self.list_calls: list[dict] = []
         self.batch_modify_calls: list[dict] = []
         self.error: Exception | None = None
+        self.errors_by_id: dict[str, Exception] = {}
 
     def users(self):
         return self
@@ -125,10 +128,12 @@ class _MessagesResource:
     def __init__(self, gmail: FakeGmail):
         self.gmail = gmail
 
-    def list(self, userId="me", labelIds=None, q="", includeSpamTrash=False, pageToken=None):
+    def list(self, userId="me", labelIds=None, q="", includeSpamTrash=False, pageToken=None, maxResults=None):
         def call():
             self.gmail._raise_if_needed()
-            self.gmail.list_calls.append({"labelIds": labelIds, "q": q, "includeSpamTrash": includeSpamTrash})
+            self.gmail.list_calls.append(
+                {"labelIds": labelIds, "q": q, "includeSpamTrash": includeSpamTrash, "maxResults": maxResults}
+            )
             wanted = set(labelIds or [])
             matches = [
                 mid
@@ -150,6 +155,8 @@ class _MessagesResource:
     def get(self, userId="me", id=None, format="metadata", metadataHeaders=None):
         def call():
             self.gmail._raise_if_needed()
+            if id in self.gmail.errors_by_id:
+                raise self.gmail.errors_by_id[id]
             msg = self.gmail.by_id[id]
             if format == "raw":
                 return {"id": id, "raw": base64.urlsafe_b64encode(msg["raw"]).decode()}
@@ -215,7 +222,10 @@ class TestCriteriaQuery:
         )
 
     def test_header_message_id(self):
-        assert criteria_query(["HEADER", "Message-ID", "<a@b>"]) == "rfc822msgid:<a@b>"
+        assert criteria_query(["HEADER", "Message-ID", "<a@b>"]) == "rfc822msgid:a@b"
+
+    def test_header_message_id_without_angle_brackets(self):
+        assert criteria_query(["HEADER", "Message-ID", "a@b"]) == "rfc822msgid:a@b"
 
     def test_unsupported_criteria_raises(self):
         with pytest.raises(ValueError):
@@ -236,14 +246,31 @@ class TestMoveChanges:
             ["CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS"],
         )
 
-    def test_promotions_to_category(self):
+    def test_promotions_to_category_leaves_inbox(self):
+        # Leaving INBOX is archiving (spec): a mail filed from Promotions to a category folder
+        # must lose INBOX too, or it stays visible in the inbox.
         assert move_changes("Promotions", "Archive/Achats", {"Archive/Achats": "L3"}, "SPAM") == (
             ["L3"],
-            [],
+            ["INBOX"],
         )
 
     def test_spam_to_action_folder(self):
         assert move_changes("SPAM", "4-Pour info", {"4-Pour info": "L4"}, "SPAM") == (["L4"], ["SPAM"])
+
+    def test_spam_to_promotions_adds_inbox(self):
+        # A source other than INBOX/Promotions moving to Promotions must add INBOX back,
+        # else the mail vanishes into All Mail (selection() requires INBOX + CATEGORY_PROMOTIONS).
+        assert move_changes("SPAM", "Promotions", {}, "SPAM") == (
+            ["CATEGORY_PROMOTIONS", "INBOX"],
+            ["CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS", "SPAM"],
+        )
+
+    def test_user_label_to_promotions_adds_inbox(self):
+        label_ids = {"github": "Label_github"}
+        assert move_changes("github", "Promotions", label_ids, "SPAM") == (
+            ["CATEGORY_PROMOTIONS", "INBOX"],
+            ["CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS", "Label_github"],
+        )
 
 
 # --------------------------------------------------------------------------------------------------
@@ -289,6 +316,33 @@ class TestGmailLabelClientFolders:
         with pytest.raises(ConnectionError):
             client.list_folders()
 
+    def test_http_error_429_becomes_connection_error(self):
+        client, fake = make_client()
+        fake.error = http_error(429)
+        with pytest.raises(ConnectionError):
+            client.list_folders()
+
+    def test_network_error_becomes_connection_error(self):
+        client, fake = make_client()
+        fake.error = TimeoutError("timed out")
+        with pytest.raises(ConnectionError):
+            client.list_folders()
+
+    def test_httplib2_error_becomes_connection_error(self):
+        client, fake = make_client()
+        fake.error = httplib2.ServerNotFoundError("dns lookup failed")
+        with pytest.raises(ConnectionError):
+            client.list_folders()
+
+    def test_folder_exists_is_case_insensitive(self):
+        client, _ = make_client(labels={"Domaines/Santé": "L2"})
+        assert client.folder_exists("domaines/santé") is True
+
+    def test_create_folder_skips_existing_casefold_match(self):
+        client, fake = make_client(labels={"Domaines/Santé": "L2"})
+        client.create_folder("domaines/SANTÉ")
+        assert fake.label_ids == {"Domaines/Santé": "L2"}
+
 
 class TestGmailLabelClientSearch:
     def test_search_paginates_across_all_pages(self):
@@ -300,6 +354,7 @@ class TestGmailLabelClientSearch:
 
         assert sorted(ids) == [str(i) for i in range(5)]
         assert len(fake.list_calls) == 3  # 5 ids, page_size=2 -> 3 pages
+        assert fake.list_calls[0]["maxResults"] == 500
 
     def test_numeric_looking_ids_round_trip(self):
         messages = {"123": {"labelIds": {"INBOX"}, "raw": b"From: a@b\r\n\r\nBody"}}
@@ -353,6 +408,31 @@ class TestGmailLabelClientFetch:
 
         assert result["1"][b"BODY[]"] == raw
 
+    def test_fetch_skips_message_missing_with_404(self):
+        messages = {
+            "1": {"labelIds": {"INBOX"}, "headers": {"Message-ID": "<a>"}},
+            "2": {"labelIds": {"INBOX"}, "headers": {"Message-ID": "<b>"}},
+        }
+        client, fake = make_client(messages=messages)
+        fake.errors_by_id = {"1": http_error(404)}
+        client.select_folder("INBOX")
+
+        field = b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"
+        result = client.fetch(["1", "2"], [field])
+
+        assert "1" not in result
+        assert "2" in result
+
+    def test_fetch_reraises_non_404_http_error(self):
+        messages = {"1": {"labelIds": {"INBOX"}, "headers": {"Message-ID": "<a>"}}}
+        client, fake = make_client(messages=messages)
+        fake.errors_by_id = {"1": http_error(500)}
+        client.select_folder("INBOX")
+
+        field = b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"
+        with pytest.raises(ConnectionError):
+            client.fetch(["1"], [field])
+
 
 class TestGmailLabelClientMove:
     def test_move_from_inbox_creates_label_and_removes_only_inbox(self):
@@ -399,6 +479,24 @@ class TestGmailLabelClientMove:
         }
         assert messages["m1"]["labelIds"] == {"INBOX", "CATEGORY_PROMOTIONS"}
 
+    def test_move_resolves_destination_label_case_insensitively(self):
+        messages = {"m1": {"labelIds": {"INBOX"}}}
+        client, fake = make_client(labels={"Domaines/Santé": "L2"}, messages=messages)
+        client.select_folder("INBOX")
+
+        client.move(["m1"], "domaines/santé")
+
+        assert fake.batch_modify_calls[0]["addLabelIds"] == ["L2"]
+
+
+class TestExecuteRetries:
+    def test_execute_passes_num_retries(self, mocker):
+        request = mocker.Mock()
+
+        GmailLabelClient._execute(request)
+
+        request.execute.assert_called_once_with(num_retries=5)
+
 
 # --------------------------------------------------------------------------------------------------
 # GmailApiService (Task 2)
@@ -424,6 +522,14 @@ class TestGmailApiServiceConnect:
 
         service = GmailApiService(GMAIL_CONFIG, FAST)
         with pytest.raises(ConnectionError):
+            with service.connect():
+                pass
+
+    def test_connect_raises_connection_error_on_refresh_error(self, mocker):
+        mocker.patch("mailtag.gmail_api.get_gmail_service", side_effect=RefreshError("expired"))
+
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        with pytest.raises(ConnectionError, match="token.json"):
             with service.connect():
                 pass
 

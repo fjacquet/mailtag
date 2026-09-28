@@ -5,7 +5,10 @@ import base64
 import re
 from contextlib import contextmanager
 
+import httplib2
+from google.auth.exceptions import RefreshError
 from googleapiclient.errors import HttpError
+from loguru import logger
 
 from mailtag.config import FastParseConfig, GmailConfig
 from mailtag.gmail_auth import get_gmail_service
@@ -36,15 +39,19 @@ def criteria_query(criteria: list | None) -> str:
     if criteria[:3] == ["SEEN", "UNFLAGGED", "BEFORE"]:
         return f"-is:unread -is:starred before:{criteria[3]:%Y/%m/%d}"
     if criteria[:2] == ["HEADER", "Message-ID"]:
-        return f"rfc822msgid:{criteria[2]}"
+        return f"rfc822msgid:{criteria[2].strip('<>')}"
     raise ValueError(f"Unsupported search: {criteria}")
 
 
 def move_changes(source: str, dest: str, label_ids: dict[str, str], junk: str) -> tuple[list[str], list[str]]:
     """Labels to add and remove when a mail moves from `source` to `dest`; nothing else is touched."""
-    source_ids = {"INBOX": ["INBOX"], PROMOTIONS: [], junk: ["SPAM"]}.get(source, [label_ids.get(source)])
+    source_ids = {"INBOX": ["INBOX"], PROMOTIONS: ["INBOX"], junk: ["SPAM"]}.get(
+        source, [label_ids.get(source)]
+    )
     if dest == PROMOTIONS:
-        return ["CATEGORY_PROMOTIONS"], [*_CATEGORIES, *(i for i in source_ids if i not in ("INBOX", None))]
+        # A source other than INBOX must get INBOX back, or the mail vanishes into All Mail.
+        add = ["CATEGORY_PROMOTIONS"] if source == "INBOX" else ["CATEGORY_PROMOTIONS", "INBOX"]
+        return add, [*_CATEGORIES, *(i for i in source_ids if i not in ("INBOX", None))]
     return [label_ids[dest]], [i for i in source_ids if i]
 
 
@@ -60,11 +67,22 @@ class GmailLabelClient:
         self._selected: str | None = None
 
     @staticmethod
-    def _execute(request):
+    def _execute(request, ignore_status: int | None = None):
         try:
-            return request.execute()
+            return request.execute(num_retries=5)
         except HttpError as e:
+            if ignore_status is not None and e.resp.status == ignore_status:
+                return None
             raise ConnectionError(str(e)) from e
+        except (httplib2.HttpLib2Error, OSError) as e:
+            raise ConnectionError(str(e)) from e
+
+    def _canonical(self, name: str) -> str:
+        """Existing label name matching `name` case-insensitively, else `name` unchanged."""
+        for existing in self._labels:
+            if existing.casefold() == name.casefold():
+                return existing
+        return name
 
     def _ensure_labels(self) -> None:
         if self._labels_loaded:
@@ -83,10 +101,12 @@ class GmailLabelClient:
         if name in ("INBOX", PROMOTIONS, self._junk):
             return True
         self._ensure_labels()
-        return name in self._labels
+        return any(existing.casefold() == name.casefold() for existing in self._labels)
 
     def create_folder(self, name: str) -> None:
         self._ensure_labels()
+        if any(existing.casefold() == name.casefold() for existing in self._labels):
+            return
         resp = self._execute(
             self.service.users()
             .labels()
@@ -99,6 +119,7 @@ class GmailLabelClient:
 
     def select_folder(self, name: str, readonly: bool = False) -> None:
         self._ensure_labels()
+        name = self._canonical(name)
         selection(name, self._labels, self._junk)  # KeyError for an unknown folder, like a failed IMAP select
         self._selected = name
 
@@ -113,6 +134,7 @@ class GmailLabelClient:
                 "userId": "me",
                 "labelIds": label_ids,
                 "includeSpamTrash": self._selected == self._junk,
+                "maxResults": 500,
             }
             if q:
                 kwargs["q"] = q
@@ -130,29 +152,42 @@ class GmailLabelClient:
         for uid in uids:
             msg_id = str(uid)
             entry: dict[bytes, bytes] = {}
+            not_found = False
             for field in fields:
                 if b"BODY[]" in field or b"BODY.PEEK[]" in field:
                     resp = self._execute(
-                        self.service.users().messages().get(userId="me", id=msg_id, format="raw")
+                        self.service.users().messages().get(userId="me", id=msg_id, format="raw"),
+                        ignore_status=404,
                     )
+                    if resp is None:
+                        not_found = True
+                        break
                     entry[b"BODY[]"] = base64.urlsafe_b64decode(resp["raw"])
                 elif b"HEADER.FIELDS (" in field:
                     names = _HEADER_FIELDS_RE.search(field).group(1).decode().split()
                     resp = self._execute(
                         self.service.users()
                         .messages()
-                        .get(userId="me", id=msg_id, format="metadata", metadataHeaders=names)
+                        .get(userId="me", id=msg_id, format="metadata", metadataHeaders=names),
+                        ignore_status=404,
                     )
+                    if resp is None:
+                        not_found = True
+                        break
                     headers = resp.get("payload", {}).get("headers", [])
                     text = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers)
                     entry[field.replace(b".PEEK", b"")] = text.encode("utf-8")
                 # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
+            if not_found:
+                logger.warning(f"Gmail message {msg_id} not found (404); skipping, like a missing IMAP UID.")
+                continue
             if entry:
                 result[uid] = entry
         return result
 
     def move(self, uids: list, dest: str) -> None:
         self._ensure_labels()
+        dest = self._canonical(dest)
         add, remove = move_changes(self._selected, dest, self._labels, self._junk)
         str_uids = [str(uid) for uid in uids]
         for i in range(0, len(str_uids), _MOVE_CHUNK):
@@ -180,7 +215,12 @@ class GmailApiService(ImapService):
 
     @contextmanager
     def connect(self):
-        service = get_gmail_service(self.config.credentials_file, self.config.token_file)
+        try:
+            service = get_gmail_service(self.config.credentials_file, self.config.token_file)
+        except RefreshError as e:
+            raise ConnectionError(
+                "Gmail credentials could not be refreshed; delete token.json and re-authorize."
+            ) from e
         if service is None:
             raise ConnectionError("Could not authenticate with the Gmail API.")
         self.client = GmailLabelClient(service, junk=self.config.junk_folder_name or "SPAM")
