@@ -9,6 +9,7 @@ After the folder audit, run `scripts/taxonomy_setup.py scan` again before review
 
 import json
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -33,6 +34,15 @@ SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
 OVERRIDES = Path(CONFIG.taxonomy.taxonomy_db_dir) / "folder_overrides.json"
 
+
+def _sort_key(name: str) -> str:
+    """Alphabetical, ignoring accents (É sorts with E)."""
+    return "".join(c for c in unicodedata.normalize("NFD", name) if not unicodedata.combining(c)).casefold()
+
+
+# Buttons only: TAXONOMY keeps its order, which numbers the categories in the Gemma prompt
+CATEGORIES = sorted(TAXONOMY, key=_sort_key)
+
 st.set_page_config(page_title="MailTag — revue des expéditeurs", layout="wide")
 
 if not SCAN.exists() or not CROSSCHECK.exists():
@@ -49,7 +59,7 @@ skipped = st.session_state.setdefault("skipped", set())
 def category_buttons(key: str, on_pick) -> None:
     """One button per category; the click is saved at once and the page moves on."""
     columns = st.columns(4)
-    for i, category in enumerate(TAXONOMY):
+    for i, category in enumerate(CATEGORIES):
         if columns[i % 4].button(category, key=f"{key}-{category}"):
             on_pick(category)
             store.save()
