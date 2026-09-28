@@ -26,7 +26,7 @@ def _message_ids(client, uids: list[int]) -> dict[int, str]:
     return ids
 
 
-def _learn_from_review(client, pending: PendingArchive, database, present: set[str], validate: bool) -> int:
+def _learn_from_review(client, pending: PendingArchive, rules, present: set[str], validate: bool) -> int:
     """Entries sent to review that the user filed into a category become validated sender rules."""
     waiting = {mid: e for mid, e in pending.items() if e["category"] is None and mid not in present}
     learned = 0
@@ -44,7 +44,7 @@ def _learn_from_review(client, pending: PendingArchive, database, present: set[s
         for mid in found_mids:
             logger.info(f"Learned rule from review: {waiting[mid]['sender']} -> {category}")
             if not validate:
-                database.promote_to_validated(waiting[mid]["sender"], category)
+                rules.set_validated(waiting[mid]["sender"], category)
                 pending.remove(mid)
             del waiting[mid]
             learned += 1
@@ -52,7 +52,7 @@ def _learn_from_review(client, pending: PendingArchive, database, present: set[s
 
 
 def run_archive(
-    provider, pending: PendingArchive, database, days: int, today: date, validate: bool = False
+    provider, pending: PendingArchive, rules, days: int, today: date, validate: bool = False
 ) -> dict:
     """Archive seen, unflagged emails received `days` ago or more into their category."""
     client = provider.client
@@ -99,7 +99,7 @@ def run_archive(
                 present.discard(ids[uid])
             archived += len(uids)
 
-    learned = _learn_from_review(client, pending, database, present, validate)
+    learned = _learn_from_review(client, pending, rules, present, validate)
 
     # A folder that could not be read tells us nothing about whether its entries are
     # orphans — never treat that as evidence, so skip orphan removal entirely this run.
@@ -108,6 +108,7 @@ def run_archive(
         for mid in orphans:
             pending.remove(mid)
         pending.save()
+        rules.save()
 
     logger.info(f"Archive sweep: {archived} archived, {learned} learned, {len(orphans)} orphan entries")
     return {"archived": archived, "learned": learned, "orphans": len(orphans)}

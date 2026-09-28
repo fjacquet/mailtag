@@ -88,7 +88,8 @@ def test_mail_moved_from_review_to_category_becomes_rule(mocker, pending):
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
 
-    db.promote_to_validated.assert_called_once_with("doc@clinic.ch", "Santé")
+    db.set_validated.assert_called_once_with("doc@clinic.ch", "Santé")
+    db.save.assert_called_once()
     assert result["learned"] == 1
     assert pending.items() == []
 
@@ -163,7 +164,7 @@ def test_broken_review_folder_does_not_abort_learning_from_other_categories(mock
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
 
-    db.promote_to_validated.assert_called_once_with("doc@clinic.ch", "Santé")
+    db.set_validated.assert_called_once_with("doc@clinic.ch", "Santé")
     assert result["learned"] == 1
 
 
@@ -177,3 +178,5 @@ def test_validate_changes_nothing(mocker, pending):
     provider.batch_move_emails.assert_not_called()
     db.promote_to_validated.assert_not_called()
     assert len(pending.items()) == 2
+    db.set_validated.assert_not_called()
+    db.save.assert_not_called()
