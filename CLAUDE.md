@@ -100,8 +100,9 @@ Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
 The codebase uses a provider pattern (`src/mailtag/providers.py`):
 
 - `EmailProvider`: Abstract base class defining the interface
-- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support. Also runs the Gmail account, configured as a second IMAP account (`[gmail_imap]`, see below)
-- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication. Unused by the CLI (`run` no longer builds it); the file stays in place
+- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support
+- `GmailApiService` (`src/mailtag/gmail_api.py`): the Gmail provider (`run --provider gmail`); subclasses `ImapService` and only replaces `connect()`, using `GmailLabelClient` — the same small IMAPClient subset the taxonomy flow uses, translated to Gmail API calls (labels, categories) — see below
+- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication, from before taxonomy mode. Unused by the CLI; the file stays in place
 
 All providers implement:
 
@@ -170,21 +171,28 @@ curl http://localhost:8000/health
 
 Two config sources:
 
-- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `gmail_imap`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
-- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `GMAIL_IMAP_USER`, `GMAIL_IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.)
+- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.). Gmail needs no `.env` entries, only `credentials_file`/`token_file` (OAuth).
 
-### Gmail as a Second IMAP Account
+### Gmail through the API
 
-Spec: `docs/superpowers/specs/2026-09-28-gmail-imap-design.md`. Gmail talks IMAP (always on since January
-2025); with 2-Step Verification, an app password is enough, so `run --provider gmail` uses `ImapService`
-against `[gmail_imap]` instead of the OAuth `GmailService`/Gmail API path. `[gmail_imap]` is absent, or its
-credentials (`GMAIL_IMAP_USER`/`GMAIL_IMAP_PASSWORD` in `.env`) are missing or unsubstituted: no Gmail
-account, no error at load — the Infomaniak account still runs. `db/taxonomy/` rules and centroids are
-shared between accounts; `pending_archive_file`, `junk_folder_name` and `folder_cache_file` are per
-account (Gmail defaults: `db/pending_archive_gmail.json`, `"[Gmail]/Spam"`,
-`data/gmail_folders.json`) so Gmail's folder refresh never overwrites Infomaniak's
-`data/imap_folders.json` and each account's archive sweep never treats the other's mail as orphaned.
-Gmail is new-mail only: no `scan`/`migrate`/`prune`, and old Gmail labels are never touched.
+Spec: `docs/superpowers/specs/2026-09-28-gmail-api-taxonomy-design.md`. `run --provider gmail` uses
+`GmailApiService` (`src/mailtag/gmail_api.py`), which authenticates via `gmail_auth.get_gmail_service`
+(OAuth desktop client `credentials.json` + saved `token.json`, scope `gmail.modify`) and runs the same
+taxonomy flow as Infomaniak: `GmailLabelClient` translates `select_folder`/`search`/`fetch`/`move`/
+`folder_exists`/`create_folder`/`list_folders` into Gmail API calls. Folder ↔ Gmail mapping: `INBOX` →
+system label `INBOX` excluding `category:promotions`; junk folder → system label `SPAM`; `Promotions` →
+Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`, mail stays in `INBOX`); every other folder (action
+folders, `Domaines/…`, `Ressources/…`, `Archive/…`) → a user label of the same name, created on demand.
+Moving a mail to `Promotions` adds `CATEGORY_PROMOTIONS`, drops the other `CATEGORY_*` labels and keeps
+`INBOX`; moving it elsewhere adds the destination label and removes the source label only — other labels
+on the mail (`github`, `TRAVELS`…) are never touched. `db/taxonomy/` rules and centroids are shared
+between accounts; `pending_archive_file`, `junk_folder_name` and `folder_cache_file` are per account
+(Gmail defaults: `db/pending_archive_gmail.json`, `"SPAM"`, `data/gmail_labels.json`) so Gmail's label
+refresh never overwrites Infomaniak's `data/imap_folders.json` and each account's archive sweep never
+treats the other's mail as orphaned. Gmail is new-mail only: no `scan`/`migrate`/`prune`, and old Gmail
+labels are never touched. While the OAuth app is in "Testing", the token expires after 7 days and the
+browser consent flow runs again.
 
 ### Dynamic vs Static Classification
 

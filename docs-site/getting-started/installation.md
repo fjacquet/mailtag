@@ -15,9 +15,8 @@ uv sync -U --all-extras
 
 ### Optional: Gmail support
 
-Gmail runs as a second **IMAP** account (`[gmail_imap]`, see [Configuration](configuration.md)) — IMAP is
-always on for Gmail, so no extra dependency is needed for it. The `gmail` extra below only installs the
-Gmail API/OAuth client libraries for the unused `GmailService` path (`run` no longer calls it):
+Gmail runs through the **Gmail API** (OAuth, see [Configuration](configuration.md#gmail-api-setup)). The
+`gmail` extra installs the Gmail API/OAuth client libraries `GmailApiService` needs:
 
 ```bash
 uv sync -U --extra gmail

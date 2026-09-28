@@ -25,15 +25,10 @@ password = "${IMAP_PASSWORD}"
 [gmail]
 credentials_file = "credentials.json"
 token_file = "token.json"
-
-[gmail_imap]
-host = "imap.gmail.com"
-user = "${GMAIL_IMAP_USER}"
-password = "${GMAIL_IMAP_PASSWORD}"
-use_gmail_extensions = true
-junk_folder_name = "[Gmail]/Spam"
 pending_archive_file = "db/pending_archive_gmail.json"
-folder_cache_file = "data/gmail_folders.json"
+folder_cache_file = "data/gmail_labels.json"
+junk_folder_name = "SPAM"
+use_gmail_extensions = false
 
 [fast_parse]
 batch_size = 500
@@ -81,20 +76,19 @@ file = "mailtag.log"
 | `sender_min_mails` | mails needed before a folder/Gemma agreement becomes a sender rule; also the review page's minimum |
 | `own_addresses` | your own addresses: never a rule, never learned from, skipped by `scan` |
 
-### `[gmail_imap]`
+### `[gmail]`
 
-Gmail runs as a **second IMAP account** (not the Gmail API): with 2-Step Verification on, an app password is
-enough, since IMAP is always on for Gmail. Absent section, or missing/unsubstituted credentials: no Gmail
-account, and no error at load — the Infomaniak account keeps running.
+Gmail runs through the **Gmail API** (OAuth), not IMAP: `credentials_file` and `token_file` point to the
+OAuth desktop client (`credentials.json`) and the saved user token (`token.json`).
 
 | Key | Meaning |
 |-----|---------|
-| `host` | IMAP host, `imap.gmail.com` by default |
-| `user`, `password` | from `.env` (`GMAIL_IMAP_USER`, `GMAIL_IMAP_PASSWORD`) |
-| `use_gmail_extensions` | `true` by default |
-| `junk_folder_name` | Gmail's Spam folder, `"[Gmail]/Spam"` by default |
-| `pending_archive_file` | this account's own pending-archive file, so its sweep never sees the other account's mails as orphans |
-| `folder_cache_file` | this account's own folder cache; it is never refreshed into `data/imap_folders.json` (Infomaniak's) |
+| `credentials_file` | OAuth desktop client secret, downloaded from Google Cloud Console |
+| `token_file` | saved user token; created on first run, refreshed automatically |
+| `pending_archive_file` | this account's own pending-archive file, so its sweep never sees Infomaniak's mails as orphans |
+| `folder_cache_file` | this account's own label cache; it is never refreshed into `data/imap_folders.json` (Infomaniak's) |
+| `junk_folder_name` | Gmail's system Spam label, `"SPAM"` |
+| `use_gmail_extensions` | unused by the API path (kept for parity with `ImapConfig`); `false` |
 
 ## .env
 
@@ -104,26 +98,31 @@ Secrets and environment-specific values:
 IMAP_USER=your-email@example.com
 IMAP_PASSWORD=your-app-password
 
-# Gmail as a second IMAP account
-GMAIL_IMAP_USER=your-email@gmail.com
-GMAIL_IMAP_PASSWORD=your-google-app-password
+# Gmail through the API: no environment variables needed, only credentials.json/token.json (below)
 
 # Optional: cloud AI provider (overrides MLX for Signal 6)
 # MODEL=gemini/gemini-2.5-flash
 # GEMINI_API_KEY=your-key
 ```
 
-## Gmail IMAP Setup
+## Gmail API Setup
 
-The CLI no longer uses the Gmail API/OAuth path (`GmailService` stays in the codebase, unused by `run`).
-Gmail talks IMAP, always on since January 2025:
+Gmail talks through the **Gmail API** (OAuth), not IMAP — `GmailApiService` (`src/mailtag/gmail_api.py`)
+is the provider `run --provider gmail` uses; `GmailService` stays in the codebase, unused:
 
-1. Turn on 2-Step Verification on your Google account
-2. Create an app password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-3. Set `GMAIL_IMAP_USER` and `GMAIL_IMAP_PASSWORD` in `.env`
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the Gmail API and
+   create an OAuth 2.0 Client ID for a **Desktop app**
+2. Download the JSON file and save it as `credentials.json` in the project root
+3. Run `python src/main.py run --provider gmail --validate` once: it opens a browser for consent and saves
+   `token.json`
 
-Gmail labels act as IMAP folders: moving a mail removes the source label and adds the target label, and
-the mail stays in "All Mail". Only new mail is classified — no `scan`, `migrate` or `prune` for Gmail, and
+While the OAuth app is in "Testing" (the default until you publish it), the token expires after **7 days**
+and the browser flow runs again. Never commit `credentials.json` or `token.json`.
+
+Gmail labels act as folders: moving a mail out of `INBOX` removes the `INBOX` label (Gmail's own "archive"),
+and the mail stays in "All Mail". `Promotions` reuses Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`)
+instead of a label — see the [classification architecture](../architecture/classification.md#gmail) for the
+full folder ↔ label mapping. Only new mail is classified — no `scan`, `migrate` or `prune` for Gmail, and
 old labels are never touched.
 
 ## Dynamic vs Static Classification

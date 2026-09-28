@@ -118,6 +118,19 @@ A classified email goes to an action folder; its category is remembered in `db/p
 
 Emails that are seen, unflagged and older than `archive_after_days` move from their action folder into their category folder. Category folders follow PARA: `Domaines/` (areas of responsibility), `Ressources/` (topics of interest) and the standard `Archive/` (Achats, Colis & Livraisons); projects are folders you create yourself. When you file a mail out of `5-A revoir` into a category, its sender becomes a validated rule.
 
+### Gmail
+
+Gmail runs through the **Gmail API** (`GmailApiService`, `src/mailtag/gmail_api.py`), not IMAP: `GmailLabelClient` implements the small IMAPClient subset the taxonomy flow uses (`select_folder`, `search`, `fetch`, `move`, `folder_exists`, `create_folder`, `list_folders`) on top of Gmail labels and categories.
+
+| MailTag folder | Gmail |
+|-----------------|-------|
+| `INBOX` | system label `INBOX`, excluding `category:promotions` |
+| junk folder | system label `SPAM` |
+| `Promotions` | Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`); the mail stays in `INBOX` |
+| action folders (`1-A traiter` … `5-A revoir`), `Domaines/…`, `Ressources/…`, `Archive/…` | user labels of the same name, created on demand |
+
+Moving a mail out of `INBOX` removes the `INBOX` label (Gmail's own "archive"); the mail stays in "All Mail". Moving a mail to `Promotions` adds `CATEGORY_PROMOTIONS`, removes the other `CATEGORY_*` labels and keeps `INBOX`. Other labels on the mail (a Gmail filter's `github`, `TRAVELS`, …) are never touched.
+
 ### Where the rules come from
 
 The rules were learned once from the legacy folders (`scripts/taxonomy_setup.py`, see [Usage](../getting-started/usage.md#taxonomy-setup)): a read-only scan of every folder, a Gemma opinion per sender, a folder audit and a sender review in a local Streamlit page, then `build`. On a random control sample, the learned and domain rules were right for 59 of 60 senders.
