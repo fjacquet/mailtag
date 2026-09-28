@@ -45,12 +45,46 @@ cross = json.loads(CROSSCHECK.read_text(encoding="utf-8"))
 store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir))
 skipped = st.session_state.setdefault("skipped", set())
 
-# --- Stage 1: folder audit ---
+
+def category_buttons(key: str, on_pick) -> None:
+    """One button per category; the click is saved at once and the page moves on."""
+    columns = st.columns(4)
+    for i, category in enumerate(TAXONOMY):
+        if columns[i % 4].button(category, key=f"{key}-{category}"):
+            on_pick(category)
+            store.save()
+            st.rerun()
+
+
+def skip_button(sender: str) -> None:
+    if st.button("Passer"):
+        skipped.add(sender)
+        st.rerun()
+
+
 folders = folder_queue(scan["folders"], cross, store.folder_overrides)
-if folders:
+queue = [s for s in review_queue(senders, cross, store.validated) if s not in skipped]
+learned = [
+    s
+    for s in learned_to_review(store.senders, senders, store.validated, CONFIG.taxonomy.learn_min_agreements)
+    if s not in skipped
+]
+STAGES = {
+    f"1. Dossiers contestés ({len(folders)})": "folders",
+    f"2. Expéditeurs du scan ({len(queue)})": "senders",
+    f"3. Expéditeurs appris pendant les passages ({len(learned)})": "learned",
+}
+default = 0 if folders else (1 if queue or not learned else 2)
+stage = STAGES[st.sidebar.radio("Étape", list(STAGES), index=default)]
+st.caption(f"{len(store.validated)} expéditeurs validés")
+
+# --- Stage 1: folder audit ---
+if stage == "folders":
+    if not folders:
+        st.success("Aucun dossier contesté.")
+        st.stop()
     folder = folders[0]
     info = scan["folders"][folder]
-    st.caption(f"Étape 1 — audit des dossiers : {len(folders)} dossiers contestés restants")
     st.header(folder)
     st.write(
         f"Catégorie actuelle : **{info['category']}** · {sum(info['senders'].values())} mails · "
@@ -63,12 +97,7 @@ if folders:
         store.set_folder_category(folder, info["category"])
         store.save()
         st.rerun()
-    columns = st.columns(4)
-    for i, category in enumerate(TAXONOMY):
-        if columns[i % 4].button(category, key=f"folder-{folder}-{category}"):
-            store.set_folder_category(folder, category)
-            store.save()
-            st.rerun()
+    category_buttons(f"folder-{folder}", lambda c: store.set_folder_category(folder, c))
     if st.button("Aucune catégorie"):
         store.set_folder_category(folder, None)
         store.save()
@@ -76,59 +105,36 @@ if folders:
     st.stop()
 
 if needs_rescan(SCAN, OVERRIDES):
-    st.info("Audit des dossiers terminé. Relance `scripts/taxonomy_setup.py scan`, puis recharge cette page.")
+    st.info("Audit des dossiers modifié. Relance `scripts/taxonomy_setup.py scan`, puis recharge cette page.")
     st.stop()
 
 # --- Stage 2: sender review ---
-queue = [s for s in review_queue(senders, cross, store.validated) if s not in skipped]
-
-st.caption(f"{len(store.validated)} expéditeurs validés · {len(queue)} restants")
-if not queue:
-    # --- Stage 3: senders promoted during runs (not in the scan) ---
-    learned = [
-        s
-        for s in learned_to_review(
-            store.senders, senders, store.validated, CONFIG.taxonomy.learn_min_agreements
-        )
-        if s not in skipped
-    ]
-    if not learned:
-        st.success("Revue terminée.")
+if stage == "senders":
+    if not queue:
+        st.success("Tous les expéditeurs du scan sont revus.")
         st.stop()
-    sender = learned[0]
-    entry = store.senders[sender]
-    st.caption(f"Expéditeurs appris pendant les passages : {len(learned)} à vérifier")
+    sender = queue[0]
+    entry = senders[sender]
     st.header(sender)
-    st.write(f"Appris : **{entry['category']}** · {entry['agreements']} accords nomic et Gemma")
-    if st.button(f"Confirmer : {entry['category']}"):
-        store.set_validated(sender, entry["category"])
-        store.save()
-        st.rerun()
-    columns = st.columns(4)
-    for i, category in enumerate(TAXONOMY):
-        if columns[i % 4].button(category, key=f"learned-{sender}-{category}"):
-            store.set_validated(sender, category)
-            store.save()
-            st.rerun()
-    if st.button("Passer"):
-        skipped.add(sender)
-        st.rerun()
+    st.write(f"**{entry['name'] or '(sans nom)'}** · {mail_count(entry)} mails · domaine `{entry['domain']}`")
+    st.write(f"Dossier : **{folder_category(entry)}** · Gemma : **{cross.get(sender) or '(illisible)'}**")
+    for subject in entry["subjects"]:
+        st.write(f"- {subject}")
+    category_buttons(sender, lambda c: store.set_validated(sender, c))
+    skip_button(sender)
     st.stop()
 
-sender = queue[0]
-entry = senders[sender]
+# --- Stage 3: senders promoted during runs (not in the scan) ---
+if not learned:
+    st.success("Aucun expéditeur appris à vérifier.")
+    st.stop()
+sender = learned[0]
+entry = store.senders[sender]
 st.header(sender)
-st.write(f"**{entry['name'] or '(sans nom)'}** · {mail_count(entry)} mails · domaine `{entry['domain']}`")
-st.write(f"Dossier : **{folder_category(entry)}** · Gemma : **{cross.get(sender) or '(illisible)'}**")
-for subject in entry["subjects"]:
-    st.write(f"- {subject}")
-
-columns = st.columns(4)
-for i, category in enumerate(TAXONOMY):
-    if columns[i % 4].button(category, key=f"{sender}-{category}"):
-        store.set_validated(sender, category)
-        store.save()
-        st.rerun()
-if st.button("Passer"):
-    skipped.add(sender)
+st.write(f"Appris : **{entry['category']}** · {entry['agreements']} accords nomic et Gemma")
+if st.button(f"Confirmer : {entry['category']}"):
+    store.set_validated(sender, entry["category"])
+    store.save()
     st.rerun()
+category_buttons(f"learned-{sender}", lambda c: store.set_validated(sender, c))
+skip_button(sender)

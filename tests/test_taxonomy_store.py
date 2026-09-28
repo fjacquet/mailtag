@@ -197,3 +197,50 @@ def test_validation_elsewhere_wins_over_local_learning(tmp_path):
     disk = TaxonomyStore(tmp_path)
     assert disk.validated == {"s@x.ch": "Achats"}
     assert "s@x.ch" not in disk.senders
+
+
+def test_failed_save_writes_nothing_and_does_not_count_twice(tmp_path, monkeypatch):
+    import mailtag.taxonomy_store as module
+
+    s = TaxonomyStore(tmp_path)
+    s.record_agreement("a@x.ch", "Santé")
+    s.set_validated("v@x.ch", "Achats")
+    real_dump, calls = module.json.dump, []
+
+    def dump_failing_on_second_file(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        return real_dump(*args, **kwargs)
+
+    monkeypatch.setattr(module.json, "dump", dump_failing_on_second_file)
+    with pytest.raises(OSError):
+        s.save()
+    assert sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".json") == []
+
+    monkeypatch.setattr(module.json, "dump", real_dump)
+    s.save()
+    assert TaxonomyStore(tmp_path).senders == {"a@x.ch": {"category": "Santé", "agreements": 1}}
+
+
+def test_save_does_not_reload_when_no_other_process_wrote(tmp_path, mocker):
+    import mailtag.taxonomy_store as module
+
+    s = TaxonomyStore(tmp_path)
+    load = mocker.spy(module, "_load")
+    s.record_agreement("a@x.ch", "Santé")
+    s.save()
+    s.record_agreement("a@x.ch", "Santé")
+    s.save()
+
+    load.assert_not_called()
+    assert TaxonomyStore(tmp_path).category_for("a@x.ch") == "Santé"
+
+
+def test_read_only_store_keeps_learning_in_memory_without_piling_up(tmp_path):
+    s = TaxonomyStore(tmp_path, read_only=True)
+    for _ in range(3):
+        s.record_agreement("a@x.ch", "Santé")
+
+    assert s.category_for("a@x.ch") == "Santé"
+    assert s._ops == []
