@@ -12,6 +12,7 @@ import httplib2
 import pytest
 from googleapiclient.errors import HttpError
 
+from mailtag.archive import run_archive
 from mailtag.config import FastParseConfig, GmailConfig
 from mailtag.gmail_api import (
     PROMOTIONS,
@@ -21,6 +22,8 @@ from mailtag.gmail_api import (
     move_changes,
     selection,
 )
+from mailtag.pending_archive import PendingArchive
+from mailtag.routing import RoutedMail, route_to_action_folders
 
 # --------------------------------------------------------------------------------------------------
 # FakeGmail: minimal in-memory stand-in for the Gmail API `service` object.
@@ -463,3 +466,78 @@ class TestGmailApiServiceFlow:
         call = fake.batch_modify_calls[0]
         assert call["removeLabelIds"] == ["INBOX"]
         assert call["addLabelIds"] == [fake.label_ids["1-A traiter"]]
+
+
+# --------------------------------------------------------------------------------------------------
+# End-to-end flow on a fake Gmail (Task 3)
+# --------------------------------------------------------------------------------------------------
+
+TODAY = date(2026, 9, 27)
+
+
+class TestArchiveSweep:
+    def test_archives_to_category_and_learns_from_review(self, mocker, tmp_path):
+        labels = {
+            "4-Pour info": "L4",
+            "5-A revoir": "L5",
+            "Domaines/Santé": "L_dom_sante",
+            "github": "L_github",
+        }
+        messages = {
+            "a": {
+                "labelIds": {"L4", "L_github"},
+                "headers": {"Message-ID": "<a>"},
+                "date": date(2026, 9, 1),
+            },
+            "b": {
+                "labelIds": {"L_dom_sante"},
+                "headers": {"Message-ID": "<b>"},
+                "date": date(2026, 9, 1),
+            },
+        }
+        fake = FakeGmail(labels=labels, messages=messages)
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        service.client = GmailLabelClient(fake)
+
+        pending = PendingArchive(tmp_path / "pending.json")
+        pending.add("<a>", "Santé", "sender-a@example.com", "2026-09-01")
+        pending.add("<b>", None, "sender-b@example.com", "2026-09-01")
+        rules = mocker.MagicMock()
+
+        result = run_archive(service, pending, rules, days=7, today=TODAY)
+
+        assert result == {"archived": 1, "learned": 1, "orphans": 0}
+        # The mail moved to its category: the action label is gone, other labels (github) survive.
+        assert messages["a"]["labelIds"] == {"L_github", "L_dom_sante"}
+        rules.set_validated.assert_called_once_with("sender-b@example.com", "Santé")
+        assert pending.items() == []
+
+
+class TestRouteToActionFolders:
+    def test_promotions_mail_keeps_inbox_and_gains_category(self, tmp_path):
+        messages = {"m1": {"labelIds": {"INBOX"}}}
+        fake = FakeGmail(messages=messages)
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        service.client = GmailLabelClient(fake)
+        service.client.select_folder("INBOX")
+
+        pending = PendingArchive(tmp_path / "pending.json")
+        mail = RoutedMail(
+            uid="m1",
+            category="Achats",
+            sender_address="shop@example.com",
+            subject="Soldes -20%",
+            message_id="<promo1>",
+            has_unsubscribe=True,
+            is_bulk=True,
+        )
+
+        moved = route_to_action_folders(service, pending, [mail], validate=False, today=TODAY)
+
+        assert moved == 1
+        assert messages["m1"]["labelIds"] == {"INBOX", "CATEGORY_PROMOTIONS"}
+        assert pending.get("<promo1>") == {
+            "category": "Achats",
+            "sender": "shop@example.com",
+            "added": TODAY.isoformat(),
+        }
