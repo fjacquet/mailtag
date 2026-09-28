@@ -99,8 +99,8 @@ Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
 The codebase uses a provider pattern (`src/mailtag/providers.py`):
 
 - `EmailProvider`: Abstract base class defining the interface
-- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support
-- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication
+- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support. Also runs the Gmail account, configured as a second IMAP account (`[gmail_imap]`, see below)
+- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication. Unused by the CLI (`run` no longer builds it); the file stays in place
 
 All providers implement:
 
@@ -169,8 +169,21 @@ curl http://localhost:8000/health
 
 Two config sources:
 
-- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
-- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.)
+- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `gmail_imap`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `GMAIL_IMAP_USER`, `GMAIL_IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.)
+
+### Gmail as a Second IMAP Account
+
+Spec: `docs/superpowers/specs/2026-09-28-gmail-imap-design.md`. Gmail talks IMAP (always on since January
+2025); with 2-Step Verification, an app password is enough, so `run --provider gmail` uses `ImapService`
+against `[gmail_imap]` instead of the OAuth `GmailService`/Gmail API path. `[gmail_imap]` is absent, or its
+credentials (`GMAIL_IMAP_USER`/`GMAIL_IMAP_PASSWORD` in `.env`) are missing or unsubstituted: no Gmail
+account, no error at load — the Infomaniak account still runs. `db/taxonomy/` rules and centroids are
+shared between accounts; `pending_archive_file`, `junk_folder_name` and `folder_cache_file` are per
+account (Gmail defaults: `db/pending_archive_gmail.json`, `"[Gmail]/Spam"`,
+`data/gmail_folders.json`) so Gmail's folder refresh never overwrites Infomaniak's
+`data/imap_folders.json` and each account's archive sweep never treats the other's mail as orphaned.
+Gmail is new-mail only: no `scan`/`migrate`/`prune`, and old Gmail labels are never touched.
 
 ### Dynamic vs Static Classification
 
