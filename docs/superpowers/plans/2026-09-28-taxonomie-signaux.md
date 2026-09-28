@@ -507,9 +507,9 @@ Claude-Session: https://claude.ai/code/session_01UhWHGNw3cmgF8EUkdP8sCp"
           "a@shop.ch": {
               "name": "Shop",
               "domain": "shop.ch",
-              "categories": {"Achats": 12},      # mails par catégorie
-              "subjects": ["...", ...],          # 5 au plus, premiers vus
-              "refs": [["Achats/Shop", 42], ...] # 5 au plus, (dossier, uid)
+              "categories": {"Achats": 12},  # mails par catégorie
+              "subjects": ["...", ...],  # 5 au plus, premiers vus
+              "refs": [["Achats/Shop", 42], ...],  # 5 au plus, (dossier, uid)
           }
       },
       "folders": {"Achats/Shop": {"category": "Achats", "senders": {"a@shop.ch": 12}}},
@@ -557,7 +557,9 @@ class FakeClient:
 
 @pytest.fixture
 def provider():
-    service = ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False))
+    service = ImapService(
+        ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False)
+    )
     return service
 
 
@@ -744,7 +746,13 @@ from mailtag.taxonomy import llm_sender_static_prompt
 
 
 def sender(name, n, subjects=("S",)):
-    return {"name": name, "domain": "x.ch", "categories": {"Achats": n}, "subjects": list(subjects), "refs": []}
+    return {
+        "name": name,
+        "domain": "x.ch",
+        "categories": {"Achats": n},
+        "subjects": list(subjects),
+        "refs": [],
+    }
 
 
 def test_answers_are_parsed_in_volume_order(mocker):
@@ -770,7 +778,9 @@ def test_resume_skips_done_and_keeps_progress_on_failure(mocker):
     with pytest.raises(RuntimeError):
         crosscheck_senders(senders, llm, done={"s0@x.ch": "Santé"}, save_every=2, on_save=saved.append)
 
-    assert saved == [{"s0@x.ch": "Santé", "s1@x.ch": "Banque & Placements", "s2@x.ch": "Assurances & Retraite"}]
+    assert saved == [
+        {"s0@x.ch": "Santé", "s1@x.ch": "Banque & Placements", "s2@x.ch": "Assurances & Retraite"}
+    ]
     assert llm.classify_batch.call_args_list[0].args[1][0].startswith("Expéditeur: s1@x.ch")
 
 
@@ -917,7 +927,10 @@ def test_domain_rules_use_corrected_categories_and_purity():
     senders = {**SENDERS, "x@clinic.ch": entry("clinic.ch", Achats=2)}
     learned_with_x = {**learned, "x@clinic.ch": {"category": "Achats", "agreements": 2}}
 
-    assert domain_rules(SENDERS, validated, learned, min_purity=0.9) == {"shop.ch": "Achats", "clinic.ch": "Santé"}
+    assert domain_rules(SENDERS, validated, learned, min_purity=0.9) == {
+        "shop.ch": "Achats",
+        "clinic.ch": "Santé",
+    }
     # clinic.ch: 9 Santé vs 2 Achats = 82 % < 90 %
     assert "clinic.ch" not in domain_rules(senders, validated, learned_with_x, min_purity=0.9)
 
@@ -947,13 +960,16 @@ FOLDER_CROSS = {"noreply@twint.ch": "Banque & Placements", "friend@gmail.com": "
 def test_folder_disagreement_counts_mails():
     assert folder_disagreement(FOLDERS["Contacts/Twint"], FOLDER_CROSS) == pytest.approx(0.8)
     assert folder_disagreement(FOLDERS["Finance/BCV"], FOLDER_CROSS) == 0.0
-    assert folder_disagreement(FOLDERS["Shops/Mixed"], FOLDER_CROSS) == pytest.approx(0.4)  # unreadable counts
+    assert folder_disagreement(FOLDERS["Shops/Mixed"], FOLDER_CROSS) == pytest.approx(
+        0.4
+    )  # unreadable counts
     assert folder_disagreement(FOLDERS["Empty"], FOLDER_CROSS) == 0.0
 
 
 def test_gemma_proposals():
     assert gemma_proposals(FOLDERS["Contacts/Twint"], FOLDER_CROSS) == [
-        ("Banque & Placements", 8), ("Contacts", 2)
+        ("Banque & Placements", 8),
+        ("Contacts", 2),
     ]
 
 
@@ -1002,7 +1018,9 @@ def review_queue(senders: dict, crosscheck: dict, validated: dict) -> list[str]:
     return sorted(disagree, key=by_volume) + sorted(agree, key=by_volume)
 
 
-def learned_senders(senders: dict, crosscheck: dict, validated: dict, min_mails: int, agreements: int) -> dict:
+def learned_senders(
+    senders: dict, crosscheck: dict, validated: dict, min_mails: int, agreements: int
+) -> dict:
     """Senders whose folder category and Gemma agree, with enough mails, not already validated."""
     return {
         s: {"category": folder_category(e), "agreements": agreements}
@@ -1058,9 +1076,7 @@ def folder_queue(folders: dict, crosscheck: dict, reviewed: dict, min_rate: floa
 
 def rules_precision(senders: dict, crosscheck: dict, validated: dict) -> tuple[int, float]:
     """On reviewed senders where folder and Gemma agree, how often that agreement matches the user."""
-    agreed = [
-        s for s in validated if s in senders and crosscheck.get(s) == folder_category(senders[s])
-    ]
+    agreed = [s for s in validated if s in senders and crosscheck.get(s) == folder_category(senders[s])]
     if not agreed:
         return 0, 0.0
     right = sum(folder_category(senders[s]) == validated[s] for s in agreed)
@@ -1139,7 +1155,8 @@ def test_corpus_refs_take_verified_or_learned_senders_capped_per_category():
 def test_fetch_corpus_reads_each_folder_read_only(mocker):
     provider = mocker.MagicMock()
     provider.get_full_emails.side_effect = lambda uids: [
-        Email(msg_id=str(u), subject=f"S{u}", sender_address="a@x.ch", sender_name="A", body=f"B{u}") for u in uids
+        Email(msg_id=str(u), subject=f"S{u}", sender_address="a@x.ch", sender_name="A", body=f"B{u}")
+        for u in uids
     ]
     refs = [{"sender": "a@x.ch", "category": "Achats", "verified": True, "folder": "F", "uid": 1},
             {"sender": "a@x.ch", "category": "Achats", "verified": True, "folder": "F", "uid": 2}]  # fmt: skip
@@ -1162,8 +1179,22 @@ def test_fetch_corpus_skips_unreadable_folder(mocker):
 def test_build_centroids_groups_production_texts_by_category(mocker):
     router_cls = mocker.patch("mailtag.taxonomy_build.SemanticRouter")
     corpus = [
-        {"sender": "a@x.ch", "category": "Achats", "verified": True, "sender_name": "A", "subject": "S", "body": ""},
-        {"sender": "b@x.ch", "category": "Santé", "verified": False, "sender_name": "", "subject": "T", "body": "B"},
+        {
+            "sender": "a@x.ch",
+            "category": "Achats",
+            "verified": True,
+            "sender_name": "A",
+            "subject": "S",
+            "body": "",
+        },
+        {
+            "sender": "b@x.ch",
+            "category": "Santé",
+            "verified": False,
+            "sender_name": "",
+            "subject": "T",
+            "body": "B",
+        },
     ]
 
     build_centroids("EMBEDDER", corpus)
@@ -1391,11 +1422,15 @@ def test_embeddings_path_uses_taxonomy_centroids(classifier):
 
 
 def test_detailed_chain_reports_agreement(classifier, mocker):
-    mocker.patch.object(classifier, "_nomic_top", return_value=[("Achats", 0.9), ("Santé", 0.5), ("Santé", 0.5)])
+    mocker.patch.object(
+        classifier, "_nomic_top", return_value=[("Achats", 0.9), ("Santé", 0.5), ("Santé", 0.5)]
+    )
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé", "Achats"])
 
     assert classifier._classify_uncertain_detailed([mail(1), mail(2), mail(3)]) == [
-        ("Achats", False), ("Santé", True), (REVIEW, False)
+        ("Achats", False),
+        ("Santé", True),
+        (REVIEW, False),
     ]
 ```
 
@@ -1413,7 +1448,15 @@ Dans `src/mailtag/classifier.py` :
 1. Imports : remplacer la ligne `from .taxonomy import ...` par
 
 ```python
-from .taxonomy import REVIEW, TAXONOMY, llm_email_part, llm_static_prompt, nomic_text, parse_category_number, to_category
+from .taxonomy import (
+    REVIEW,
+    TAXONOMY,
+    llm_email_part,
+    llm_static_prompt,
+    nomic_text,
+    parse_category_number,
+    to_category,
+)
 from .taxonomy_store import TaxonomyStore
 ```
 
@@ -1460,25 +1503,26 @@ et, dans `_init_mlx_components`, remplacer `embeddings_path = Path(self.config.m
 6. Remplacer `_classify_uncertain` par :
 
 ```python
-    def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
-        """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement."""
-        results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
-        need_llm: list[tuple[int, str | None]] = []
-        for i, (category, score) in enumerate(self._nomic_top(emails)):
-            if category and score >= self.config.taxonomy.nomic_threshold:
-                results[i] = (category, False)
-            else:
-                need_llm.append((i, category))
-        if need_llm:
-            answers = self._llm_categories([emails[i] for i, _ in need_llm])
-            for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
-                if llm_category and llm_category == nomic_category:
-                    results[i] = (llm_category, True)
-        return results
+def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
+    """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement."""
+    results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
+    need_llm: list[tuple[int, str | None]] = []
+    for i, (category, score) in enumerate(self._nomic_top(emails)):
+        if category and score >= self.config.taxonomy.nomic_threshold:
+            results[i] = (category, False)
+        else:
+            need_llm.append((i, category))
+    if need_llm:
+        answers = self._llm_categories([emails[i] for i, _ in need_llm])
+        for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
+            if llm_category and llm_category == nomic_category:
+                results[i] = (llm_category, True)
+    return results
 
-    def _classify_uncertain(self, emails: list[Email]) -> list[str]:
-        """Signals 5-6 categories only (used by the `chain` measurement)."""
-        return [category for category, _ in self._classify_uncertain_detailed(emails)]
+
+def _classify_uncertain(self, emails: list[Email]) -> list[str]:
+    """Signals 5-6 categories only (used by the `chain` measurement)."""
+    return [category for category, _ in self._classify_uncertain_detailed(emails)]
 ```
 
 7. Remplacer `_classify_batch_taxonomy` par :
@@ -1621,11 +1665,9 @@ par :
 4. Remplacer le bloc de la passe 2 :
 
 ```python
-                # --- Pass 2: Domain-based classification ---
-                uids_to_process_pass3 = _run_domain_classification_pass(
-                    ...
-                )
-                database.flush()
+# --- Pass 2: Domain-based classification ---
+uids_to_process_pass3 = _run_domain_classification_pass(...)
+database.flush()
 ```
 
 par :
@@ -1792,7 +1834,13 @@ def crosscheck() -> None:
 
 def build() -> None:
     from mailtag.mlx_provider import MLXEmbedder
-    from mailtag.taxonomy_build import build_centroids, corpus_refs, domain_rules, fetch_corpus, learned_senders
+    from mailtag.taxonomy_build import (
+        build_centroids,
+        corpus_refs,
+        domain_rules,
+        fetch_corpus,
+        learned_senders,
+    )
 
     if missing := missing_inputs([SCAN, CROSSCHECK]):
         sys.exit(f"Missing {missing[0]}: run `scan` and `crosscheck` first")
@@ -1816,7 +1864,9 @@ def build() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("command", choices=["scan", "crosscheck", "build"])
     {"scan": scan, "crosscheck": crosscheck, "build": build}[parser.parse_args().command]()
 
@@ -2119,7 +2169,11 @@ def chain_eval(n: int, seed: int) -> None:
     doc_emb = embedder.encode(texts(corpus), prefix="search_document: ")
     query_emb = embedder.encode(texts(test), prefix="search_query: ")
     nomic = leave_sender_out_top(
-        doc_emb, [m["category"] for m in corpus], [m["sender"] for m in corpus], query_emb, [m["sender"] for m in test]
+        doc_emb,
+        [m["category"] for m in corpus],
+        [m["sender"] for m in corpus],
+        query_emb,
+        [m["sender"] for m in test],
     )
 
     config = dataclasses.replace(CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=True))
@@ -2144,7 +2198,9 @@ def chain_eval(n: int, seed: int) -> None:
         print(f"   {row['threshold']:.2f}    {row['auto']:5.1%}  {row['precision']:6.1%}")
     best = best_threshold(sweep)
     if best:
-        print(f"\nnomic_threshold = {best['threshold']:.2f}: {best['auto']:.1%} classified at {best['precision']:.1%}")
+        print(
+            f"\nnomic_threshold = {best['threshold']:.2f}: {best['auto']:.1%} classified at {best['precision']:.1%}"
+        )
     print("PASS" if best and precision >= 0.90 else "FAIL")
 ```
 
