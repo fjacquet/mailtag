@@ -26,12 +26,35 @@ TAXONOMY = {
     "Contacts": "personnes qui écrivent directement",
 }
 
+# PARA grouping of the category folders (Areas, Resources, Archives); projects are the owner's own
+# folders. "Archive" is the providers' standard folder, reused rather than duplicated.
+PARA = {
+    **dict.fromkeys(
+        ["Banque & Placements", "Assurances & Retraite", "Impôts & Administration", "Énergie & Télécom",
+         "Santé", "Famille & École", "Logement & Maison", "Transports & Mobilité", "Sécurité & Comptes",
+         "Carrière & Formation", "Associations & Communauté", "Contacts"],
+        "Domaines",
+    ),
+    **dict.fromkeys(
+        ["Veille & Newsletters pro", "Éditeurs IT & Cloud", "Outils & Services en ligne",
+         "Médias & Divertissement", "Voyages & Loisirs"],
+        "Ressources",
+    ),
+    **dict.fromkeys(["Achats", "Colis & Livraisons"], "Archive"),
+}  # fmt: skip
+
+
+def category_folder(category: str) -> str:
+    """IMAP folder of a category (`Domaines/Santé`); any other name (action folder) is unchanged."""
+    return f"{PARA[category]}/{category}" if category in PARA else category
+
+
 ACTION_TODO = "1-A traiter"
 ACTION_PAY = "2-A payer"
 ACTION_READ = "3-A lire"
 ACTION_INFO = "4-Pour info"
-ACTION_PROMO = "5-Promos"
-REVIEW = "9-A revoir"
+ACTION_PROMO = "Promotions"  # the providers' standard folder
+REVIEW = "5-A revoir"
 ACTION_FOLDERS = (ACTION_TODO, ACTION_PAY, ACTION_READ, ACTION_INFO, ACTION_PROMO, REVIEW)
 
 # Folders that hold no category (mailbox system folders, action/promo buckets)
@@ -260,6 +283,9 @@ def to_category(value: str | None) -> str | None:
         return None
     if value in TAXONOMY:
         return value
+    group, _, name = value.partition("/")
+    if PARA.get(name) == group:  # a PARA folder, e.g. "Domaines/Santé"
+        return name
     return map_folder(value)
 
 

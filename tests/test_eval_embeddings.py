@@ -92,11 +92,11 @@ def test_chain_metrics_success_criteria():
     from scripts.eval_embeddings import chain_metrics
 
     labels = ["A"] * 10
-    results = ["A"] * 5 + ["B"] * 0 + ["9-A revoir"] * 5  # 50% auto, 100% precise
+    results = ["A"] * 5 + ["B"] * 0 + ["5-A revoir"] * 5  # 50% auto, 100% precise
     m = chain_metrics(results, labels, llm_seconds=6.0, llm_calls=5)
     assert m == {"auto": 0.5, "precision": 1.0, "sec_per_llm_email": 1.2, "passed": True}
 
-    bad = chain_metrics(["A", "B", "9-A revoir", "9-A revoir"], ["A"] * 4, llm_seconds=8.0, llm_calls=4)
+    bad = chain_metrics(["A", "B", "5-A revoir", "5-A revoir"], ["A"] * 4, llm_seconds=8.0, llm_calls=4)
     assert bad["precision"] == 0.5
     assert bad["passed"] is False
 

@@ -10,7 +10,7 @@ from mailtag.config import CONFIG
 from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
 from mailtag.models import Email
-from mailtag.taxonomy import REVIEW
+from mailtag.taxonomy import REVIEW, category_folder
 
 from ..dependencies import app_state
 from ..schemas import (
@@ -28,7 +28,7 @@ router = APIRouter()
 # Categories that classify-and-move must not try to move (not actionable folders).
 UNACTIONABLE_CATEGORIES = frozenset({"À Classer", "(Model Error)", "Unclassified"})
 # Same, plus the taxonomy review bucket — used only for the classify-batch "classified" count,
-# since REVIEW ("9-A revoir") is a valid destination for classify-and-move.
+# since REVIEW ("5-A revoir") is a valid destination for classify-and-move.
 UNCLASSIFIED_CATEGORIES = UNACTIONABLE_CATEGORIES | {REVIEW}
 
 
@@ -182,15 +182,17 @@ def classify_and_move(request: ClassifyAndMoveRequest):
             error="Category not actionable for move",
         )
 
+    # Taxonomy categories live in their PARA folder (e.g. "Domaines/Santé")
+    folder = category_folder(category) if CONFIG.taxonomy.enabled else category
     try:
         if request.provider == "imap":
             provider = ImapService(CONFIG.imap, CONFIG.fast_parse)
             with provider.connect():
-                provider.move_email(email, category)
+                provider.move_email(email, folder)
         elif request.provider == "gmail":
             provider = GmailService(CONFIG.gmail)
             with provider.connect():
-                provider.move_email(email, category)
+                provider.move_email(email, folder)
 
         return ClassifyAndMoveResponse(
             msg_id=request.msg_id,

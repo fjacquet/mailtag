@@ -65,14 +65,14 @@ def test_archives_only_seen_unflagged_old_known_mails(mocker, pending):
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
 
-    provider.batch_move_emails.assert_called_once_with([1], "Achats")
+    provider.batch_move_emails.assert_called_once_with([1], "Archive/Achats")
     assert result == {"archived": 1, "learned": 0, "orphans": 0}
     assert pending.get("<a>") is None
     assert pending.get("<b>") is not None
 
 
 def test_review_folder_is_never_archived(mocker, pending):
-    provider, db = setup(mocker, {"9-A revoir": {1: mail("<r>")}})
+    provider, db = setup(mocker, {"5-A revoir": {1: mail("<r>")}})
     pending.add("<r>", None, "s@x", "2026-09-01")
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
@@ -83,7 +83,7 @@ def test_review_folder_is_never_archived(mocker, pending):
 
 
 def test_mail_moved_from_review_to_category_becomes_rule(mocker, pending):
-    provider, db = setup(mocker, {"9-A revoir": {}, "Santé": {9: mail("<r>")}})
+    provider, db = setup(mocker, {"5-A revoir": {}, "Domaines/Santé": {9: mail("<r>")}})
     pending.add("<r>", None, "doc@clinic.ch", "2026-09-01")
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
@@ -132,7 +132,7 @@ def test_one_broken_folder_does_not_abort_the_others(mocker, pending):
 
     result = run_archive(provider, pending, db, days=7, today=TODAY)
 
-    provider.batch_move_emails.assert_called_once_with([2], "Achats")
+    provider.batch_move_emails.assert_called_once_with([2], "Archive/Achats")
     assert result["archived"] == 1
 
 
@@ -157,8 +157,8 @@ def test_broken_review_folder_does_not_abort_learning_from_other_categories(mock
     must not stop learning from the remaining categories."""
     provider, db = setup(
         mocker,
-        {"9-A revoir": {}, "Assurances & Retraite": {}, "Santé": {9: mail("<r>")}},
-        broken_folders={"Assurances & Retraite"},
+        {"5-A revoir": {}, "Domaines/Assurances & Retraite": {}, "Domaines/Santé": {9: mail("<r>")}},
+        broken_folders={"Domaines/Assurances & Retraite"},
     )
     pending.add("<r>", None, "doc@clinic.ch", "2026-09-01")
 
@@ -179,3 +179,13 @@ def test_validate_changes_nothing(mocker, pending):
     assert len(pending.items()) == 2
     db.set_validated.assert_not_called()
     db.save.assert_not_called()
+
+
+def test_mail_sorted_into_promotions_by_the_provider_is_never_moved(mocker, pending):
+    """Promotions is Infomaniak's standard folder: mails it sorted there itself have no entry."""
+    provider, db = setup(mocker, {"Promotions": {1: mail("<own>"), 2: mail("<ours>")}})
+    pending.add("<ours>", "Achats", "s@x", "2026-09-01")
+
+    run_archive(provider, pending, db, days=7, today=TODAY)
+
+    provider.batch_move_emails.assert_called_once_with([2], "Archive/Achats")

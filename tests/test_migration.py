@@ -18,7 +18,7 @@ from mailtag.taxonomy import REVIEW
 
 
 def test_categories_and_action_folders_and_inbox_are_excluded():
-    legacy = ["Voyages", "1-A traiter", "9-A revoir", "INBOX", "Santé"]
+    legacy = ["Voyages", "1-A traiter", "5-A revoir", "INBOX", "Santé"]
 
     assert folders_to_migrate(legacy) == ["Voyages"]
 
@@ -292,11 +292,11 @@ def test_empty_legacy_folders_only_empty_and_old():
         {
             "Voyages/Sixt": {},
             "Voyages/Hotels": {1: mail("a@x.ch")},
-            "9-A revoir": {},
+            "5-A revoir": {},
         }
     )
-    legacy = ["Voyages/Sixt", "Voyages/Hotels", "9-A revoir"]
-    live_folders = ["Voyages/Sixt", "Voyages/Hotels", "9-A revoir"]
+    legacy = ["Voyages/Sixt", "Voyages/Hotels", "5-A revoir"]
+    live_folders = ["Voyages/Sixt", "Voyages/Hotels", "5-A revoir"]
 
     assert empty_legacy_folders(client, legacy, live_folders) == ["Voyages/Sixt"]
 
@@ -326,9 +326,9 @@ def test_empty_parent_and_child_both_removable_deepest_first():
 
 
 def test_protected_folders_never_included_even_if_empty():
-    client = FakeClient({"Achats": {}, "9-A revoir": {}, "INBOX": {}})
-    legacy = ["Achats", "9-A revoir", "INBOX"]
-    live_folders = ["Achats", "9-A revoir", "INBOX"]
+    client = FakeClient({"Achats": {}, "5-A revoir": {}, "INBOX": {}})
+    legacy = ["Achats", "5-A revoir", "INBOX"]
+    live_folders = ["Achats", "5-A revoir", "INBOX"]
 
     assert empty_legacy_folders(client, legacy, live_folders) == []
 
@@ -424,3 +424,87 @@ def test_migrate_mailbox_stops_on_lost_connection(provider, pending):
 
     assert report["aborted_at"] == "B"
     assert "C" not in report["folders"]
+
+
+class RenamingClient(FakeClient):
+    def __init__(self, folders, refuse=frozenset()):
+        super().__init__(folders)
+        self.refuse = refuse
+
+    def rename_folder(self, old, new):
+        if old in self.refuse:
+            raise imaplib.IMAP4.error(f"cannot rename {old}")
+        self.folders[new] = self.folders.pop(old)
+
+    def delete_folder(self, name):
+        del self.folders[name]
+
+
+def test_reorganize_plan_renames_flat_categories_and_merges_duplicates():
+    from mailtag.migration import reorganize_plan
+
+    live = ["INBOX", "Santé", "Achats", "Archive", "9-A revoir", "5-Promos", "Promotions",
+            "Domaines/Contacts", "Contacts"]  # fmt: skip
+    plan = reorganize_plan(live)
+
+    assert ("Santé", "Domaines/Santé") in plan["renames"]
+    assert ("Achats", "Archive/Achats") in plan["renames"]
+    assert ("9-A revoir", "5-A revoir") in plan["renames"]
+    assert ("5-Promos", "Promotions") in plan["merges"]
+    assert ("Contacts", "Domaines/Contacts") in plan["merges"]  # both exist: merge, never overwrite
+
+
+def test_reorganize_plan_is_empty_once_done():
+    from mailtag.migration import reorganize_plan
+
+    done = ["INBOX", "Domaines/Santé", "5-A revoir", "Promotions"]
+    assert reorganize_plan(done) == {"renames": [], "merges": []}
+
+
+RENAME_AND_MERGE = {"renames": [("Santé", "Domaines/Santé")], "merges": [("5-Promos", "Promotions")]}
+
+
+def test_reorganize_dry_run_changes_nothing(provider):
+    from mailtag.migration import reorganize
+
+    client = RenamingClient({"Santé": {1: mail("a@x.ch")}, "5-Promos": {2: mail("b@x.ch")}, "Promotions": {}})
+    moving(provider, client)
+
+    reorganize(provider, RENAME_AND_MERGE, apply=False)
+
+    assert set(client.folders) == {"Santé", "5-Promos", "Promotions"}
+
+
+def test_reorganize_apply_renames_and_merges(provider):
+    from mailtag.migration import reorganize
+
+    client = RenamingClient(
+        {"INBOX": {}, "Santé": {1: mail("a@x.ch")}, "5-Promos": {2: mail("b@x.ch")},
+         "Promotions": {3: mail("c@x.ch")}}
+    )  # fmt: skip
+    moving(provider, client)
+
+    report = reorganize(provider, RENAME_AND_MERGE, apply=True)
+
+    assert client.folders["Domaines/Santé"] == {1: mail("a@x.ch")}
+    assert set(client.folders["Promotions"]) == {2, 3}
+    assert "5-Promos" not in client.folders and "Santé" not in client.folders
+    assert report["failed"] == []
+
+
+def test_reorganize_failed_rename_is_reported_and_others_continue(provider):
+    from mailtag.migration import reorganize
+
+    client = RenamingClient({"INBOX": {}, "Santé": {}, "Achats": {}}, refuse={"Santé"})
+    moving(provider, client)
+
+    plan = {"renames": [("Santé", "Domaines/Santé"), ("Achats", "Archive/Achats")], "merges": []}
+    report = reorganize(provider, plan, apply=True)
+
+    assert report["failed"] == ["Santé"]
+    assert "Archive/Achats" in client.folders
+
+
+def test_para_folders_are_protected_from_migration_and_prune():
+    legacy = ["Domaines/Santé", "Archive/Achats", "Domaines", "Ressources", "Voyages"]
+    assert folders_to_migrate(legacy) == ["Voyages"]

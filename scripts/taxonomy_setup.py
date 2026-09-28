@@ -10,6 +10,7 @@ No preparation step moves an email. Legacy folder migration (docs/superpowers/sp
 
     uv run python scripts/taxonomy_setup.py migrate [--apply]  # legacy folder mail -> the 19 categories
     uv run python scripts/taxonomy_setup.py prune [--apply]    # delete emptied legacy folders
+    uv run python scripts/taxonomy_setup.py reorganize [--apply]  # PARA folders, standard Promotions
 """
 
 import argparse
@@ -171,15 +172,31 @@ def prune(apply: bool) -> None:
         logger.info(f"Deleted {len(deleted)} of {len(removable)} empty legacy folders")
 
 
+def reorganize_folders(apply: bool) -> None:
+    from mailtag.migration import reorganize, reorganize_plan
+
+    if reason := migration_blocked(CONFIG.taxonomy):
+        sys.exit(reason)
+    if apply:
+        logger.warning("reorganize --apply is running: do not run `run` or `serve` until it finishes")
+    with _imap() as provider:
+        plan = reorganize_plan([folder[2] for folder in provider.client.list_folders()])
+        report = reorganize(provider, plan, apply)
+    logger.info(
+        f"Reorganize: {len(plan['renames'])} renames, {len(plan['merges'])} merges"
+        f"{'' if apply else ' (dry run)'}, {len(report['failed'])} failed {report['failed']}"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("command", choices=["scan", "crosscheck", "build", "migrate", "prune"])
+    parser.add_argument("command", choices=["scan", "crosscheck", "build", "migrate", "prune", "reorganize"])
     parser.add_argument("--apply", action="store_true", help="Actually move/delete (default: dry run)")
     args = parser.parse_args()
-    if args.command in ("migrate", "prune"):
-        {"migrate": migrate, "prune": prune}[args.command](args.apply)
+    if args.command in ("migrate", "prune", "reorganize"):
+        {"migrate": migrate, "prune": prune, "reorganize": reorganize_folders}[args.command](args.apply)
     else:
         {"scan": scan, "crosscheck": crosscheck, "build": build}[args.command]()
 

@@ -285,6 +285,24 @@ class TestClassifyAndMove:
             assert data["category"] == "Finance/Invoices"
             assert data["moved"] is True
 
+    def test_classify_and_move_files_a_category_into_its_para_folder(self, api_client, mock_classifier):
+        mock_classifier.classify_email.return_value = "Santé"
+        with (
+            patch("mailtag.api.routes.classify.ImapService") as mock_imap,
+            patch("mailtag.api.routes.classify.CONFIG.taxonomy.enabled", True),
+        ):
+            mock_provider = MagicMock()
+            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
+            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_imap.return_value = mock_provider
+
+            payload = _sample_email()
+            payload["provider"] = "imap"
+            response = api_client.post("/api/v1/classify-and-move", json=payload, headers=_auth_headers())
+
+            assert response.status_code == 200
+            assert mock_provider.move_email.call_args.args[1] == "Domaines/Santé"
+
     def test_classify_and_move_unactionable(self, api_client, mock_classifier):
         """Unactionable category should not trigger a move."""
         mock_classifier.classify_email.return_value = "À Classer"
@@ -347,8 +365,8 @@ class TestClassifyAndMove:
 
 class TestClassifyBatchTaxonomyReview:
     def test_review_category_not_counted_as_classified(self, api_client, mock_classifier):
-        """mailtag.taxonomy.REVIEW ('9-A revoir') must not count towards `classified`."""
-        mock_classifier.classify_emails_batch.return_value = ["Finance/Invoices", "9-A revoir"]
+        """mailtag.taxonomy.REVIEW ('5-A revoir') must not count towards `classified`."""
+        mock_classifier.classify_emails_batch.return_value = ["Finance/Invoices", "5-A revoir"]
         response = api_client.post(
             "/api/v1/classify-batch",
             json={

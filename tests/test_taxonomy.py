@@ -51,8 +51,10 @@ def test_every_mapped_category_is_in_taxonomy():
 
 
 def test_action_folders_exact_names():
-    assert ACTION_FOLDERS == ("1-A traiter", "2-A payer", "3-A lire", "4-Pour info", "5-Promos", "9-A revoir")
-    assert REVIEW == "9-A revoir"
+    assert ACTION_FOLDERS == (
+        "1-A traiter", "2-A payer", "3-A lire", "4-Pour info", "Promotions", "5-A revoir"
+    )  # fmt: skip
+    assert REVIEW == "5-A revoir"
 
 
 @pytest.mark.parametrize(
@@ -126,3 +128,18 @@ def test_nomic_text_matches_production_format():
     assert nomic_text("", "info@bcv.ch", "Relevé", "") == "Email from info@bcv.ch: Relevé"
     assert nomic_text("", "", "S", "") == "Email from Unknown: S"
     assert nomic_text("BCV", "info@bcv.ch", "Relevé", "Votre solde") == "Email from BCV: Relevé\nVotre solde"
+
+
+def test_every_category_has_a_para_folder():
+    from mailtag.taxonomy import category_folder
+
+    assert category_folder("Santé") == "Domaines/Santé"
+    assert category_folder("Veille & Newsletters pro") == "Ressources/Veille & Newsletters pro"
+    assert category_folder("Achats") == "Archive/Achats"
+    assert all(category_folder(c).split("/")[0] in ("Domaines", "Ressources", "Archive") for c in TAXONOMY)
+    assert category_folder(REVIEW) == REVIEW
+
+
+def test_para_folder_maps_back_to_its_category():
+    assert to_category("Domaines/Santé") == "Santé"
+    assert to_category("Archive/Achats") == "Achats"

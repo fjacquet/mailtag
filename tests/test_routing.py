@@ -24,14 +24,14 @@ def test_groups_moves_by_action_folder_and_records_category(mocker, pending):
         routed("1", "Banque & Placements", subject="Votre facture"),
         routed("2", "Médias & Divertissement"),
         routed("3", "Médias & Divertissement"),
-        routed("4", "9-A revoir"),
+        routed("4", "5-A revoir"),
     ]
 
     moved = route_to_action_folders(provider, pending, mails, validate=False, today=TODAY)
 
     assert moved == 4
     calls = {c.args[1]: c.args[0] for c in provider.batch_move_emails.call_args_list}
-    assert calls == {"2-A payer": ["1"], "3-A lire": ["2", "3"], "9-A revoir": ["4"]}
+    assert calls == {"2-A payer": ["1"], "3-A lire": ["2", "3"], "5-A revoir": ["4"]}
     assert pending.get("<1@x>") == {
         "category": "Banque & Placements",
         "sender": "noreply@x.ch",

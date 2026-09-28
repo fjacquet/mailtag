@@ -9,15 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `9-A revoir`) and is archived into its category after `archive_after_days` (#36)
+- **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `5-A revoir`) and is archived into its category after `archive_after_days` (#36)
 - **Learned taxonomy rules** in `db/taxonomy/`: validated senders, senders learned after two nomic/Gemma agreements, business domain rules, and 19 nomic centroids built from verified mail (#38)
 - **Taxonomy setup** `scripts/taxonomy_setup.py` (`scan`, `crosscheck`, `build`) and the local Streamlit review page `scripts/taxonomy_review.py` (folder audit, sender review, runtime-learned senders, rule control sample) (#38, #39, #40, #41)
 - **Owner's addresses** (`own_addresses`) are never a rule and never learned from (#41)
-- **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply`
-- **Gmail as a second IMAP account** (`[gmail_imap]`): `run --provider gmail` classifies new Gmail mail through IMAP (app password) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk folder and folder cache. The Gmail API/OAuth path (`GmailService`) is no longer used by the CLI
+- **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply` (#43)
+- **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders
+- **Gmail as a second IMAP account** (`[gmail_imap]`): `run --provider gmail` classifies new Gmail mail through IMAP (app password) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk folder and folder cache. The Gmail API/OAuth path (`GmailService`) is no longer used by the CLI (#44)
 
 ### Changed
 
+- Promos go to the providers' standard `Promotions` folder (was `5-Promos`); the review folder is `5-A revoir` (was `9-A revoir`)
 - Domain rules weigh each sender's validated category, else its audited folder category; the review page only shows senders no rule covers (#41)
 - `nomic_threshold` set to 0.90 in `config.toml` (#42)
 
