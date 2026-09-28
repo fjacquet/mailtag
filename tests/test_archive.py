@@ -103,7 +103,7 @@ def test_orphan_entries_are_removed(mocker, pending):
 
     assert result["orphans"] == 2
     assert pending.items() == []
-    db.promote_to_validated.assert_not_called()
+    db.set_validated.assert_not_called()
 
 
 def test_missing_action_folder_is_skipped(mocker, pending):
@@ -176,7 +176,6 @@ def test_validate_changes_nothing(mocker, pending):
     run_archive(provider, pending, db, days=7, today=TODAY, validate=True)
 
     provider.batch_move_emails.assert_not_called()
-    db.promote_to_validated.assert_not_called()
     assert len(pending.items()) == 2
     db.set_validated.assert_not_called()
     db.save.assert_not_called()

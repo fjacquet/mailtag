@@ -123,3 +123,30 @@ def test_write_json_atomic_creates_parent_and_leaves_no_temp_file(tmp_path):
     write_json_atomic(target, {"é": 1})
     assert json.loads(target.read_text(encoding="utf-8")) == {"é": 1}
     assert [p.name for p in target.parent.iterdir()] == ["f.json"]
+
+
+def test_concurrent_learning_and_saves_are_safe(tmp_path):
+    """The webhook API shares one store across FastAPI's thread pool."""
+    import threading
+
+    s = TaxonomyStore(tmp_path)
+    errors = []
+
+    def learn(worker):
+        try:
+            for i in range(400):
+                s.record_agreement(f"s{worker}-{i}@x.ch", "Achats")
+                if i % 20 == 0:
+                    s.save()
+        except Exception as e:  # noqa: BLE001 - any race surfaces here
+            errors.append(e)
+
+    threads = [threading.Thread(target=learn, args=(w,)) for w in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    s.save()
+
+    assert errors == []
+    assert len(TaxonomyStore(tmp_path).senders) == 8 * 400

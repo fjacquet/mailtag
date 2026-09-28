@@ -3,6 +3,7 @@
 import json
 import os
 import tempfile
+import threading
 from pathlib import Path
 
 from loguru import logger
@@ -53,9 +54,15 @@ class TaxonomyStore:
         self.domains: dict[str, str] = _load(self.directory / "domains.json")
         self.folder_overrides: dict[str, str | None] = _load(self.directory / "folder_overrides.json")
         self._dirty: set[str] = set()
+        # One store is shared by the webhook API's thread pool
+        self._lock = threading.RLock()
 
     def category_for(self, sender_address: str) -> str | None:
         sender = normalize_address(sender_address)
+        with self._lock:
+            return self._category_for(sender)
+
+    def _category_for(self, sender: str) -> str | None:
         if sender in self.validated:
             return self.validated[sender]
         entry = self.senders.get(sender)
@@ -68,40 +75,45 @@ class TaxonomyStore:
 
     def record_agreement(self, sender_address: str, category: str) -> None:
         sender = normalize_address(sender_address)
-        if not sender or sender in self.validated:
-            return
-        entry = self.senders.get(sender)
-        if entry is None:
-            self.senders[sender] = {"category": category, "agreements": 1}
-        elif entry["category"] == category:
-            entry["agreements"] += 1
-        else:
-            logger.info(f"Contradiction for {sender}: {entry['category']} vs {category}, entry removed")
-            del self.senders[sender]
-        self._dirty.add("senders")
+        with self._lock:
+            if not sender or sender in self.validated:
+                return
+            entry = self.senders.get(sender)
+            if entry is None:
+                self.senders[sender] = {"category": category, "agreements": 1}
+            elif entry["category"] == category:
+                entry["agreements"] += 1
+            else:
+                logger.info(f"Contradiction for {sender}: {entry['category']} vs {category}, entry removed")
+                del self.senders[sender]
+            self._dirty.add("senders")
 
     def set_validated(self, sender_address: str, category: str) -> None:
         sender = normalize_address(sender_address)
-        self.validated[sender] = category
-        self._dirty.add("validated")
-        if self.senders.pop(sender, None) is not None:
-            self._dirty.add("senders")
+        with self._lock:
+            self.validated[sender] = category
+            self._dirty.add("validated")
+            if self.senders.pop(sender, None) is not None:
+                self._dirty.add("senders")
 
     def set_folder_category(self, folder: str, category: str | None) -> None:
         """Audit decision for an old folder; None means the folder holds no category."""
-        self.folder_overrides[folder] = category
-        self._dirty.add("folder_overrides")
+        with self._lock:
+            self.folder_overrides[folder] = category
+            self._dirty.add("folder_overrides")
 
     def replace_rules(self, learned: dict[str, dict], domains: dict[str, str]) -> None:
         """Install rules from `build`; runtime entries for senders `build` does not know are kept."""
-        self.senders = {**self.senders, **learned}
-        self.domains = dict(domains)
-        self._dirty.update({"senders", "domains"})
+        with self._lock:
+            self.senders = {**self.senders, **learned}
+            self.domains = dict(domains)
+            self._dirty.update({"senders", "domains"})
 
     def save(self) -> None:
         if self.read_only:
             return
-        for name in _FILES:
-            if name in self._dirty:
-                write_json_atomic(self.directory / f"{name}.json", getattr(self, name))
-        self._dirty.clear()
+        with self._lock:
+            for name in _FILES:
+                if name in self._dirty:
+                    write_json_atomic(self.directory / f"{name}.json", getattr(self, name))
+            self._dirty.clear()

@@ -19,7 +19,6 @@ Core package for email classification and organization.
 
 - **database.py** - `ClassificationDatabase` class managing 3 JSON databases
   - `update_suggestion()` - Record AI suggestions
-  - `promote_to_validated()` - Move to validated DB
   - `get_category_by_domain()` / `store_domain_classification()` - Domain rules
   - All lookups use lowercase-normalized emails/domains
 
