@@ -39,7 +39,7 @@ folder_cache_file = "data/gmail_folders.json"
 batch_size = 500
 folder_cache_ttl_hours = 24
 unclassified_folder_name = "A Classer"
-junk_folder_name = "Junk"
+junk_folder_name = "Spam"
 
 [mlx]
 enabled = true

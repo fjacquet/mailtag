@@ -187,8 +187,17 @@ def delete_empty_folders(client, removable: list[str], live_folders: list[str]) 
     return deleted
 
 
-# Folders renamed or merged when adopting the standard Promotions folder and PARA (old -> new)
-_REORGANIZE = {**{c: category_folder(c) for c in TAXONOMY}, "9-A revoir": REVIEW, "5-Promos": "Promotions"}
+# Folders renamed or merged when adopting the standard Promotions folder and PARA (old -> new), and
+# duplicate system folders (created by Apple Mail) merged into the ones Infomaniak's webmail uses
+_REORGANIZE = {
+    **{c: category_folder(c) for c in TAXONOMY},
+    "9-A revoir": REVIEW,
+    "5-Promos": "Promotions",
+    "Archives": "Archive",
+    "Junk": "Spam",
+    "Deleted Messages": "Trash",
+    "Sent Messages": "Sent",
+}
 
 
 def reorganize_plan(live_folders: list[str]) -> dict:
