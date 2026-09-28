@@ -87,9 +87,10 @@ llm_temperature = 0.2
 
 [taxonomy]
 # 19-category taxonomy + action folders (spec docs/superpowers/specs/2026-09-27-*)
-# Keep false until `scripts/eval_embeddings.py chain` meets the success criteria
-enabled = false
-nomic_threshold = 0.70
+# Enabled 2026-09-28: rules 59/60 right on a random control sample, 54 % of INBOX classified in a dry run
+enabled = true
+# nomic alone must be very sure; below, nomic and Gemma must agree, else 9-A revoir
+nomic_threshold = 0.90
 llm_batch_size = 8
 archive_after_days = 7
 # Learned rules and centroids (docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md)
