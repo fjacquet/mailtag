@@ -3,8 +3,13 @@ calls (spec docs/superpowers/specs/2026-09-28-gmail-api-taxonomy-design.md)."""
 
 import base64
 import re
+from contextlib import contextmanager
 
 from googleapiclient.errors import HttpError
+
+from mailtag.config import FastParseConfig, GmailConfig
+from mailtag.gmail_auth import get_gmail_service
+from mailtag.imap_service import ImapService
 
 PROMOTIONS = "Promotions"
 _CATEGORIES = ("CATEGORY_PERSONAL", "CATEGORY_SOCIAL", "CATEGORY_UPDATES", "CATEGORY_FORUMS")
@@ -163,3 +168,24 @@ class GmailLabelClient:
 
     def is_login(self) -> bool:
         return True
+
+
+class GmailApiService(ImapService):
+    """The Gmail inbox through the Gmail API, using the same taxonomy flow as `ImapService`
+    (`get_email_headers`, `get_full_emails`, `batch_move_emails`, `get_folder_hierarchy` are inherited
+    unchanged; only `connect()` is replaced)."""
+
+    def __init__(self, config: GmailConfig, fast_parse_config: FastParseConfig):
+        super().__init__(config, fast_parse_config)
+
+    @contextmanager
+    def connect(self):
+        service = get_gmail_service(self.config.credentials_file, self.config.token_file)
+        if service is None:
+            raise ConnectionError("Could not authenticate with the Gmail API.")
+        self.client = GmailLabelClient(service, junk=self.config.junk_folder_name or "SPAM")
+        try:
+            yield self
+        finally:
+            self._stop_metrics_thread()
+            self.client.logout()

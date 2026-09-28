@@ -12,8 +12,10 @@ import httplib2
 import pytest
 from googleapiclient.errors import HttpError
 
+from mailtag.config import FastParseConfig, GmailConfig
 from mailtag.gmail_api import (
     PROMOTIONS,
+    GmailApiService,
     GmailLabelClient,
     criteria_query,
     move_changes,
@@ -393,3 +395,71 @@ class TestGmailLabelClientMove:
             "CATEGORY_FORUMS",
         }
         assert messages["m1"]["labelIds"] == {"INBOX", "CATEGORY_PROMOTIONS"}
+
+
+# --------------------------------------------------------------------------------------------------
+# GmailApiService (Task 2)
+# --------------------------------------------------------------------------------------------------
+
+GMAIL_CONFIG = GmailConfig(credentials_file="creds.json", token_file="token.json")
+FAST = FastParseConfig(metrics_enabled=False)
+
+
+class TestGmailApiServiceConnect:
+    def test_connect_yields_service_with_gmail_label_client(self, mocker):
+        fake = FakeGmail()
+        mocker.patch("mailtag.gmail_api.get_gmail_service", return_value=fake)
+
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        with service.connect() as provider:
+            assert provider is service
+            assert isinstance(provider.client, GmailLabelClient)
+            assert provider.client.service is fake
+
+    def test_connect_raises_connection_error_when_service_is_none(self, mocker):
+        mocker.patch("mailtag.gmail_api.get_gmail_service", return_value=None)
+
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        with pytest.raises(ConnectionError):
+            with service.connect():
+                pass
+
+
+class TestGmailApiServiceFlow:
+    def test_get_email_headers_returns_routing_fields(self):
+        messages = {
+            "m1": {
+                "labelIds": {"INBOX"},
+                "headers": {
+                    "From": "sender@example.com",
+                    "Subject": "Hello",
+                    "Message-ID": "<abc@example.com>",
+                    "List-Unsubscribe": "<mailto:unsub@example.com>",
+                },
+            }
+        }
+        fake = FakeGmail(messages=messages)
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        service.client = GmailLabelClient(fake)
+
+        headers = service.get_email_headers(["m1"])
+
+        assert headers["m1"]["sender_address"] == "sender@example.com"
+        assert headers["m1"]["subject"] == "Hello"
+        assert headers["m1"]["message_id"] == "<abc@example.com>"
+        assert headers["m1"]["has_unsubscribe"] is True
+        assert headers["m1"]["is_bulk"] is True
+
+    def test_batch_move_emails_creates_label_and_removes_inbox(self):
+        messages = {"m1": {"labelIds": {"INBOX"}}}
+        fake = FakeGmail(messages=messages)
+        service = GmailApiService(GMAIL_CONFIG, FAST)
+        service.client = GmailLabelClient(fake)
+        service.client.select_folder("INBOX")
+
+        service.batch_move_emails(["m1"], "1-A traiter")
+
+        assert "1-A traiter" in fake.label_ids
+        call = fake.batch_modify_calls[0]
+        assert call["removeLabelIds"] == ["INBOX"]
+        assert call["addLabelIds"] == [fake.label_ids["1-A traiter"]]
