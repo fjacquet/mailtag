@@ -46,3 +46,34 @@ def test_needs_rescan_scan_newer(tmp_path):
     os.utime(scan, (2000, 2000))
 
     assert needs_rescan(scan, overrides) is False
+
+
+def test_migration_blocked_when_taxonomy_disabled(tmp_path):
+    from mailtag.config import TaxonomyConfig
+    from scripts.taxonomy_setup import migration_blocked
+
+    (tmp_path / "senders.json").write_text("{}")
+    (tmp_path / "domains.json").write_text("{}")
+    cfg = TaxonomyConfig(enabled=False, taxonomy_db_dir=str(tmp_path))
+
+    assert migration_blocked(cfg) is not None
+
+
+def test_migration_blocked_when_rules_missing(tmp_path):
+    from mailtag.config import TaxonomyConfig
+    from scripts.taxonomy_setup import migration_blocked
+
+    cfg = TaxonomyConfig(enabled=True, taxonomy_db_dir=str(tmp_path))
+
+    assert migration_blocked(cfg) is not None
+
+
+def test_migration_not_blocked_when_enabled_and_rules_present(tmp_path):
+    from mailtag.config import TaxonomyConfig
+    from scripts.taxonomy_setup import migration_blocked
+
+    (tmp_path / "senders.json").write_text("{}")
+    (tmp_path / "domains.json").write_text("{}")
+    cfg = TaxonomyConfig(enabled=True, taxonomy_db_dir=str(tmp_path))
+
+    assert migration_blocked(cfg) is None

@@ -11,22 +11,34 @@ No step moves an email.
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from loguru import logger
 
-from mailtag.config import CONFIG
+from mailtag.config import CONFIG, TaxonomyConfig
 from mailtag.taxonomy_store import TaxonomyStore, write_json_atomic
 
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
 CORPUS = Path("data/taxonomy_corpus.json")
+MIGRATION_REPORT = Path("data/migration_report.json")
 
 
 def missing_inputs(paths: list[Path]) -> list[Path]:
     return [p for p in paths if not p.exists()]
+
+
+def migration_blocked(cfg: TaxonomyConfig) -> str | None:
+    """Reason `migrate`/`prune` must not run, or None if the taxonomy rules are ready."""
+    if not cfg.enabled:
+        return "Taxonomy mode is disabled ([taxonomy] enabled = false)"
+    db_dir = Path(cfg.taxonomy_db_dir)
+    if missing := missing_inputs([db_dir / "senders.json", db_dir / "domains.json"]):
+        return f"Missing {missing[0]}: run `scan`, `crosscheck` and `build` first"
+    return None
 
 
 def needs_rescan(scan_path: Path, overrides_path: Path) -> bool:
@@ -105,12 +117,68 @@ def build() -> None:
     logger.info(f"Centroids for {router.num_categories} categories from {len(corpus)} mails")
 
 
+def migrate(apply: bool) -> None:
+    from mailtag.migration import folders_to_migrate, migrate_mailbox
+    from mailtag.pending_archive import PendingArchive
+
+    cfg = CONFIG.taxonomy
+    if reason := migration_blocked(cfg):
+        sys.exit(reason)
+    if apply:
+        logger.warning("migrate --apply is running: do not run `run` or `serve` until it finishes")
+
+    legacy = json.loads(Path(cfg.legacy_folders_file).read_text(encoding="utf-8"))
+    rules = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
+    pending = PendingArchive(Path(cfg.pending_archive_file))
+    own = {address.lower() for address in cfg.own_addresses}
+
+    with _imap() as provider:
+        report = migrate_mailbox(
+            provider, folders_to_migrate(legacy), rules.folder_overrides, rules, own, pending,
+            date.today(), apply,
+        )  # fmt: skip
+    write_json_atomic(MIGRATION_REPORT, report)
+    logger.info(
+        f"Migration: {sum(report['totals'].values())} mails moved, {report['review_total']} to review, "
+        f"{len(report['skipped_folders'])} folders skipped"
+    )
+
+
+def prune(apply: bool) -> None:
+    from mailtag.migration import empty_legacy_folders
+
+    cfg = CONFIG.taxonomy
+    legacy = json.loads(Path(cfg.legacy_folders_file).read_text(encoding="utf-8"))
+
+    with _imap() as provider:
+        client = provider.client
+        live_folders = [folder[2] for folder in client.list_folders()]
+        removable = empty_legacy_folders(client, legacy, live_folders)
+        if not apply:
+            logger.info(f"{len(removable)} empty legacy folders could be deleted:")
+            for folder in removable:
+                logger.info(f"  {folder}")
+            return
+        for folder in removable:
+            client.select_folder(folder, readonly=True)
+            if client.search(["ALL"]):
+                logger.warning(f"Skipping {folder}: no longer empty")
+                continue
+            client.delete_folder(folder)
+            logger.info(f"Deleted {folder}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("command", choices=["scan", "crosscheck", "build"])
-    {"scan": scan, "crosscheck": crosscheck, "build": build}[parser.parse_args().command]()
+    parser.add_argument("command", choices=["scan", "crosscheck", "build", "migrate", "prune"])
+    parser.add_argument("--apply", action="store_true", help="Actually move/delete (default: dry run)")
+    args = parser.parse_args()
+    if args.command in ("migrate", "prune"):
+        {"migrate": migrate, "prune": prune}[args.command](args.apply)
+    else:
+        {"scan": scan, "crosscheck": crosscheck, "build": build}[args.command]()
 
 
 if __name__ == "__main__":
