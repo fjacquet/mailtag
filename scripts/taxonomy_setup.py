@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from loguru import logger
 
 from mailtag.config import CONFIG, TaxonomyConfig
-from mailtag.taxonomy_store import TaxonomyStore, write_json_atomic
+from mailtag.taxonomy_store import TaxonomyStore, normalize_address, write_json_atomic
 
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
@@ -70,7 +70,7 @@ def scan() -> None:
     folders = json.loads(Path(CONFIG.taxonomy.legacy_folders_file).read_text(encoding="utf-8"))
     overrides = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir)).folder_overrides
     with _imap() as provider:
-        own = {address.lower() for address in CONFIG.taxonomy.own_addresses}
+        own = {normalize_address(address) for address in CONFIG.taxonomy.own_addresses}
         result = scan_mailbox(provider, folders, overrides=overrides, ignored=own)
     write_json_atomic(SCAN, result)
     logger.info(f"Wrote {SCAN}: {len(result['senders'])} senders")
@@ -134,7 +134,7 @@ def migrate(apply: bool) -> None:
     legacy = json.loads(Path(cfg.legacy_folders_file).read_text(encoding="utf-8"))
     rules = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
     pending = PendingArchive(Path(cfg.pending_archive_file))
-    own = {address.lower() for address in cfg.own_addresses}
+    own = {normalize_address(address) for address in cfg.own_addresses}
 
     with _imap() as provider:
         report = migrate_mailbox(
@@ -143,15 +143,19 @@ def migrate(apply: bool) -> None:
         )  # fmt: skip
     write_json_atomic(MIGRATION_REPORT, report)
     logger.info(
-        f"Migration: {sum(report['totals'].values())} mails moved, {report['review_total']} to review, "
-        f"{len(report['skipped_folders'])} folders skipped"
+        f"Migration: {sum(report['totals'].values())} mails {'moved' if apply else 'to move'}, "
+        f"{report['review_total']} to review, {len(report['skipped_folders'])} folders skipped"
     )
+    if report["aborted_at"]:
+        logger.error(f"Connection lost at {report['aborted_at']}: run `migrate` again to resume")
 
 
 def prune(apply: bool) -> None:
-    from mailtag.migration import empty_legacy_folders
+    from mailtag.migration import delete_empty_folders, empty_legacy_folders
 
     cfg = CONFIG.taxonomy
+    if reason := migration_blocked(cfg):
+        sys.exit(reason)
     legacy = json.loads(Path(cfg.legacy_folders_file).read_text(encoding="utf-8"))
 
     with _imap() as provider:
@@ -163,14 +167,8 @@ def prune(apply: bool) -> None:
             for folder in removable:
                 logger.info(f"  {folder}")
             return
-        for folder in removable:
-            client.select_folder(folder, readonly=True)
-            if client.search(["ALL"]):
-                logger.warning(f"Skipping {folder}: no longer empty")
-                continue
-            client.select_folder("INBOX", readonly=True)  # some servers refuse to delete the selected folder
-            client.delete_folder(folder)
-            logger.info(f"Deleted {folder}")
+        deleted = delete_empty_folders(client, removable, live_folders)
+        logger.info(f"Deleted {len(deleted)} of {len(removable)} empty legacy folders")
 
 
 def main() -> None:

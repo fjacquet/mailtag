@@ -62,6 +62,10 @@ def migrate_folder(
             destination = destination_for(address, folder_category, rules, own)
             if destination == folder:
                 continue
+            if destination not in TAXONOMY and destination != REVIEW:
+                # A typo in a rule or override would otherwise create a new top-level folder
+                logger.warning(f"Unknown destination {destination!r} for a mail in {folder}, left in place")
+                continue
             by_destination[destination].append(uid)
             if destination == REVIEW and address not in own:  # never learn a rule for the owner
                 message_id = str(msg.get("Message-ID") or "").strip()
@@ -76,14 +80,14 @@ def migrate_folder(
         if destination == REVIEW:
             for uid in dest_uids:
                 entry = review_entries.get(uid)
-                if entry:
+                if entry and pending.get(entry[0]) is None:  # keep an entry a `run` already made
                     message_id, sender = entry
                     pending.add(message_id, None, sender, today.isoformat())
         for start in range(0, len(dest_uids), batch_size):
             provider.batch_move_emails(dest_uids[start : start + batch_size], destination)
+        if destination == REVIEW:
+            pending.save()  # right after the moves, so a crash later does not lose them
 
-    if apply:
-        pending.save()
     return counts
 
 
@@ -101,11 +105,17 @@ def migrate_mailbox(
     report: dict[str, dict] = {}
     totals: Counter[str] = Counter()
     skipped: list[str] = []
+    aborted_at = None
 
     for folder in folders:
         category = overrides[folder] if folder in overrides else to_category(folder)
         try:
             counts = migrate_folder(provider, folder, category, rules, own, pending, today, apply)
+        except imaplib.IMAP4.abort as e:
+            # Connection lost: every later folder would fail too; a re-run resumes
+            logger.error(f"Connection lost at {folder}: {e}")
+            aborted_at = folder
+            break
         except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Could not migrate folder {folder}: {e}")
             skipped.append(folder)
@@ -120,6 +130,7 @@ def migrate_mailbox(
         "totals": dict(totals),
         "review_total": totals.get(REVIEW, 0),
         "skipped_folders": skipped,
+        "aborted_at": aborted_at,
     }
 
 
@@ -146,3 +157,30 @@ def empty_legacy_folders(client, legacy: list[str], live_folders: list[str]) -> 
         removable[folder] = is_empty and all(removable.get(child, False) for child in children)
 
     return [folder for folder in order if removable[folder]]
+
+
+def delete_empty_folders(client, removable: list[str], live_folders: list[str]) -> list[str]:
+    """Delete `removable` (deepest first) if still empty; a folder whose child stays is kept."""
+    kept: set[str] = set()
+    deleted: list[str] = []
+    for folder in removable:
+        prefix = f"{folder}/"
+        if any(f.startswith(prefix) and f not in deleted for f in live_folders):
+            logger.warning(f"Keeping {folder}: a subfolder stays")
+            kept.add(folder)
+            continue
+        try:
+            client.select_folder(folder, readonly=True)
+            if client.search(["ALL"]):
+                logger.warning(f"Keeping {folder}: no longer empty")
+                kept.add(folder)
+                continue
+            client.select_folder("INBOX", readonly=True)  # some servers refuse to delete the selected folder
+            client.delete_folder(folder)
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not delete {folder}: {e}")
+            kept.add(folder)
+            continue
+        deleted.append(folder)
+        logger.info(f"Deleted {folder}")
+    return deleted

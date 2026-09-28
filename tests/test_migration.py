@@ -6,6 +6,7 @@ import pytest
 from mailtag.config import FastParseConfig, ImapConfig
 from mailtag.imap_service import ImapService
 from mailtag.migration import (
+    delete_empty_folders,
     destination_for,
     empty_legacy_folders,
     folders_to_migrate,
@@ -346,3 +347,80 @@ def test_broken_folder_is_treated_as_not_removable():
     live_folders = ["Voyages/Sixt"]
 
     assert empty_legacy_folders(client, legacy, live_folders) == []
+
+
+class DeletingClient(FakeClient):
+    def __init__(self, folders, refuse=frozenset()):
+        super().__init__(folders)
+        self.refuse = refuse
+        self.deleted = []
+
+    def delete_folder(self, name):
+        if name in self.refuse:
+            raise imaplib.IMAP4.error(f"cannot delete {name}")
+        self.deleted.append(name)
+        del self.folders[name]
+
+
+def test_delete_empty_folders_keeps_parent_of_a_child_that_got_mail():
+    client = DeletingClient({"Voyages": {}, "Voyages/Sixt": {1: mail("a@x.ch")}, "INBOX": {}})
+
+    deleted = delete_empty_folders(client, ["Voyages/Sixt", "Voyages"], ["Voyages", "Voyages/Sixt", "INBOX"])
+
+    assert deleted == [] and client.deleted == []
+
+
+def test_delete_empty_folders_keeps_parent_when_child_delete_fails():
+    client = DeletingClient({"Voyages": {}, "Voyages/Sixt": {}, "INBOX": {}}, refuse={"Voyages/Sixt"})
+
+    deleted = delete_empty_folders(client, ["Voyages/Sixt", "Voyages"], ["Voyages", "Voyages/Sixt", "INBOX"])
+
+    assert deleted == [] and "Voyages" in client.folders
+
+
+def test_delete_empty_folders_deletes_deepest_first_and_deselects():
+    client = DeletingClient({"Voyages": {}, "Voyages/Sixt": {}, "INBOX": {}})
+
+    deleted = delete_empty_folders(client, ["Voyages/Sixt", "Voyages"], ["Voyages", "Voyages/Sixt", "INBOX"])
+
+    assert deleted == ["Voyages/Sixt", "Voyages"]
+    assert client.current == "INBOX"
+
+
+def test_existing_pending_entry_is_not_overwritten(provider, pending):
+    pending.add("<1>", "Achats", "a@x.ch", "2026-09-01")
+    client = FakeClient({"Finance/Locale/BCV": {1: mail("a@x.ch", "<1>")}})
+    moving(provider, client)
+
+    migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), set(), pending, TODAY, apply=True)
+
+    assert pending.get("<1>")["category"] == "Achats"
+
+
+def test_unknown_destination_is_left_in_place(provider, pending):
+    client = FakeClient({"Voyages": {1: mail("a@x.ch", "<1>")}})
+    moving(provider, client)
+
+    counts = migrate_folder(
+        provider, "Voyages", "Not a category", FakeRules(), set(), pending, TODAY, apply=True
+    )
+
+    assert counts == {}
+    assert client.folders["Voyages"] == {1: mail("a@x.ch", "<1>")}
+
+
+def test_migrate_mailbox_stops_on_lost_connection(provider, pending):
+    class Dropping(FakeClient):
+        def select_folder(self, name, readonly=False):
+            if name == "B":
+                raise imaplib.IMAP4.abort("socket closed")
+            super().select_folder(name, readonly)
+
+    client = Dropping({"A": {1: mail("a@x.ch", "<1>")}, "B": {}, "C": {2: mail("c@x.ch", "<2>")}})
+    moving(provider, client)
+
+    report = migrate_mailbox(provider, ["A", "B", "C"], {"A": "Achats", "C": "Achats"}, FakeRules(), set(),
+                             pending, TODAY, apply=False)  # fmt: skip
+
+    assert report["aborted_at"] == "B"
+    assert "C" not in report["folders"]

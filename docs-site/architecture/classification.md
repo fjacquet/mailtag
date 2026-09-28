@@ -71,7 +71,7 @@ Fallback to local Gemma 4 E4B model. Returns structured JSON:
 
 ## Taxonomy Mode
 
-With `[taxonomy] enabled = true` (the default since 2026-09-28), MailTag files mail into **19 business-sector categories** instead of the 611 legacy IMAP folders, and new mail first lands in an **action folder**.
+With `[taxonomy] enabled = true` (set in `config.toml` since 2026-09-28; the code default is `false`), MailTag files mail into **19 business-sector categories** instead of the 611 legacy IMAP folders, and new mail first lands in an **action folder**.
 
 ### Categories
 

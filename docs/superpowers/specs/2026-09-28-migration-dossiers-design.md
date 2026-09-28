@@ -44,6 +44,12 @@ Nouveau module `src/mailtag/migration.py` :
 - Le rapport à blanc affiche le nombre de mails qui iraient en `9-A revoir` ; s'il dépasse quelques centaines, on en discute avant `--apply` (l'apprentissage depuis `9-A revoir` fait une recherche IMAP par mail et par catégorie à chaque `run`).
 - `migrate` et `prune` sont en essai à blanc par défaut ; seul `--apply` modifie la boîte.
 
+Ajoutés après la relecture :
+- Une destination qui n'est ni une catégorie ni `9-A revoir` (faute de frappe dans une règle ou un audit) laisse le mail en place, avec un avertissement, au lieu de créer un dossier.
+- Une entrée `pending_archive.json` déjà présente (même Message-ID, posée par un `run`) n'est pas écrasée ; les entrées `9-A revoir` sont enregistrées juste après leurs déplacements.
+- Connexion perdue (`IMAP4.abort`) : la migration s'arrête, le rapport indique `aborted_at` ; relancer reprend.
+- `prune --apply` garde un dossier dont un sous-dossier reste (non vide, non supprimé ou suppression refusée) et vérifie à nouveau que chaque dossier est vide juste avant de le supprimer ; `prune` a les mêmes garde-fous que `migrate`.
+
 ## Rapport
 
 `migrate` (à blanc ou `--apply`) écrit `data/migration_report.json` via `write_json_atomic` : mails par destination, total `9-A revoir`, dossiers sautés. Un résumé court est journalisé (loguru).
