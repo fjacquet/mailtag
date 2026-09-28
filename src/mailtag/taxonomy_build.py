@@ -1,7 +1,12 @@
 """Build learned rules, domain rules, the review queue and the centroid corpus (spec section 1)."""
 
+import imaplib
 from collections import Counter, defaultdict
 
+from loguru import logger
+
+from .semantic_router import SemanticRouter
+from .taxonomy import nomic_text
 from .utils.domain_utils import is_non_commercial_domain_cached
 
 
@@ -88,3 +93,53 @@ def rules_precision(senders: dict, crosscheck: dict, validated: dict) -> tuple[i
         return 0, 0.0
     right = sum(folder_category(senders[s]) == validated[s] for s in agreed)
     return len(agreed), right / len(agreed)
+
+
+def corpus_refs(senders: dict, validated: dict, learned: dict, per_category: int = 200) -> list[dict]:
+    """Mail references of validated or learned senders, biggest senders first, capped per category."""
+    by_category: dict[str, list[dict]] = defaultdict(list)
+    for sender, entry in sorted(senders.items(), key=lambda kv: -mail_count(kv[1])):
+        category = _sender_category(sender, validated, learned)
+        if not category:
+            continue
+        for folder, uid in entry["refs"]:
+            by_category[category].append(
+                {"sender": sender, "category": category, "verified": sender in validated,
+                 "folder": folder, "uid": uid}
+            )  # fmt: skip
+    return [ref for refs in by_category.values() for ref in refs[:per_category]]
+
+
+def fetch_corpus(provider, refs: list[dict]) -> list[dict]:
+    """Read the referenced mails (read-only) and keep what nomic needs."""
+    by_folder: dict[str, list[dict]] = defaultdict(list)
+    for ref in refs:
+        by_folder[ref["folder"]].append(ref)
+    corpus = []
+    for folder, folder_refs in by_folder.items():
+        try:
+            provider.client.select_folder(folder, readonly=True)
+            emails = {e.msg_id: e for e in provider.get_full_emails([r["uid"] for r in folder_refs])}
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not read folder {folder}: {e}")
+            continue
+        for ref in folder_refs:
+            mail = emails.get(str(ref["uid"]))
+            if mail:
+                corpus.append(
+                    {"sender": ref["sender"], "category": ref["category"], "verified": ref["verified"],
+                     "sender_name": mail.sender_name, "subject": mail.subject, "body": mail.body}
+                )  # fmt: skip
+    return corpus
+
+
+def build_centroids(embedder, corpus: list[dict]) -> SemanticRouter:
+    """One nomic centroid per category, from the production text of real mails."""
+    examples: dict[str, list[str]] = defaultdict(list)
+    for mail in corpus:
+        examples[mail["category"]].append(
+            nomic_text(mail["sender_name"], mail["sender"], mail["subject"], mail["body"])
+        )
+    router = SemanticRouter(embedder, score_threshold=0.0)
+    router.build_from_examples(dict(examples))
+    return router

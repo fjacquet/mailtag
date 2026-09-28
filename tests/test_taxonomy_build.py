@@ -1,7 +1,13 @@
+import imaplib
+
 import pytest
 
+from mailtag.models import Email
 from mailtag.taxonomy_build import (
+    build_centroids,
+    corpus_refs,
     domain_rules,
+    fetch_corpus,
     folder_category,
     folder_disagreement,
     folder_queue,
@@ -105,3 +111,83 @@ def test_folder_queue_most_contested_first_and_skips_reviewed():
         "Shops/Mixed"
     ]
     assert folder_queue(FOLDERS, FOLDER_CROSS, reviewed={}, min_rate=0.5) == ["Contacts/Twint"]
+
+
+def with_refs(domain, refs, **categories):
+    e = entry(domain, **categories)
+    e["refs"] = refs
+    return e
+
+
+def test_corpus_refs_take_verified_or_learned_senders_capped_per_category():
+    senders = {
+        "a@x.ch": with_refs("x.ch", [["F", 1], ["F", 2]], Achats=9),
+        "b@x.ch": with_refs("x.ch", [["F", 3]], Achats=1),
+        "c@x.ch": with_refs("x.ch", [["G", 4]], Santé=5),
+        "unknown@x.ch": with_refs("x.ch", [["F", 5]], Achats=3),
+    }
+    refs = corpus_refs(
+        senders, validated={"c@x.ch": "Santé"}, learned={"a@x.ch": {"category": "Achats", "agreements": 2},
+                                                         "b@x.ch": {"category": "Achats", "agreements": 2}},
+        per_category=2,
+    )  # fmt: skip
+    assert refs == [
+        {"sender": "a@x.ch", "category": "Achats", "verified": False, "folder": "F", "uid": 1},
+        {"sender": "a@x.ch", "category": "Achats", "verified": False, "folder": "F", "uid": 2},
+        {"sender": "c@x.ch", "category": "Santé", "verified": True, "folder": "G", "uid": 4},
+    ]
+
+
+def test_fetch_corpus_reads_each_folder_read_only(mocker):
+    provider = mocker.MagicMock()
+    provider.get_full_emails.side_effect = lambda uids: [
+        Email(msg_id=str(u), subject=f"S{u}", sender_address="a@x.ch", sender_name="A", body=f"B{u}")
+        for u in uids
+    ]
+    refs = [
+        {"sender": "a@x.ch", "category": "Achats", "verified": True, "folder": "F", "uid": 1},
+        {"sender": "a@x.ch", "category": "Achats", "verified": True, "folder": "F", "uid": 2},
+    ]
+
+    corpus = fetch_corpus(provider, refs)
+
+    provider.client.select_folder.assert_called_once_with("F", readonly=True)
+    assert corpus[1] == {"sender": "a@x.ch", "category": "Achats", "verified": True,
+                         "sender_name": "A", "subject": "S2", "body": "B2"}  # fmt: skip
+
+
+def test_fetch_corpus_skips_unreadable_folder(mocker):
+    provider = mocker.MagicMock()
+    provider.client.select_folder.side_effect = imaplib.IMAP4.error("gone")
+    refs = [{"sender": "a@x.ch", "category": "Achats", "verified": True, "folder": "F", "uid": 1}]
+
+    assert fetch_corpus(provider, refs) == []
+
+
+def test_build_centroids_groups_production_texts_by_category(mocker):
+    router_cls = mocker.patch("mailtag.taxonomy_build.SemanticRouter")
+    corpus = [
+        {
+            "sender": "a@x.ch",
+            "category": "Achats",
+            "verified": True,
+            "sender_name": "A",
+            "subject": "S",
+            "body": "",
+        },
+        {
+            "sender": "b@x.ch",
+            "category": "Santé",
+            "verified": False,
+            "sender_name": "",
+            "subject": "T",
+            "body": "B",
+        },
+    ]
+
+    build_centroids("EMBEDDER", corpus)
+
+    router_cls.assert_called_once_with("EMBEDDER", score_threshold=0.0)
+    router_cls.return_value.build_from_examples.assert_called_once_with(
+        {"Achats": ["Email from A: S"], "Santé": ["Email from b@x.ch: T\nB"]}
+    )
