@@ -39,7 +39,7 @@ class Classifier:
         import threading
 
         self.config = config
-        self.proposal_file = Path("proposals.log")
+        self.proposal_file = Path("logs/proposals.log")
         self.database = database
         self.ai_cache = {}  # Simple in-memory cache for AI responses
 
@@ -703,6 +703,7 @@ class Classifier:
         """Write buffered proposals to disk and clear the buffer."""
         if not self._proposal_buffer:
             return
+        self.proposal_file.parent.mkdir(parents=True, exist_ok=True)
         with self.proposal_file.open("a", encoding="utf-8") as f:
             f.writelines(self._proposal_buffer)
         self._proposal_buffer.clear()
