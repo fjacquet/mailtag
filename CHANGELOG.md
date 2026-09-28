@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Promos go to the providers' standard `Promotions` folder (was `5-Promos`); the review folder is `5-A revoir` (was `9-A revoir`)
 - Domain rules weigh each sender's validated category, else its audited folder category; the review page only shows senders no rule covers (#41)
 - `nomic_threshold` set to 0.90 in `config.toml` (#42)
+- AI classification proposals are written to `logs/proposals.log` (was `proposals.log` at the repository root); the old `CLASSIFICATION_IMPROVEMENTS_SPEC.md` moved to `docs/classification-improvements-spec.md`; the unused `old/` files were removed
 
 ### Fixed
 
+- Tests no longer write `test.log` at the repository root
 - `TaxonomyStore` shared safely between threads and between `serve` and `run` processes (file lock, operation replay) (#39)
 - RFC 2047 encoded sender names decoded; `--validate` leaves the databases untouched (#37)
 

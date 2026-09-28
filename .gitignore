@@ -143,18 +143,15 @@ dmypy.json
 .pyre/
 
 logs/*.log*
-test.log
+test*.log
 .env
 credentials.json
 db/
 token.json
 
 
-logs/mailtag.log
-
 data/
-old
-proposals.log
 site/
+.worktrees/
 # Added by code-review-graph
 .code-review-graph/

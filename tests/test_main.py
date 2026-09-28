@@ -14,10 +14,10 @@ from mailtag.config import (
 
 
 @pytest.fixture
-def mock_app_config(mocker: MockerFixture):
+def mock_app_config(mocker: MockerFixture, tmp_path):
     """Mocks the global CONFIG object in the main module."""
     mock_config = mocker.patch("main.CONFIG")
-    mock_config.logging = LoggingConfig(level="INFO", file="test.log")
+    mock_config.logging = LoggingConfig(level="INFO", file=str(tmp_path / "test.log"))
     mock_config.general = GeneralConfig(
         ollama_model="test-model",
         api_base="http://localhost:11434",
