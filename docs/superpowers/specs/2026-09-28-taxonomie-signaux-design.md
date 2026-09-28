@@ -111,7 +111,7 @@ On apprend seulement quand **deux avis indépendants concordent** (nomic et Gemm
 
 - Mail classé à l'étape 6 (accord nomic et Gemma) : l'expéditeur gagne un accord pour cette catégorie dans `senders.json`.
 - Après **2 accords** dans la même catégorie, sans avis contraire, l'expéditeur est **promu** : ses mails suivants sont rangés à l'étape 3.
-- Accord sur une **autre** catégorie pour un expéditeur en cours d'apprentissage ou promu : l'entrée est **supprimée** ; l'expéditeur repasse par nomic et Gemma.
+- Accord sur une **autre** catégorie pour un expéditeur encore en cours d'apprentissage (pas encore promu) : l'entrée est **supprimée** ; l'expéditeur repasse par nomic et Gemma. Un expéditeur **promu** est rangé dès l'étape 3 : ses mails ne repassent plus par nomic et Gemma, donc la règle reste en place jusqu'à une correction manuelle (`validated.json`, via la page de revue, prime).
 - Mails rangés par nomic seul (étape 5) ou par une règle (étapes 1, 3, 4) : **aucun apprentissage**.
 - Les domaines sont recalculés à chaque `build`, pas au fil de l'eau.
 - `--validate` : rien n'est écrit (même principe que `ClassificationDatabase(read_only=True)`).

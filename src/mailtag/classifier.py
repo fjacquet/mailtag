@@ -844,7 +844,8 @@ class Classifier:
         return self.taxonomy_store.category_for(email.sender_address)
 
     def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
-        """Signal 5: nearest old folder per email, mapped to its category, with its similarity."""
+        """Signal 5: nearest centroid (a category, or a legacy folder mapped to its category),
+        with its similarity."""
         unavailable = [(None, 0.0)] * len(emails)
         if not self._init_mlx_components() or not self._semantic_router:
             return unavailable
@@ -856,7 +857,7 @@ class Classifier:
         except (RuntimeError, ValueError, AttributeError, OSError) as e:
             logger.error(f"Semantic router failed, sending emails to review: {e}")
             return unavailable
-        return [(to_category(folder), score) for folder, score in top]
+        return [(to_category(label), score) for label, score in top]
 
     def _llm_categories(self, emails: list[Email]) -> list[str | None]:
         """Signal 6: one category (or None) per email from the LLM, answered by number."""
