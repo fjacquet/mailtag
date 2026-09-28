@@ -92,7 +92,7 @@ def build() -> None:
     learned = learned_senders(
         senders, cross, store.validated, min_mails=cfg.sender_min_mails, agreements=cfg.learn_min_agreements
     )
-    domains = domain_rules(senders, store.validated, learned, min_purity=cfg.domain_min_purity)
+    domains = domain_rules(senders, store.validated, min_purity=cfg.domain_min_purity)
     store.replace_rules(learned, domains)
     store.save()
     logger.info(f"Rules: {len(store.validated)} validated, {len(learned)} learned, {len(domains)} domains")

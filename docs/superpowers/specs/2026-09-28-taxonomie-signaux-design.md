@@ -78,7 +78,7 @@ Les trois étapes se choisissent dans la barre latérale ; par défaut, la page 
 ### 1.4 `build` : construction des règles et des centroïdes
 
 - **Signal 3, `db/taxonomy/senders.json`** : expéditeurs d'accord (dossier = Gemma), avec au moins 2 mails, absents de `validated.json`.
-- **Signal 4, `db/taxonomy/domains.json`** : domaines hors messageries personnelles (`is_non_commercial_domain_cached`, déjà utilisé par le signal 4 actuel) dont au moins 90 % des mails vont dans une même catégorie, en prenant pour chaque expéditeur sa catégorie validée, sinon apprise.
+- **Signal 4, `db/taxonomy/domains.json`** : domaines hors messageries personnelles (`is_non_commercial_domain_cached`, déjà utilisé par le signal 4 actuel) dont au moins 90 % des mails vont dans une même catégorie, en prenant pour chaque expéditeur sa catégorie validée, sinon celle de son dossier audité. La page de revue ne montre que les expéditeurs d'au moins `sender_min_mails` mails qu'aucune règle (validée, apprise ou de domaine) ne couvre.
 - **Signal 5, `data/taxonomy_centroids.npz`** : 19 centroïdes nomic. Pour chaque catégorie, jusqu'à 200 mails d'expéditeurs validés ou d'accord, dont on lit le contenu (`BODY.PEEK[]`, lecture seule) grâce aux références du scan ; texte construit exactement comme en production (`_nomic_top`).
 - Si un fichier d'entrée manque, `build` n'écrit rien. Toutes les écritures sont atomiques.
 

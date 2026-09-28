@@ -18,9 +18,16 @@ def folder_category(entry: dict) -> str:
     return max(entry["categories"], key=entry["categories"].get)
 
 
-def review_queue(senders: dict, crosscheck: dict, validated: dict) -> list[str]:
-    """Senders to review: folder/Gemma disagreements first, then agreements, biggest senders first."""
-    todo = [s for s in senders if s not in validated]
+def review_queue(
+    senders: dict, crosscheck: dict, validated: dict, learned: dict, domains: dict, min_mails: int
+) -> list[str]:
+    """Senders no rule covers, with enough mails: folder/Gemma disagreements first, then agreements,
+    biggest senders first."""
+    todo = [
+        s for s, e in senders.items()
+        if s not in validated and s not in learned and e["domain"] not in domains
+        and mail_count(e) >= min_mails
+    ]  # fmt: skip
     disagree = [s for s in todo if crosscheck.get(s) != folder_category(senders[s])]
     agree = [s for s in todo if crosscheck.get(s) == folder_category(senders[s])]
 
@@ -54,11 +61,12 @@ def _sender_category(sender: str, validated: dict, learned: dict) -> str | None:
     return validated.get(sender) or (learned.get(sender) or {}).get("category")
 
 
-def domain_rules(senders: dict, validated: dict, learned: dict, min_purity: float) -> dict[str, str]:
-    """Business domains whose mails go to one category at least `min_purity` of the time."""
+def domain_rules(senders: dict, validated: dict, min_purity: float) -> dict[str, str]:
+    """Business domains whose mails go to one category at least `min_purity` of the time, taking each
+    sender's validated category, else its audited folder category."""
     counts: dict[str, Counter] = defaultdict(Counter)
     for sender, entry in senders.items():
-        category = _sender_category(sender, validated, learned)
+        category = validated.get(sender) or folder_category(entry)
         domain = entry["domain"]
         if category and domain and not is_non_commercial_domain_cached(domain):
             counts[domain][category] += mail_count(entry)

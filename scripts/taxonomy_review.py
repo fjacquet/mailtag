@@ -20,10 +20,12 @@ from taxonomy_setup import needs_rescan
 from mailtag.config import CONFIG
 from mailtag.taxonomy import TAXONOMY
 from mailtag.taxonomy_build import (
+    domain_rules,
     folder_category,
     folder_disagreement,
     folder_queue,
     gemma_proposals,
+    learned_senders,
     learned_to_review,
     mail_count,
     review_queue,
@@ -73,10 +75,18 @@ def skip_button(sender: str) -> None:
 
 
 folders = folder_queue(scan["folders"], cross, store.folder_overrides)
-queue = [s for s in review_queue(senders, cross, store.validated) if s not in skipped]
+cfg = CONFIG.taxonomy
+# What `build` will turn into rules on its own: those senders need no review
+planned = learned_senders(senders, cross, store.validated, cfg.sender_min_mails, cfg.learn_min_agreements)
+planned_domains = domain_rules(senders, store.validated, cfg.domain_min_purity)
+queue = [
+    s
+    for s in review_queue(senders, cross, store.validated, planned, planned_domains, cfg.sender_min_mails)
+    if s not in skipped
+]
 learned = [
     s
-    for s in learned_to_review(store.senders, senders, store.validated, CONFIG.taxonomy.learn_min_agreements)
+    for s in learned_to_review(store.senders, senders, store.validated, cfg.learn_min_agreements)
     if s not in skipped
 ]
 STAGES = {
