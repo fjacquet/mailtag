@@ -364,3 +364,9 @@ def test_taxonomy_signal_defaults():
     assert cfg.learn_min_agreements == 2
     assert cfg.domain_min_purity == 0.90
     assert cfg.sender_min_mails == 2
+
+
+def test_own_addresses_default_empty():
+    from mailtag.config import TaxonomyConfig
+
+    assert TaxonomyConfig().own_addresses == []

@@ -20,7 +20,7 @@ from .taxonomy import (
     parse_category_number,
     to_category,
 )
-from .taxonomy_store import TaxonomyStore
+from .taxonomy_store import TaxonomyStore, normalize_address
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 from .utils.text_utils import smart_truncate
 
@@ -61,6 +61,7 @@ class Classifier:
 
         # Use the taxonomy, the folder analyzer or the static schema based on configuration
         self.taxonomy_store: TaxonomyStore | None = None
+        self._own_addresses = {normalize_address(a) for a in config.taxonomy.own_addresses}
         if config.taxonomy.enabled:
             self.folder_analyzer = None
             self.categories = list(TAXONOMY)
@@ -840,7 +841,12 @@ class Classifier:
     # --- Taxonomy mode (spec docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md) ---
 
     def _rule_category(self, email: Email) -> str | None:
-        """Signals 1, 3 and 4 from the taxonomy store (Signal 2, labels, is not used in taxonomy mode)."""
+        """Signals 1, 3 and 4 from the taxonomy store (Signal 2, labels, is not used in taxonomy mode).
+
+        The owner's own addresses say nothing about the category: never a rule.
+        """
+        if normalize_address(email.sender_address) in self._own_addresses:
+            return None
         return self.taxonomy_store.category_for(email.sender_address)
 
     def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
@@ -909,7 +915,8 @@ class Classifier:
             for i, (category, agreed) in zip(pending, detailed, strict=True):
                 results[i] = category
                 if agreed:
-                    self.taxonomy_store.record_agreement(emails[i].sender_address, category)
+                    if normalize_address(emails[i].sender_address) not in self._own_addresses:
+                        self.taxonomy_store.record_agreement(emails[i].sender_address, category)
             self.taxonomy_store.save()
         logger.info(
             f"Taxonomy batch: {len(emails) - len(pending)} by rules, "

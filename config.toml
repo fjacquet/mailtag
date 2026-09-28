@@ -98,6 +98,20 @@ centroids_file = "data/taxonomy_centroids.npz"
 learn_min_agreements = 2   # nomic+Gemma agreements before a sender becomes a rule
 domain_min_purity = 0.90   # share of a domain's mails in one category to make a domain rule
 sender_min_mails = 2       # mails needed before a folder/Gemma agreement becomes a sender rule
+# The owner's addresses: never a sender rule, never learned, skipped by `scan`
+own_addresses = [
+  "fred.jacquet@gmail.com",
+  "fred@ljf.ch",
+  "fjacquet@ljfch.onmicrosoft.com",
+  "frederic.jacquet@me.com",
+  "fjacquet@protonmail.ch",
+  "frederic.jacquet@epost.ch",
+  "frederic.jacquet@sword-group.com",
+  "frederic.jacquet@dell.com",
+  "frederic.jacquet@tebicom.ch",
+  "fjacquet@vaudoise.ch",
+  "fjacquet@hotela.ch",
+]
 
 [webhook]
 # API server settings

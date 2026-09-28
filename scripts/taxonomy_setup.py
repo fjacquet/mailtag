@@ -54,7 +54,8 @@ def scan() -> None:
     folders = json.loads(Path(CONFIG.taxonomy.legacy_folders_file).read_text(encoding="utf-8"))
     overrides = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir)).folder_overrides
     with _imap() as provider:
-        result = scan_mailbox(provider, folders, overrides=overrides)
+        own = {address.lower() for address in CONFIG.taxonomy.own_addresses}
+        result = scan_mailbox(provider, folders, overrides=overrides, ignored=own)
     write_json_atomic(SCAN, result)
     logger.info(f"Wrote {SCAN}: {len(result['senders'])} senders")
 
@@ -91,7 +92,7 @@ def build() -> None:
     learned = learned_senders(
         senders, cross, store.validated, min_mails=cfg.sender_min_mails, agreements=cfg.learn_min_agreements
     )
-    domains = domain_rules(senders, store.validated, learned, min_purity=cfg.domain_min_purity)
+    domains = domain_rules(senders, store.validated, min_purity=cfg.domain_min_purity)
     store.replace_rules(learned, domains)
     store.save()
     logger.info(f"Rules: {len(store.validated)} validated, {len(learned)} learned, {len(domains)} domains")

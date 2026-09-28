@@ -236,3 +236,21 @@ def test_llm_failure_returns_none(classifier, mocker):
     classifier._mlx_llm = llm
 
     assert classifier._llm_categories([mail()]) == [None]
+
+
+def test_owner_address_is_never_a_rule_and_never_learned(db, tmp_path, mocker):
+    import dataclasses
+
+    write(tmp_path, "validated", {"fred.jacquet@gmail.com": "Achats"})
+    config = _config(tmp_path)
+    config = dataclasses.replace(
+        config, taxonomy=dataclasses.replace(config.taxonomy, own_addresses=["Fred.Jacquet@gmail.com"])
+    )
+    classifier = Classifier(config=config, database=db)
+    mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
+    mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+
+    assert classifier.classify_emails_batch([mail(sender="fred.jacquet@gmail.com")]) == ["Santé"]
+    classifier.classify_emails_batch([mail(sender="fred.jacquet@gmail.com")])
+
+    assert not (tmp_path / "senders.json").exists()

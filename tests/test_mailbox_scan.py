@@ -135,3 +135,14 @@ def test_mail_without_sender_is_ignored(provider):
     provider.client = FakeClient({"Voyages": {1: "Subject: no from\r\n", 2: header("a@x.ch", "ok")}})
 
     assert list(scan_mailbox(provider, ["Voyages"])["senders"]) == ["a@x.ch"]
+
+
+def test_owner_addresses_are_ignored(provider):
+    provider.client = FakeClient({
+        "Voyages": {1: header("Fred <Fred.Jacquet@gmail.com>", "Backup done"), 2: header("a@x.ch", "ok")},
+    })  # fmt: skip
+
+    result = scan_mailbox(provider, ["Voyages"], ignored={"fred.jacquet@gmail.com"})
+
+    assert list(result["senders"]) == ["a@x.ch"]
+    assert result["folders"]["Voyages"]["senders"] == {"a@x.ch": 1}

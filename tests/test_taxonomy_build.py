@@ -5,6 +5,8 @@ import pytest
 from mailtag.models import Email
 from mailtag.taxonomy_build import (
     build_centroids,
+    control_precision,
+    control_sample,
     corpus_refs,
     domain_rules,
     fetch_corpus,
@@ -44,8 +46,18 @@ def test_folder_category_is_the_majority():
 
 
 def test_review_queue_disagreements_first_then_by_volume():
-    queue = review_queue(SENDERS, CROSS, validated={"doc@clinic.ch": "Santé"})
+    queue = review_queue(
+        SENDERS, CROSS, validated={"doc@clinic.ch": "Santé"}, learned={}, domains={}, min_mails=1
+    )
     assert queue == ["friend@gmail.com", "mixed@shop.ch", "big@shop.ch", "one@shop.ch"]
+
+
+def test_review_queue_skips_senders_rules_already_cover_and_small_senders():
+    learned = {"big@shop.ch": {"category": "Achats", "agreements": 2}}
+    senders = {**SENDERS, "new@clinic.ch": entry("clinic.ch", Achats=4)}
+    domains = {"clinic.ch": "Santé"}
+    queue = review_queue(senders, CROSS, validated={}, learned=learned, domains=domains, min_mails=2)
+    assert queue == ["friend@gmail.com", "mixed@shop.ch"]
 
 
 def test_learned_senders_need_agreement_and_enough_mails():
@@ -53,24 +65,35 @@ def test_learned_senders_need_agreement_and_enough_mails():
     assert learned == {"doc@clinic.ch": {"category": "Santé", "agreements": 2}}
 
 
-def test_domain_rules_use_corrected_categories_and_purity():
-    validated = {"mixed@shop.ch": "Achats"}
-    learned = {"big@shop.ch": {"category": "Achats", "agreements": 2},
-               "doc@clinic.ch": {"category": "Santé", "agreements": 2}}  # fmt: skip
-    senders = {**SENDERS, "x@clinic.ch": entry("clinic.ch", Achats=2)}
-    learned_with_x = {**learned, "x@clinic.ch": {"category": "Achats", "agreements": 2}}
-
-    assert domain_rules(SENDERS, validated, learned, min_purity=0.9) == {
-        "shop.ch": "Achats",
-        "clinic.ch": "Santé",
-    }
+def test_domain_rules_use_audited_folders_validation_first_and_purity():
+    # shop.ch folders: Achats 40 + Santé 3 (mixed) + Achats 1 = 93 % Achats
+    assert domain_rules(SENDERS, {}, min_purity=0.9) == {"shop.ch": "Achats", "clinic.ch": "Santé"}
     # clinic.ch: 9 Santé vs 2 Achats = 82 % < 90 %
-    assert "clinic.ch" not in domain_rules(senders, validated, learned_with_x, min_purity=0.9)
+    senders = {**SENDERS, "x@clinic.ch": entry("clinic.ch", Achats=2)}
+    assert "clinic.ch" not in domain_rules(senders, {}, min_purity=0.9)
+    # validating x as Santé puts clinic.ch back at 100 %
+    assert domain_rules(senders, {"x@clinic.ch": "Santé"}, min_purity=0.9)["clinic.ch"] == "Santé"
 
 
 def test_personal_domains_never_become_rules():
     validated = {"friend@gmail.com": "Contacts"}
-    assert domain_rules(SENDERS, validated, {}, min_purity=0.9) == {}
+    assert "gmail.com" not in domain_rules(SENDERS, validated, min_purity=0.9)
+
+
+def test_control_sample_draws_rule_covered_senders_with_their_rule():
+    rules = {"big@shop.ch": "Achats", "one@shop.ch": "Achats", "doc@clinic.ch": "Santé"}
+    sample = control_sample(SENDERS, rules.get, validated={"doc@clinic.ch": "Santé"}, size=5, seed=0)
+    assert sample == {"big@shop.ch": "Achats", "one@shop.ch": "Achats"}
+    assert control_sample(SENDERS, rules.get, validated={}, size=2, seed=1) == control_sample(
+        SENDERS, rules.get, validated={}, size=2, seed=1
+    )
+    assert len(control_sample(SENDERS, rules.get, validated={}, size=2, seed=1)) == 2
+
+
+def test_control_precision_counts_only_checked_senders():
+    control = {"a@x.ch": "Achats", "b@x.ch": "Santé", "c@x.ch": "Achats"}
+    assert control_precision(control, {"a@x.ch": "Achats", "b@x.ch": "Contacts"}) == (2, 0.5)
+    assert control_precision(control, {}) == (0, 0.0)
 
 
 def test_rules_precision():
