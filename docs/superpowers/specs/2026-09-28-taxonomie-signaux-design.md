@@ -73,7 +73,9 @@ Commandes de `scripts/taxonomy_setup.py`. Aucune ne déplace de mail. Chacune pe
 
 **Étape 3 — expéditeurs appris pendant les passages.** La page liste les expéditeurs promus au fil des passages (inconnus du scan, non validés), du plus grand nombre d'accords au plus petit : « confirmer » ou choisir une autre catégorie les inscrit dans `validated.json`.
 
-Les trois étapes se choisissent dans la barre latérale ; par défaut, la page ouvre la première qui a du travail. Tout reste sur ton Mac : rien n'est publié.
+**Étape 4 — contrôle des règles.** Après `build`, la page tire une fois au hasard 60 expéditeurs couverts par une règle apprise ou de domaine et les garde dans `db/taxonomy/control.json` avec la catégorie de leur règle. « Confirmer » ou une autre catégorie les inscrit dans `validated.json` ; la page affiche la part des règles justes. C'est la mesure de précision des règles : les étapes 2 et 3 ne montrent que des cas difficiles.
+
+Les quatre étapes se choisissent dans la barre latérale ; par défaut, la page ouvre la première qui a du travail. Tout reste sur ton Mac : rien n'est publié.
 
 ### 1.4 `build` : construction des règles et des centroïdes
 

@@ -1,6 +1,7 @@
 """Build learned rules, domain rules, the review queue and the centroid corpus (spec section 1)."""
 
 import imaplib
+import random
 from collections import Counter, defaultdict
 
 from loguru import logger
@@ -101,6 +102,20 @@ def folder_queue(folders: dict, crosscheck: dict, reviewed: dict, min_rate: floa
     rates = {f: folder_disagreement(e, crosscheck) for f, e in folders.items() if f not in reviewed}
     todo = [f for f, rate in rates.items() if rate >= min_rate]
     return sorted(todo, key=lambda f: (-rates[f], -sum(folders[f]["senders"].values())))
+
+
+def control_sample(senders: dict, rule_for, validated: dict, size: int, seed: int) -> dict[str, str]:
+    """Random senders that a rule (learned or domain) covers, with the category that rule gives."""
+    covered = sorted(s for s in senders if s not in validated and rule_for(s))
+    return {s: rule_for(s) for s in random.Random(seed).sample(covered, min(size, len(covered)))}
+
+
+def control_precision(control: dict[str, str], validated: dict) -> tuple[int, float]:
+    """On control senders the user has checked, how often the rule's category was right."""
+    checked = [s for s in control if s in validated]
+    if not checked:
+        return 0, 0.0
+    return len(checked), sum(validated[s] == control[s] for s in checked) / len(checked)
 
 
 def rules_precision(senders: dict, crosscheck: dict, validated: dict) -> tuple[int, float]:

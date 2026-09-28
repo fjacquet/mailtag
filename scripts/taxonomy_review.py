@@ -1,5 +1,5 @@
-"""Local review page (spec section 1.3): audit contested folders, review senders, then check
-senders learned during runs.
+"""Local review page (spec section 1.3): audit contested folders, review senders, check senders
+learned during runs, then check a random sample of rule-covered senders to measure rule precision.
 
     uv run streamlit run scripts/taxonomy_review.py
 
@@ -20,6 +20,8 @@ from taxonomy_setup import needs_rescan
 from mailtag.config import CONFIG
 from mailtag.taxonomy import TAXONOMY
 from mailtag.taxonomy_build import (
+    control_precision,
+    control_sample,
     domain_rules,
     folder_category,
     folder_disagreement,
@@ -30,11 +32,14 @@ from mailtag.taxonomy_build import (
     mail_count,
     review_queue,
 )
-from mailtag.taxonomy_store import TaxonomyStore
+from mailtag.taxonomy_store import TaxonomyStore, write_json_atomic
 
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
 OVERRIDES = Path(CONFIG.taxonomy.taxonomy_db_dir) / "folder_overrides.json"
+# Drawn once after `build`, so validating a sender does not change the sample or lose its rule
+CONTROL = Path(CONFIG.taxonomy.taxonomy_db_dir) / "control.json"
+CONTROL_SIZE = 60
 
 
 def _sort_key(name: str) -> str:
@@ -89,12 +94,17 @@ learned = [
     for s in learned_to_review(store.senders, senders, store.validated, cfg.learn_min_agreements)
     if s not in skipped
 ]
+if not CONTROL.exists() and (store.senders or store.domains):
+    write_json_atomic(CONTROL, control_sample(senders, store.category_for, store.validated, CONTROL_SIZE, 0))
+control = json.loads(CONTROL.read_text(encoding="utf-8")) if CONTROL.exists() else {}
+to_check = [s for s in control if s not in store.validated and s not in skipped]
 STAGES = {
     f"1. Dossiers contestés ({len(folders)})": "folders",
     f"2. Expéditeurs du scan ({len(queue)})": "senders",
     f"3. Expéditeurs appris pendant les passages ({len(learned)})": "learned",
+    f"4. Contrôle des règles ({len(to_check)})": "control",
 }
-default = 0 if folders else (1 if queue or not learned else 2)
+default = 0 if folders else 1 if queue else 2 if learned else 3 if to_check else 1
 stage = STAGES[st.sidebar.radio("Étape", list(STAGES), index=default)]
 st.caption(f"{len(store.validated)} expéditeurs validés")
 
@@ -141,6 +151,29 @@ if stage == "senders":
     for subject in entry["subjects"]:
         st.write(f"- {subject}")
     category_buttons(sender, lambda c: store.set_validated(sender, c))
+    skip_button(sender)
+    st.stop()
+
+# --- Stage 4: control sample of rule-covered senders ---
+if stage == "control":
+    checked, precision = control_precision(control, store.validated)
+    if checked:
+        st.write(f"Règles justes : **{precision:.0%}** sur {checked} expéditeurs contrôlés")
+    if not to_check:
+        st.success("Échantillon de contrôle terminé." if control else "Lance d'abord `build`.")
+        st.stop()
+    sender = to_check[0]
+    entry = senders[sender]
+    st.header(sender)
+    st.write(f"**{entry['name'] or '(sans nom)'}** · {mail_count(entry)} mails · domaine `{entry['domain']}`")
+    st.write(f"Règle : **{control[sender]}**")
+    for subject in entry["subjects"]:
+        st.write(f"- {subject}")
+    if st.button(f"Confirmer : {control[sender]}"):
+        store.set_validated(sender, control[sender])
+        store.save()
+        st.rerun()
+    category_buttons(f"control-{sender}", lambda c: store.set_validated(sender, c))
     skip_button(sender)
     st.stop()
 

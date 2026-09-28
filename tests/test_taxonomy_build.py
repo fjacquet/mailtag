@@ -5,6 +5,8 @@ import pytest
 from mailtag.models import Email
 from mailtag.taxonomy_build import (
     build_centroids,
+    control_precision,
+    control_sample,
     corpus_refs,
     domain_rules,
     fetch_corpus,
@@ -76,6 +78,22 @@ def test_domain_rules_use_audited_folders_validation_first_and_purity():
 def test_personal_domains_never_become_rules():
     validated = {"friend@gmail.com": "Contacts"}
     assert "gmail.com" not in domain_rules(SENDERS, validated, min_purity=0.9)
+
+
+def test_control_sample_draws_rule_covered_senders_with_their_rule():
+    rules = {"big@shop.ch": "Achats", "one@shop.ch": "Achats", "doc@clinic.ch": "Santé"}
+    sample = control_sample(SENDERS, rules.get, validated={"doc@clinic.ch": "Santé"}, size=5, seed=0)
+    assert sample == {"big@shop.ch": "Achats", "one@shop.ch": "Achats"}
+    assert control_sample(SENDERS, rules.get, validated={}, size=2, seed=1) == control_sample(
+        SENDERS, rules.get, validated={}, size=2, seed=1
+    )
+    assert len(control_sample(SENDERS, rules.get, validated={}, size=2, seed=1)) == 2
+
+
+def test_control_precision_counts_only_checked_senders():
+    control = {"a@x.ch": "Achats", "b@x.ch": "Santé", "c@x.ch": "Achats"}
+    assert control_precision(control, {"a@x.ch": "Achats", "b@x.ch": "Contacts"}) == (2, 0.5)
+    assert control_precision(control, {}) == (0, 0.0)
 
 
 def test_rules_precision():
