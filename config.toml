@@ -36,6 +36,17 @@ password = "${IMAP_PASSWORD}"
 credentials_file = "credentials.json"
 token_file = "token.json"
 
+[gmail_imap]
+# Gmail as a second IMAP account (docs/superpowers/specs/2026-09-28-gmail-imap-design.md).
+# Credentials: GMAIL_IMAP_USER and GMAIL_IMAP_PASSWORD (a Google app password) in .env
+host = "imap.gmail.com"
+user = "${GMAIL_IMAP_USER}"
+password = "${GMAIL_IMAP_PASSWORD}"
+use_gmail_extensions = true
+junk_folder_name = "[Gmail]/Spam"
+pending_archive_file = "db/pending_archive_gmail.json"
+folder_cache_file = "data/gmail_folders.json"
+
 [fast_parse]
 # The number of emails to fetch in the first pass.
 batch_size = 500
