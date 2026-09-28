@@ -1,7 +1,7 @@
 ---
 # .github/labeler.yml
 # This file configures the 'actions/labeler' GitHub Action.
-# It automatically labels PRs based on the paths of files being changed or the branch name.
+# It labels PRs based on the paths of the changed files or the branch name.
 
 # -----------------------------------------------------------------------------
 # Labels based on file paths

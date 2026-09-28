@@ -72,27 +72,6 @@ def test_update_suggestion_db(db_paths):
     assert saved_data["sender@example.com"]["Finance/Bloomberg"] == 2
 
 
-def test_promote_to_validated(db_paths):
-    """Tests promoting a classification to the validated database."""
-    suggestion_db_content = {"sender@example.com": {"Finance/Bloomberg": 1}}
-    db_paths["suggestion"].write_text(json.dumps(suggestion_db_content), encoding="utf-8")
-
-    db = ClassificationDatabase(
-        suggestion_db_path=db_paths["suggestion"],
-        validated_db_path=db_paths["validated"],
-        domain_db_path=db_paths["domain"],
-    )
-
-    db.promote_to_validated("sender@example.com", "Finance/Bloomberg")
-
-    assert "sender@example.com" not in db.suggestion_db
-    assert db.validated_db["sender@example.com"] == {"Finance/Bloomberg": 1}
-
-    # Verify persistence
-    saved_validated = json.loads(db_paths["validated"].read_text(encoding="utf-8"))
-    assert saved_validated["sender@example.com"] == {"Finance/Bloomberg": 1}
-
-
 def test_get_dominant_classification(db_paths):
     """Tests that the dominant classification is correctly retrieved."""
     suggestion_db_content = {"sender@example.com": {"Suggestion/Category": 5}}
@@ -181,7 +160,6 @@ def test_read_only_database_never_writes(db_paths):
     db.update_suggestion("b@x.ch", "Achats")
     db.update_domain_classification("x.ch", "Achats")
     db.flush()
-    db.promote_to_validated("a@x.ch", "Achats")
     db.store_domain_classification("y.ch", "Achats")
     db.remove_domain_classification("x.ch")
 

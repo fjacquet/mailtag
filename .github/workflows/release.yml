@@ -20,7 +20,8 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           # Extract section between this version header and the next version header
-          NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          SECTION="/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag"
+          NOTES=$(awk "$SECTION" CHANGELOG.md)
           echo "notes<<EOF" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"

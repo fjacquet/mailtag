@@ -11,7 +11,16 @@ from .database import ClassificationDatabase
 from .folder_analyzer import FolderAnalyzer
 from .metrics import METRICS
 from .models import Email
-from .taxonomy import REVIEW, TAXONOMY, llm_email_part, llm_static_prompt, parse_category_number, to_category
+from .taxonomy import (
+    REVIEW,
+    TAXONOMY,
+    llm_email_part,
+    llm_static_prompt,
+    nomic_text,
+    parse_category_number,
+    to_category,
+)
+from .taxonomy_store import TaxonomyStore
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 from .utils.text_utils import smart_truncate
 
@@ -51,9 +60,15 @@ class Classifier:
         self._proposal_buffer: list[str] = []
 
         # Use the taxonomy, the folder analyzer or the static schema based on configuration
+        self.taxonomy_store: TaxonomyStore | None = None
         if config.taxonomy.enabled:
             self.folder_analyzer = None
             self.categories = list(TAXONOMY)
+            self.taxonomy_store = TaxonomyStore(
+                Path(config.taxonomy.taxonomy_db_dir),
+                min_agreements=config.taxonomy.learn_min_agreements,
+                read_only=getattr(database, "read_only", False) is True,
+            )
             logger.info(f"Using the {len(self.categories)}-category taxonomy")
         elif config.general.use_imap_folders_for_classification:
             self.folder_analyzer = FolderAnalyzer()
@@ -63,6 +78,12 @@ class Classifier:
             self.folder_analyzer = None
             self.categories = self._load_categories_from_schema()
             logger.info(f"Using static classification schema with {len(self.categories)} categories")
+
+    def _embeddings_path(self) -> Path:
+        """Taxonomy mode loads the 19 real-mail centroids; the legacy flow its folder centroids."""
+        if self.config.taxonomy.enabled:
+            return Path(self.config.taxonomy.centroids_file)
+        return Path(self.config.mlx.embeddings_file)
 
     def _init_mlx_components(self) -> bool:
         """Lazy initialize MLX components when first needed (thread-safe).
@@ -95,7 +116,7 @@ class Classifier:
                 )
 
                 # Try to load pre-computed embeddings
-                embeddings_path = Path(self.config.mlx.embeddings_file)
+                embeddings_path = self._embeddings_path()
                 if embeddings_path.exists():
                     if self._semantic_router.load_embeddings(embeddings_path):
                         num_cats = self._semantic_router.num_categories
@@ -819,36 +840,24 @@ class Classifier:
     # --- Taxonomy mode (spec docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md) ---
 
     def _rule_category(self, email: Email) -> str | None:
-        """Signals 1-4 with stored values (old folder paths or categories) mapped to the taxonomy."""
-        category = to_category(self._get_category_from_validated_db(email))
-        if category:
-            return category
-        for label in email.labels:
-            category = to_category(label)
-            if category:
-                return category
-        return to_category(self._get_category_from_history(email)) or to_category(
-            self._get_category_from_domain(email)
-        )
+        """Signals 1, 3 and 4 from the taxonomy store (Signal 2, labels, is not used in taxonomy mode)."""
+        return self.taxonomy_store.category_for(email.sender_address)
 
     def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
-        """Signal 5: nearest old folder per email, mapped to its category, with its similarity."""
+        """Signal 5: nearest centroid (a category, or a legacy folder mapped to its category),
+        with its similarity."""
         unavailable = [(None, 0.0)] * len(emails)
         if not self._init_mlx_components() or not self._semantic_router:
             return unavailable
         if self._semantic_router.num_categories == 0:
             return unavailable
-        texts = []
-        for e in emails:
-            text = f"Email from {e.sender_name or e.sender_address or 'Unknown'}: {e.subject}"
-            body = self._truncate_body(e.body, max_chars=500) if e.body else ""
-            texts.append(f"{text}\n{body}" if body else text)
+        texts = [nomic_text(e.sender_name, e.sender_address, e.subject, e.body) for e in emails]
         try:
             top = self._semantic_router.top_batch(texts)
         except (RuntimeError, ValueError, AttributeError, OSError) as e:
             logger.error(f"Semantic router failed, sending emails to review: {e}")
             return unavailable
-        return [(to_category(folder), score) for folder, score in top]
+        return [(to_category(label), score) for label, score in top]
 
     def _llm_categories(self, emails: list[Email]) -> list[str | None]:
         """Signal 6: one category (or None) per email from the LLM, answered by number."""
@@ -871,33 +880,37 @@ class Classifier:
             return [None] * len(emails)
         return [parse_category_number(answer) for answer in answers]
 
-    def _classify_uncertain(self, emails: list[Email]) -> list[str]:
-        """Signals 5-6: nomic above threshold, else LLM when it agrees with nomic's choice, else REVIEW."""
-        results: list[str] = [REVIEW] * len(emails)
+    def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
+        """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement."""
+        results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
         need_llm: list[tuple[int, str | None]] = []
         for i, (category, score) in enumerate(self._nomic_top(emails)):
             if category and score >= self.config.taxonomy.nomic_threshold:
-                results[i] = category
+                results[i] = (category, False)
             else:
                 need_llm.append((i, category))
         if need_llm:
             answers = self._llm_categories([emails[i] for i, _ in need_llm])
             for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
                 if llm_category and llm_category == nomic_category:
-                    results[i] = llm_category
+                    results[i] = (llm_category, True)
         return results
 
+    def _classify_uncertain(self, emails: list[Email]) -> list[str]:
+        """Signals 5-6 categories only (used by the `chain` measurement)."""
+        return [category for category, _ in self._classify_uncertain_detailed(emails)]
+
     def _classify_batch_taxonomy(self, emails: list[Email]) -> list[str]:
-        """Taxonomy mode: rules first, then the nomic/LLM chain for the rest."""
+        """Taxonomy mode: rules first, then the nomic/LLM chain; agreements teach the sender rules."""
         results: list[str | None] = [self._rule_category(e) for e in emails]
         pending = [i for i, category in enumerate(results) if category is None]
         if pending:
-            for i, category in zip(
-                pending, self._classify_uncertain([emails[i] for i in pending]), strict=True
-            ):
+            detailed = self._classify_uncertain_detailed([emails[i] for i in pending])
+            for i, (category, agreed) in zip(pending, detailed, strict=True):
                 results[i] = category
-                if category != REVIEW:
-                    self.database.update_suggestion(emails[i].sender_address, category)
+                if agreed:
+                    self.taxonomy_store.record_agreement(emails[i].sender_address, category)
+            self.taxonomy_store.save()
         logger.info(
             f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
             f"{sum(1 for i in pending if results[i] != REVIEW)} by models, "

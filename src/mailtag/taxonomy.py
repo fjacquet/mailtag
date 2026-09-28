@@ -2,6 +2,8 @@
 
 import re
 
+from .utils.text_utils import smart_truncate
+
 TAXONOMY = {
     "Banque & Placements": "banques, cartes de crédit, paiements, bourse, crypto, crowdfunding, budget",
     "Assurances & Retraite": "assurances maladie, auto, habitation, voyage, caisses de pension, retraite",
@@ -274,6 +276,25 @@ def llm_static_prompt() -> str:
 def llm_email_part(subject: str, sender: str, body: str) -> str:
     """Per-email part of the prompt, appended after llm_static_prompt()."""
     return f"Sujet: {subject}\nDe: {sender}\nCorps: {body}"
+
+
+def llm_sender_static_prompt() -> str:
+    """Same numbered list as llm_static_prompt(), asking for the sender's category."""
+    return llm_static_prompt().replace("Classe cet email", "Classe cet expéditeur", 1)
+
+
+def llm_sender_part(name: str, address: str, subjects: list[str]) -> str:
+    """Per-sender part of the prompt, appended after llm_sender_static_prompt()."""
+    sender = f"{name} <{address}>" if name else address
+    lines = "\n".join(f"- {s}" for s in subjects) or "- (aucun)"
+    return f"Expéditeur: {sender}\nSujets:\n{lines}"
+
+
+def nomic_text(sender_name: str, sender_address: str, subject: str, body: str) -> str:
+    """Text embedded by nomic for one email (the production Signal 5 format)."""
+    text = f"Email from {sender_name or sender_address or 'Unknown'}: {subject}"
+    body = smart_truncate(body, max_chars=500) if body else ""
+    return f"{text}\n{body}" if body else text
 
 
 def parse_category_number(text: str) -> str | None:

@@ -15,7 +15,6 @@ from mailtag.gmail_service import GmailService
 from mailtag.imap_service import ImapService
 from mailtag.pending_archive import PendingArchive
 from mailtag.routing import RoutedMail, route_to_action_folders
-from mailtag.taxonomy import to_category
 from mailtag.utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
 Provider = ImapService | GmailService
@@ -27,6 +26,7 @@ def _run_fast_parse_on_folder(
     folder_name: str,
     validate: bool,
     pending: PendingArchive | None = None,
+    rules=None,
 ) -> tuple[list[str], dict[str, dict[str, str]]]:
     """
     Runs the fast parse (Pass 1) on a specific folder.
@@ -65,9 +65,10 @@ def _run_fast_parse_on_folder(
         for uid, header_data in headers.items():
             sender_address = header_data["sender_address"]
             subject = header_data["subject"]
-            classification = database.get_dominant_classification(sender_address)
             if pending is not None:
-                classification = to_category(classification)
+                classification = rules.category_for(sender_address)
+            else:
+                classification = database.get_dominant_classification(sender_address)
             if classification:
                 logger.info(f'Email "{subject}" from {sender_address} -> Category: {classification} (Pass 1)')
                 if pending is not None:
@@ -95,7 +96,6 @@ def _run_domain_classification_pass(
     uids_to_process: list[str],
     validate: bool,
     prefetched_headers: dict[str, dict[str, str]] | None = None,
-    pending: PendingArchive | None = None,
 ) -> list[str]:
     """
     Runs the domain-based classification (Pass 2) on remaining emails.
@@ -156,8 +156,6 @@ def _run_domain_classification_pass(
 
         # Check if we have a domain classification
         category = database.get_category_by_domain(domain)
-        if pending is not None:
-            category = to_category(category)
 
         if category:
             logger.info(f"Found domain classification: {domain} -> {category}")
@@ -179,15 +177,7 @@ def _run_domain_classification_pass(
                 except (KeyError, ValueError, TypeError, OSError) as e:
                     logger.error(f"Could not update database for email UID {uid}: {e}")
 
-            if pending is not None:
-                emails_moved += route_to_action_folders(
-                    provider,
-                    pending,
-                    [RoutedMail.from_headers(uid, category, headers[uid]) for uid in domain_uids],
-                    validate,
-                    date.today(),
-                )
-            elif not validate and category not in ["Unclassified", "À Classer", "(Model Error)"]:
+            if not validate and category not in ["Unclassified", "À Classer", "(Model Error)"]:
                 try:
                     provider.batch_move_emails(domain_uids, category)
                     emails_moved += len(domain_uids)
@@ -230,25 +220,34 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                 # --- Fast Parse (Pass 1) on Junk Folder ---
                 junk_folder = provider.fast_parse_config.junk_folder_name
                 if junk_folder:
-                    _run_fast_parse_on_folder(provider, database, junk_folder, validate, pending=pending)
+                    _run_fast_parse_on_folder(
+                        provider,
+                        database,
+                        junk_folder,
+                        validate,
+                        pending=pending,
+                        rules=classifier.taxonomy_store,
+                    )
                     database.flush()
 
                 # --- Fast Parse (Pass 1) on INBOX ---
                 uids_to_process_pass2, pass2_headers = _run_fast_parse_on_folder(
-                    provider, database, "INBOX", validate, pending=pending
+                    provider, database, "INBOX", validate, pending=pending, rules=classifier.taxonomy_store
                 )
                 database.flush()
 
-                # --- Pass 2: Domain-based classification ---
-                uids_to_process_pass3 = _run_domain_classification_pass(
-                    provider,
-                    database,
-                    uids_to_process_pass2,
-                    validate,
-                    prefetched_headers=pass2_headers,
-                    pending=pending,
-                )
-                database.flush()
+                # --- Pass 2: Domain-based classification (taxonomy mode: domains are in Pass 1 rules) ---
+                if pending is not None:
+                    uids_to_process_pass3 = uids_to_process_pass2
+                else:
+                    uids_to_process_pass3 = _run_domain_classification_pass(
+                        provider,
+                        database,
+                        uids_to_process_pass2,
+                        validate,
+                        prefetched_headers=pass2_headers,
+                    )
+                    database.flush()
 
                 # --- Pass 3: AI classification for remaining emails ---
                 logger.info(
@@ -303,7 +302,7 @@ def run_classification(provider_instance: Provider, database: ClassificationData
                     run_archive(
                         provider,
                         pending,
-                        database,
+                        classifier.taxonomy_store,
                         CONFIG.taxonomy.archive_after_days,
                         date.today(),
                         validate,

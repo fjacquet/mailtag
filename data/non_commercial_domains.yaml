@@ -1,6 +1,8 @@
+---
 # Non-Commercial Email Domains
-# These domains host personal email accounts and should NOT be used for domain-based classification
-# Each domain can have millions of different users, so creating domain-wide rules would be incorrect
+# These domains host personal email accounts and must NOT be used for
+# domain-based classification: each has many unrelated users, so a
+# domain-wide rule would be wrong.
 
 non_commercial_domains:
   # Major international providers
@@ -10,12 +12,24 @@ non_commercial_domains:
   - hotmail.com
   - aol.com
   - icloud.com
-  
+  - me.com
+  - mac.com
+  - googlemail.com
+  - msn.com
+  - live.com
+  - live.fr
+  - outlook.fr
+  - hotmail.fr
+  - hotmail.ch
+  - yahoo.fr
+  - yahoo.co.uk
+  - ymail.com
+
   # Privacy-focused providers
   - protonmail.com
   - tutanota.com
   - proton.me
-  
+
   # Regional providers
   - bluewin.ch
   - gmx.com
@@ -26,21 +40,36 @@ non_commercial_domains:
   - laposte.net
   - free.fr
   - wanadoo.fr
-  
+  - sfr.fr
+  - neuf.fr
+  - bbox.fr
+  - gmx.ch
+  - gmx.fr
+  - gmx.net
+  - sunrise.ch
+  - hispeed.ch
+  - vtxnet.ch
+  - netplus.ch
+  - bluemail.ch
+
   # Other common personal providers
   - yandex.com
   - mail.ru
   - qq.com
   - 163.com
   - sina.com
-  
+
+  # The owner's own domains: people, not a company
+  - ljf.ch
+  - ljfch.onmicrosoft.com
+
 # Configuration
 settings:
   # Whether to automatically skip these domains in domain-based classification
   skip_domain_classification: true
-  
+
   # Whether to log when emails from these domains are encountered
   log_non_commercial_encounters: true
-  
+
   # Whether to still allow manual domain rules for these domains (advanced use case)
   allow_manual_override: false

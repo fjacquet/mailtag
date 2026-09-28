@@ -353,3 +353,14 @@ def test_load_config_reads_taxonomy_section(tmp_path, monkeypatch):
     assert cfg.taxonomy.enabled is True
     assert cfg.taxonomy.nomic_threshold == 0.72
     assert cfg.taxonomy.llm_batch_size == 8
+
+
+def test_taxonomy_signal_defaults():
+    from mailtag.config import TaxonomyConfig
+
+    cfg = TaxonomyConfig()
+    assert cfg.taxonomy_db_dir == "db/taxonomy"
+    assert cfg.centroids_file == "data/taxonomy_centroids.npz"
+    assert cfg.learn_min_agreements == 2
+    assert cfg.domain_min_purity == 0.90
+    assert cfg.sender_min_mails == 2

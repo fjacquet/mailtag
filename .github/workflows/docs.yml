@@ -1,3 +1,4 @@
+---
 name: Docs
 on:
   push:
@@ -7,8 +8,8 @@ on:
     branches: [main]
     paths: ["docs/**", "docs-site/**", "mkdocs.yml"]
   workflow_dispatch:
-permissions: { contents: read, pages: write, id-token: write }
+permissions: {contents: read, pages: write, id-token: write}
 jobs:
   docs:
     uses: fjacquet/ci/.github/workflows/docs-publish.yml@v1
-    with: { python-version: "3.13" }
+    with: {python-version: "3.13"}

@@ -88,13 +88,6 @@ class ClassificationDatabase:
         with self.suggestion_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.suggestion_db, f, indent=2, ensure_ascii=False)
 
-    def _save_validated_db(self) -> None:
-        """Saves the validated database to a JSON file."""
-        if self.read_only:
-            return
-        with self.validated_db_path.open("w", encoding="utf-8") as f:
-            json.dump(self.validated_db, f, indent=2, ensure_ascii=False)
-
     def _save_domain_db(self) -> None:
         """Saves the domain classification database to a JSON file."""
         if self.read_only:
@@ -111,18 +104,6 @@ class ClassificationDatabase:
         with self._lock:
             self.suggestion_db[normalized][category] += 1
             self._suggestion_dirty = True
-
-    def promote_to_validated(self, sender_address: str, category: str) -> None:
-        """Promotes a classification from the suggestion DB to the validated DB."""
-        normalized = _normalize_email(sender_address)
-        with self._lock:
-            # Remove from suggestion DB
-            if normalized in self.suggestion_db:
-                del self.suggestion_db[normalized]
-                self._save_suggestion_db()
-            # Add to validated DB
-            self.validated_db[normalized] = {category: 1}
-            self._save_validated_db()
 
     def get_classification_count(self, sender_address: str, category: str) -> int:
         """Gets the classification count for a sender-category pair from the suggestion DB."""

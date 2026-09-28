@@ -8,3 +8,11 @@ rules:
   # I like my indents to be 2 spaces.
   indentation:
     spaces: 2
+  # GitHub Actions uses an `on:` key, not a boolean.
+  truthy:
+    check-keys: false
+
+ignore: |
+  .venv/
+  .serena/
+  site/

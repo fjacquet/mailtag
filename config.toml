@@ -92,6 +92,12 @@ enabled = false
 nomic_threshold = 0.70
 llm_batch_size = 8
 archive_after_days = 7
+# Learned rules and centroids (docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md)
+taxonomy_db_dir = "db/taxonomy"
+centroids_file = "data/taxonomy_centroids.npz"
+learn_min_agreements = 2   # nomic+Gemma agreements before a sender becomes a rule
+domain_min_purity = 0.90   # share of a domain's mails in one category to make a domain rule
+sender_min_mails = 2       # mails needed before a folder/Gemma agreement becomes a sender rule
 
 [webhook]
 # API server settings

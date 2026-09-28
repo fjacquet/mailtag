@@ -95,6 +95,11 @@ class TaxonomyConfig:
     archive_after_days: int = 7
     pending_archive_file: str = "db/pending_archive.json"
     legacy_folders_file: str = "data/legacy_folders.json"
+    taxonomy_db_dir: str = "db/taxonomy"
+    centroids_file: str = "data/taxonomy_centroids.npz"
+    learn_min_agreements: int = 2
+    domain_min_purity: float = 0.90
+    sender_min_mails: int = 2
 
 
 @dataclass

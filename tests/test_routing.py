@@ -126,10 +126,14 @@ def test_pass1_routes_known_sender_in_taxonomy_mode(mocker, pending):
               "has_unsubscribe": False, "is_bulk": False},
     }  # fmt: skip
     database = mocker.MagicMock()
-    database.get_dominant_classification.side_effect = lambda s: "Voyages/Sixt" if s == "a@sixt.ch" else None
+    rules = mocker.MagicMock()
+    rules.category_for.side_effect = lambda s: "Voyages & Loisirs" if s == "a@sixt.ch" else None
 
-    uids, headers = tasks._run_fast_parse_on_folder(provider, database, "INBOX", False, pending=pending)
+    uids, headers = tasks._run_fast_parse_on_folder(
+        provider, database, "INBOX", False, pending=pending, rules=rules
+    )
 
     assert uids == ["2"]
     provider.batch_move_emails.assert_called_once_with(["1"], "4-Pour info")
     assert pending.get("<1>")["category"] == "Voyages & Loisirs"
+    database.get_dominant_classification.assert_not_called()
