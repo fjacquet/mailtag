@@ -58,7 +58,20 @@ def test_load_config_success(mock_config_file: Path, monkeypatch):
     assert config.classifier.ai_confidence_threshold == 0.7
     assert config.imap.host == "imap.test.com"
     assert config.gmail.credentials_file == "creds.json"
-    assert config.gmail_imap is None
+    assert not hasattr(config, "gmail_imap")
+
+
+def test_gmail_config_defaults(mock_config_file: Path, monkeypatch):
+    """`[gmail]` gains four fields for the Gmail-through-the-API taxonomy flow."""
+    for env_var in ["MODEL", "MODEL_NAME", "OLLAMA_API_URL", "API_BASE", "IMAP_USER", "IMAP_PASSWORD"]:
+        monkeypatch.delenv(env_var, raising=False)
+
+    config = load_config(mock_config_file)
+
+    assert config.gmail.pending_archive_file == "db/pending_archive_gmail.json"
+    assert config.gmail.folder_cache_file == "data/gmail_labels.json"
+    assert config.gmail.junk_folder_name == "SPAM"
+    assert config.gmail.use_gmail_extensions is False
 
 
 def test_load_config_file_not_found():
@@ -371,51 +384,6 @@ def test_own_addresses_default_empty():
     from mailtag.config import TaxonomyConfig
 
     assert TaxonomyConfig().own_addresses == []
-
-
-GMAIL_SECTION = """
-[gmail_imap]
-host = "imap.gmail.com"
-user = "${GMAIL_IMAP_USER}"
-password = "${GMAIL_IMAP_PASSWORD}"
-"""
-
-
-def test_gmail_imap_reads_env_and_defaults(monkeypatch):
-    import tomllib
-
-    from mailtag.config import _load_gmail_imap
-
-    monkeypatch.setenv("GMAIL_IMAP_USER", "me@gmail.com")
-    monkeypatch.setenv("GMAIL_IMAP_PASSWORD", "apppassword")
-    config = _load_gmail_imap(tomllib.loads(GMAIL_SECTION))
-
-    assert config.host == "imap.gmail.com"
-    assert config.user == "me@gmail.com" and config.password == "apppassword"
-    assert config.use_gmail_extensions is True
-    assert config.junk_folder_name == "[Gmail]/Spam"
-    assert config.pending_archive_file == "db/pending_archive_gmail.json"
-    assert config.folder_cache_file == "data/gmail_folders.json"
-
-
-@pytest.mark.parametrize("user,password", [("me@gmail.com", None), (None, "apppassword"), (None, None)])
-def test_gmail_imap_without_credentials_is_disabled(monkeypatch, user, password):
-    import tomllib
-
-    from mailtag.config import _load_gmail_imap
-
-    for name, value in (("GMAIL_IMAP_USER", user), ("GMAIL_IMAP_PASSWORD", password)):
-        if value is None:
-            monkeypatch.delenv(name, raising=False)
-        else:
-            monkeypatch.setenv(name, value)
-    assert _load_gmail_imap(tomllib.loads(GMAIL_SECTION)) is None
-
-
-def test_gmail_imap_absent_section_is_disabled():
-    from mailtag.config import _load_gmail_imap
-
-    assert _load_gmail_imap({}) is None
 
 
 def test_imap_config_defaults_keep_infomaniak_behaviour():

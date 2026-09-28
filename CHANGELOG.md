@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Owner's addresses** (`own_addresses`) are never a rule and never learned from (#41)
 - **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply` (#43)
 - **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders and merges duplicate system folders (`Archives`, `Junk`, `Deleted Messages`, `Sent Messages`) into Infomaniak's (`Archive`, `Spam`, `Trash`, `Sent`); Pass 1 now reads `Spam`
-- **Gmail as a second IMAP account** (`[gmail_imap]`): `run --provider gmail` classifies new Gmail mail through IMAP (app password) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk folder and folder cache. The Gmail API/OAuth path (`GmailService`) is no longer used by the CLI (#44)
+- **Gmail through the API**: `run --provider gmail` (`GmailApiService`) classifies the Gmail inbox through the Gmail API (OAuth) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk label and folder cache (#44, #48)
 
 ### Changed
 
@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Domain rules weigh each sender's validated category, else its audited folder category; the review page only shows senders no rule covers (#41)
 - `nomic_threshold` set to 0.90 in `config.toml` (#42)
 - AI classification proposals are written to `logs/proposals.log` (was `proposals.log` at the repository root); the old `CLASSIFICATION_IMPROVEMENTS_SPEC.md` moved to `docs/classification-improvements-spec.md`; the unused `old/` files were removed
+- Gmail uses the Gmail API (OAuth) instead of IMAP; Gmail's Promotions category is reused (#48)
 
 ### Fixed
 

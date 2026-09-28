@@ -12,18 +12,20 @@ python src/main.py run --provider imap
 # Read-only validation (no moves)
 python src/main.py run --provider imap --validate
 
-# Gmail only
+# Gmail only (through the Gmail API)
 python src/main.py run --provider gmail
 ```
 
 In taxonomy mode, `run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
 
-Gmail runs as a second IMAP account (`[gmail_imap]`): the `db/taxonomy/` rules and centroids are shared
-with Infomaniak, but each account keeps its own pending archive, junk folder and folder cache — Gmail's
-folder listing never replaces `data/imap_folders.json`. On Gmail, "moving" a mail removes the source label
-and adds the target label (the mail stays in "All Mail"); labels for action folders and categories are
-created on demand. Gmail is new-mail only: there is no `scan`, `migrate` or `prune` for it, and its old
-labels are never touched.
+Gmail runs through the **Gmail API** (OAuth, see [Configuration](configuration.md#gmail-api-setup)): the
+`db/taxonomy/` rules and centroids are shared with Infomaniak, but each account keeps its own pending
+archive, junk label and folder cache — Gmail's label listing never replaces `data/imap_folders.json`. On
+Gmail, "moving" a mail out of `INBOX` removes the `INBOX` label (the mail stays in "All Mail"); `Promotions`
+reuses Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`) instead of a label; labels for other action
+folders and categories are created on demand — see the [folder ↔ label mapping](../architecture/classification.md#gmail).
+Gmail is new-mail only: there is no `scan`, `migrate` or `prune` for it, and its old labels are never
+touched. Run `--validate` first: the OAuth app is in "Testing" mode, so the token expires after 7 days.
 
 ## Taxonomy Setup
 
