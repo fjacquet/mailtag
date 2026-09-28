@@ -30,6 +30,15 @@ def review_queue(senders: dict, crosscheck: dict, validated: dict) -> list[str]:
     return sorted(disagree, key=by_volume) + sorted(agree, key=by_volume)
 
 
+def learned_to_review(learned: dict, scanned: dict, validated: dict, min_agreements: int) -> list[str]:
+    """Senders promoted during runs (unknown to the scan, not validated), most agreements first."""
+    promoted = [
+        s for s, e in learned.items()
+        if s not in scanned and s not in validated and e["agreements"] >= min_agreements
+    ]  # fmt: skip
+    return sorted(promoted, key=lambda s: -learned[s]["agreements"])
+
+
 def learned_senders(
     senders: dict, crosscheck: dict, validated: dict, min_mails: int, agreements: int
 ) -> dict:

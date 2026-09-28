@@ -150,3 +150,97 @@ def test_concurrent_learning_and_saves_are_safe(tmp_path):
 
     assert errors == []
     assert len(TaxonomyStore(tmp_path).senders) == 8 * 400
+
+
+def test_two_processes_keep_each_others_rules(tmp_path):
+    """The webhook API and a `run` each hold a store on the same files."""
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("a@x.ch", "Santé")
+    run.record_agreement("b@x.ch", "Achats")
+    run.set_validated("v@x.ch", "Achats")
+    api.save()
+    run.save()
+
+    disk = TaxonomyStore(tmp_path)
+    assert disk.senders == {
+        "a@x.ch": {"category": "Santé", "agreements": 1},
+        "b@x.ch": {"category": "Achats", "agreements": 1},
+    }
+    assert disk.validated == {"v@x.ch": "Achats"}
+
+
+def test_agreements_from_two_processes_add_up(tmp_path):
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("a@x.ch", "Santé")
+    run.record_agreement("a@x.ch", "Santé")
+    api.save()
+    run.save()
+
+    assert TaxonomyStore(tmp_path).category_for("a@x.ch") == "Santé"
+
+
+def test_lookup_sees_what_another_process_saved(tmp_path):
+    api, run = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    run.set_validated("v@x.ch", "Achats")
+    run.save()
+
+    assert api.category_for("v@x.ch") == "Achats"
+
+
+def test_validation_elsewhere_wins_over_local_learning(tmp_path):
+    api, review = TaxonomyStore(tmp_path), TaxonomyStore(tmp_path)
+    api.record_agreement("s@x.ch", "Santé")
+    review.set_validated("s@x.ch", "Achats")
+    review.save()
+    api.save()
+
+    disk = TaxonomyStore(tmp_path)
+    assert disk.validated == {"s@x.ch": "Achats"}
+    assert "s@x.ch" not in disk.senders
+
+
+def test_failed_save_writes_nothing_and_does_not_count_twice(tmp_path, monkeypatch):
+    import mailtag.taxonomy_store as module
+
+    s = TaxonomyStore(tmp_path)
+    s.record_agreement("a@x.ch", "Santé")
+    s.set_validated("v@x.ch", "Achats")
+    real_dump, calls = module.json.dump, []
+
+    def dump_failing_on_second_file(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        return real_dump(*args, **kwargs)
+
+    monkeypatch.setattr(module.json, "dump", dump_failing_on_second_file)
+    with pytest.raises(OSError):
+        s.save()
+    assert sorted(p.name for p in tmp_path.iterdir() if p.suffix == ".json") == []
+
+    monkeypatch.setattr(module.json, "dump", real_dump)
+    s.save()
+    assert TaxonomyStore(tmp_path).senders == {"a@x.ch": {"category": "Santé", "agreements": 1}}
+
+
+def test_save_does_not_reload_when_no_other_process_wrote(tmp_path, mocker):
+    import mailtag.taxonomy_store as module
+
+    s = TaxonomyStore(tmp_path)
+    load = mocker.spy(module, "_load")
+    s.record_agreement("a@x.ch", "Santé")
+    s.save()
+    s.record_agreement("a@x.ch", "Santé")
+    s.save()
+
+    load.assert_not_called()
+    assert TaxonomyStore(tmp_path).category_for("a@x.ch") == "Santé"
+
+
+def test_read_only_store_keeps_learning_in_memory_without_piling_up(tmp_path):
+    s = TaxonomyStore(tmp_path, read_only=True)
+    for _ in range(3):
+        s.record_agreement("a@x.ch", "Santé")
+
+    assert s.category_for("a@x.ch") == "Santé"
+    assert s._ops == []
