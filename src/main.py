@@ -74,7 +74,7 @@ def start_classification_run(provider, validate):
     backup_all_databases(db_dir)
     cleanup_old_backups(db_dir / "backups", keep_count=10)
 
-    database = ClassificationDatabase(suggestion_db_path, validated_db_path)
+    database = ClassificationDatabase(suggestion_db_path, validated_db_path, read_only=validate)
 
     providers_to_run = []
     if provider == "all":

@@ -155,3 +155,34 @@ def test_get_email_headers_includes_list_flags(mock_imap_client, mocker):
         "has_unsubscribe": True,
         "is_bulk": True,
     }
+
+
+ENCODED_SUBJECT = "=?utf-8?Q?FACTURE_AOF6A10318_de_la_r=C3=A9servation?="
+ENCODED_FROM = "=?utf-8?Q?Andr=C3=A9_M=C3=BCller?= <andre@example.ch>"
+
+
+def test_full_emails_decode_encoded_subject_and_sender(imap_service, mock_imap_client):
+    mock_imap_client.mailboxes["INBOX"][1][b"BODY[]"] = (
+        f"From: {ENCODED_FROM}\r\nSubject: {ENCODED_SUBJECT}\r\n\r\nbody".encode()
+    )
+    imap_service.client = mock_imap_client
+    mock_imap_client.select_folder("INBOX")
+
+    mail = imap_service.get_full_emails([1])[0]
+
+    assert mail.subject == "FACTURE AOF6A10318 de la réservation"
+    assert mail.sender_name == "André Müller"
+    assert mail.sender_address == "andre@example.ch"
+
+
+def test_headers_decode_encoded_subject(imap_service, mock_imap_client):
+    mock_imap_client.mailboxes["INBOX"][1][
+        b"BODY[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]"
+    ] = f"From: {ENCODED_FROM}\r\nSubject: {ENCODED_SUBJECT}\r\n".encode()
+    imap_service.client = mock_imap_client
+    mock_imap_client.select_folder("INBOX")
+
+    headers = imap_service.get_email_headers([1])
+
+    assert headers["1"]["subject"] == "FACTURE AOF6A10318 de la réservation"
+    assert headers["1"]["sender_address"] == "andre@example.ch"

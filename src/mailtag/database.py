@@ -30,7 +30,15 @@ def _normalize_email(email: str) -> str:
 class ClassificationDatabase:
     """Manages the sender classification database."""
 
-    def __init__(self, suggestion_db_path: Path, validated_db_path: Path, domain_db_path: Path | None = None):
+    def __init__(
+        self,
+        suggestion_db_path: Path,
+        validated_db_path: Path,
+        domain_db_path: Path | None = None,
+        read_only: bool = False,
+    ):
+        # read_only: updates stay in memory and are never written (used by --validate)
+        self.read_only = read_only
         self.suggestion_db_path = suggestion_db_path
         self.validated_db_path = validated_db_path
         self.domain_db_path = domain_db_path or suggestion_db_path.parent / "domain_classifications.json"
@@ -75,16 +83,22 @@ class ClassificationDatabase:
 
     def _save_suggestion_db(self) -> None:
         """Saves the suggestion database to a JSON file."""
+        if self.read_only:
+            return
         with self.suggestion_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.suggestion_db, f, indent=2, ensure_ascii=False)
 
     def _save_validated_db(self) -> None:
         """Saves the validated database to a JSON file."""
+        if self.read_only:
+            return
         with self.validated_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.validated_db, f, indent=2, ensure_ascii=False)
 
     def _save_domain_db(self) -> None:
         """Saves the domain classification database to a JSON file."""
+        if self.read_only:
+            return
         with self.domain_db_path.open("w", encoding="utf-8") as f:
             json.dump(self.domain_db, f, indent=2, ensure_ascii=False)
 

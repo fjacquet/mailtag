@@ -117,3 +117,18 @@ class TestMain:
         runner = CliRunner()
         result = runner.invoke(cli, ["run", "--provider", "invalid"])
         assert result.exit_code != 0
+
+
+@pytest.mark.parametrize("validate", [True, False])
+def test_validate_opens_database_read_only(mocker: MockerFixture, validate):
+    from main import start_classification_run
+
+    mocker.patch("mailtag.utils.db_backup.backup_all_databases")
+    mocker.patch("mailtag.utils.db_backup.cleanup_old_backups")
+    config = mocker.patch("main.CONFIG")
+    config.imap = None
+    database = mocker.patch("main.ClassificationDatabase")
+
+    start_classification_run("imap", validate)
+
+    assert database.call_args.kwargs["read_only"] is validate

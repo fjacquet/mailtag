@@ -1,4 +1,5 @@
 import email
+import email.errors
 import email.header
 import imaplib
 import json
@@ -240,8 +241,12 @@ class ImapService(EmailProvider):
             except (UnicodeDecodeError, AttributeError):
                 return str(header_value)
 
-        # Handle other types
-        return str(header_value)
+        # Handle str, decoding RFC 2047 encoded words (=?utf-8?Q?...?=)
+        text = str(header_value)
+        try:
+            return str(email.header.make_header(email.header.decode_header(text)))
+        except (UnicodeDecodeError, LookupError, ValueError, email.errors.HeaderParseError):
+            return text
 
     def _process_email_headers(self, response: dict[int, dict[bytes, bytes]]) -> dict[str, dict[str, str]]:
         """Process email headers from IMAP response."""
@@ -317,21 +322,8 @@ class ImapService(EmailProvider):
         for msg_id, data in response.items():
             try:
                 msg = email.message_from_bytes(data[b"BODY[]"])
-                sender_header = msg["From"]
-                subject_header = msg["Subject"]
-
-                # Safely convert header objects to strings
-                if sender_header is not None:
-                    if hasattr(sender_header, "decode"):
-                        sender_header = sender_header.decode()
-                    elif hasattr(email.header, "Header") and isinstance(sender_header, email.header.Header):
-                        sender_header = str(sender_header)
-
-                if subject_header is not None:
-                    if hasattr(subject_header, "decode"):
-                        subject_header = subject_header.decode()
-                    elif hasattr(email.header, "Header") and isinstance(subject_header, email.header.Header):
-                        subject_header = str(subject_header)
+                sender_header = self._parse_header_value(msg["From"])
+                subject_header = self._parse_header_value(msg["Subject"])
 
                 sender_name, sender_address = self._parse_sender(sender_header or "")
                 body = self._get_body_from_msg(msg)

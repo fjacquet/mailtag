@@ -166,3 +166,24 @@ def test_case_insensitive_sender_lookup(db_paths):
     db.update_suggestion("User@Example.COM", "Finance/Test")
     assert db.get_classification_count("user@example.com", "Finance/Test") == 1
     assert db.get_classification_count("USER@EXAMPLE.COM", "Finance/Test") == 1
+
+
+def test_read_only_database_never_writes(db_paths):
+    """A --validate run must leave every database file untouched."""
+    db_paths["suggestion"].write_text(json.dumps({"a@x.ch": {"Old": 1}}))
+    db_paths["validated"].write_text(json.dumps({}))
+    db_paths["domain"].write_text(json.dumps({}))
+    before = {name: path.read_bytes() for name, path in db_paths.items()}
+
+    db = ClassificationDatabase(
+        db_paths["suggestion"], db_paths["validated"], db_paths["domain"], read_only=True
+    )
+    db.update_suggestion("b@x.ch", "Achats")
+    db.update_domain_classification("x.ch", "Achats")
+    db.flush()
+    db.promote_to_validated("a@x.ch", "Achats")
+    db.store_domain_classification("y.ch", "Achats")
+    db.remove_domain_classification("x.ch")
+
+    assert {name: path.read_bytes() for name, path in db_paths.items()} == before
+    assert db.get_dominant_classification("b@x.ch") == "Achats"  # in-memory view still updated
