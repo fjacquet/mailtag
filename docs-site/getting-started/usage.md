@@ -38,12 +38,15 @@ uv run streamlit run scripts/taxonomy_review.py     # local review page
 uv run python scripts/taxonomy_setup.py build       # rules, corpus and the 19 nomic centroids
 ```
 
-The review page has four stages, picked in the sidebar:
+The review page has five stages, picked in the sidebar:
 
 1. **Contested folders** — confirm or correct the category of legacy folders whose senders Gemma often disagrees with. Run `scan` again afterwards.
 2. **Scan senders** — senders with at least `sender_min_mails` mails that no validated, learned or domain rule covers.
 3. **Senders learned during runs** — confirm or correct senders promoted after two nomic/Gemma agreements.
 4. **Rule control** — after `build`, 60 random rule-covered senders; the page shows the share of right rules.
+5. **Mails en revue** — after `review-scan`, decide a category per domain or per sender for the mail waiting in `5-A revoir`; see [Bulk Review of 5-A revoir](#bulk-review-of-5-a-revoir) below.
+
+Stage 5's source files (`data/review_scan_*.json`) are independent of `scan`/`crosscheck`, so it is available even before you run them.
 
 `scripts/eval_embeddings.py chain` replays signals 5-6 on verified mail to choose `nomic_threshold`.
 
@@ -72,6 +75,22 @@ uv run python scripts/taxonomy_setup.py reorganize --apply    # apply them
 ```
 
 Renames each flat category folder into its PARA folder (`Santé` → `Domaines/Santé`, `Achats` → `Archive/Achats`, `Veille & Newsletters pro` → `Ressources/Veille & Newsletters pro`) with IMAP RENAME (no mail is copied), renames `9-A revoir` to `5-A revoir`, and merges `5-Promos` into the standard `Promotions` folder. When both an old and a new folder exist, their mail is merged instead of overwritten. It also merges duplicate system folders created by mail clients into the ones Infomaniak's webmail uses: `Archives` → `Archive`, `Junk` → `Spam`, `Deleted Messages` → `Trash`, `Sent Messages` → `Sent` (set your mail client to use these folders, or it may recreate the others). Re-running it does nothing once done.
+
+## Bulk Review of 5-A revoir
+
+Deciding thousands of mails in `5-A revoir` one by one does not scale, especially after a first Gmail run. Instead decide a category per **domain** (all its senders, present and future) or per **sender**, then move every mail a rule now covers in one command. Dry run unless `--apply`.
+
+```bash
+uv run python scripts/taxonomy_setup.py review-scan --provider imap|gmail    # read-only, writes data/review_scan_<provider>.json
+uv run streamlit run scripts/taxonomy_review.py                              # stage 5: "Mails en revue"
+uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail          # report only
+uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail --apply  # move the mail
+```
+
+- `review-scan` reads `5-A revoir`, skips mail a rule already covers and the owner's own addresses, groups the rest by domain (or by sender for a personal domain such as `gmail.com`), and asks Gemma for a suggested category per group. Re-running it keeps suggestions already computed.
+- On stage 5, each row shows the group's mail count, its top senders, a few subjects and Gemma's suggestion. `Confirmer` accepts the suggestion; a category button picks one of the 19 directly; `Par expéditeur` (domain rows only) splits the row into one per sender for this session; `Passer` skips it, like the other stages. A domain decision goes to `db/taxonomy/validated_domains.json`, a sender decision to `db/taxonomy/validated.json` — same file, same rule, as any other validated sender.
+- `refile-review` moves each covered mail to its category folder and drops its `pending_archive` entry, so a later archive sweep does not relearn it as a sender rule. Mail with no rule stays in `5-A revoir` for manual review.
+- Blocked while `migrate`/`prune` would be (taxonomy rules must exist first). Do not run `run` or `serve` during `refile-review --apply`.
 
 ## Database Management
 
@@ -123,7 +142,8 @@ In taxonomy mode:
 |------|---------|
 | `db/taxonomy/validated.json` | Senders you confirmed (review page, mail filed out of `5-A revoir`) |
 | `db/taxonomy/senders.json` | Learned senders and their agreement counts |
-| `db/taxonomy/domains.json` | Business domain rules |
+| `db/taxonomy/domains.json` | Business domain rules computed by `build` |
+| `db/taxonomy/validated_domains.json` | Domains you decided (bulk review); `build` never replaces it |
 | `db/taxonomy/folder_overrides.json` | Folder audit decisions |
 | `db/taxonomy/control.json` | Rule control sample |
 | `db/pending_archive.json` | Category of each email waiting in an action folder (Infomaniak) |
@@ -132,3 +152,4 @@ In taxonomy mode:
 | `data/taxonomy_centroids.npz` | The 19 nomic centroids |
 | `data/mailbox_scan.json`, `data/sender_crosscheck.json` | Scan and Gemma opinions per sender |
 | `data/migration_report.json` | Last `migrate` plan or result |
+| `data/review_scan_imap.json`, `data/review_scan_gmail.json` | Last `review-scan` per account: groups and Gemma suggestions |

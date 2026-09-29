@@ -100,6 +100,15 @@ uv run python scripts/taxonomy_setup.py prune [--apply]    # delete the emptied 
 uv run python scripts/taxonomy_setup.py reorganize [--apply]  # PARA folders, standard Promotions
 ```
 
+Bulk review of `5-A revoir` (own the decision per domain or per sender instead of mail by mail; dry
+run unless `--apply`):
+
+```bash
+uv run python scripts/taxonomy_setup.py review-scan --provider imap|gmail    # group, Gemma suggestion
+uv run streamlit run scripts/taxonomy_review.py                              # stage 5: decide
+uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail [--apply]  # move covered mail
+```
+
 ## Data and Database
 
 - `db/validated_classification_db.json`: Manually validated sender→category mappings (Signal 1)

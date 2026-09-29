@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply` (#43)
 - **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders and merges duplicate system folders (`Archives`, `Junk`, `Deleted Messages`, `Sent Messages`) into Infomaniak's (`Archive`, `Spam`, `Trash`, `Sent`); Pass 1 now reads `Spam`
 - **Gmail through the API**: `run --provider gmail` (`GmailApiService`) classifies the Gmail inbox through the Gmail API (OAuth) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk label and folder cache (#44, #48)
+- **Bulk review of `5-A revoir`**: validated domain rules (`db/taxonomy/validated_domains.json`, never replaced by `build`); `taxonomy_setup.py review-scan --provider imap|gmail` groups review mail by domain or sender with a Gemma suggestion; the review page's stage 5 lets the owner decide per domain or per sender; `taxonomy_setup.py refile-review --provider imap|gmail [--apply]` moves the mail a rule now covers to its category, dry run by default
 
 ### Changed
 
