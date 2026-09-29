@@ -120,7 +120,7 @@ def mail(sender, mid=None):
 
 @pytest.fixture
 def provider():
-    return ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False))
+    return ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig())
 
 
 @pytest.fixture

@@ -26,14 +26,6 @@ junk_folder_name = "SPAM"
 batch_size = 500
 junk_folder_name = "Spam"
 
-# Performance metrics configuration
-# Whether to enable metrics collection
-metrics_enabled = true
-# Log level for metrics reporting (DEBUG, INFO, WARNING, ERROR)
-metrics_log_level = "INFO"
-# How often to log metrics summary (in minutes)
-metrics_log_interval_minutes = 10
-
 [mlx]
 # MLX-based classification (Apple Silicon optimized)
 # Set to false to use legacy litellm/Ollama instead

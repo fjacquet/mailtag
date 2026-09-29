@@ -60,14 +60,6 @@ def test_connect_failure_raises_connection_error(
             pass
 
 
-def test_get_email_senders(imap_service: ImapService, mock_imap_client: MockImapClient):
-    """Tests that email senders are fetched correctly."""
-    imap_service.client = mock_imap_client
-    imap_service.client.select_folder("INBOX")
-    senders = imap_service.get_email_senders([1])
-    assert senders["1"] == "test@example.com"
-
-
 def test_get_full_emails(imap_service: ImapService, mock_imap_client: MockImapClient):
     """Tests that full emails are fetched correctly."""
     imap_service.client = mock_imap_client
@@ -125,9 +117,7 @@ def test_get_email_headers_includes_list_flags(mock_imap_client, mocker):
     mock_imap_client.mailboxes["INBOX"][1][
         b"BODY[HEADER.FIELDS (FROM SUBJECT MESSAGE-ID LIST-UNSUBSCRIBE LIST-ID PRECEDENCE)]"
     ] = b"From: Shop <shop@x.ch>\r\nSubject: Promo\r\nMessage-ID: <p@x>\r\nList-Unsubscribe: <u>\r\n"
-    service = ImapService(
-        ImapConfig(host="h", user="u", password="p"), FastParseConfig(metrics_enabled=False)
-    )
+    service = ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig())
     service.client = mock_imap_client
     mock_imap_client.select_folder("INBOX")
 

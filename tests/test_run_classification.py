@@ -40,7 +40,7 @@ def _config(tmp_path):
         logging=LoggingConfig(level="DEBUG", file=""),
         imap=ImapConfig(host="h", user="u@x.ch", password="p"),
         gmail=GmailConfig(credentials_file="c", token_file="t"),
-        fast_parse=FastParseConfig(batch_size=100, metrics_enabled=False),
+        fast_parse=FastParseConfig(batch_size=100),
         mlx=MLXConfig(enabled=False),
         taxonomy=TaxonomyConfig(
             taxonomy_db_dir=str(tmp_path / "taxonomy"),
@@ -52,7 +52,7 @@ def _config(tmp_path):
 def _provider(mocker, tmp_path):
     provider = mocker.MagicMock(spec=ImapService)
     provider.config = ImapConfig(host="h", user="u@x.ch", password="p", junk_folder_name="Junk")
-    provider.fast_parse_config = FastParseConfig(batch_size=100, metrics_enabled=False)
+    provider.fast_parse_config = FastParseConfig(batch_size=100)
     provider.connect.return_value.__enter__.return_value = provider
     provider.client = mocker.MagicMock()  # an instance attribute: spec=ImapService does not provide it
     selected = {}

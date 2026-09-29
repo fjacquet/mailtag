@@ -555,7 +555,7 @@ class TestExecuteRetries:
 # --------------------------------------------------------------------------------------------------
 
 GMAIL_CONFIG = GmailConfig(credentials_file="creds.json", token_file="token.json")
-FAST = FastParseConfig(metrics_enabled=False)
+FAST = FastParseConfig()
 
 
 class TestGmailApiServiceConnect:

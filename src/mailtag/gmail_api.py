@@ -250,5 +250,4 @@ class GmailApiService(ImapService):
         try:
             yield self
         finally:
-            self._stop_metrics_thread()
             self.client.logout()

@@ -2,7 +2,6 @@ import email
 import email.errors
 import email.header
 import imaplib
-import threading
 from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Any, TypeVar
@@ -11,7 +10,6 @@ from imapclient import IMAPClient
 from loguru import logger
 
 from mailtag.config import FastParseConfig, ImapConfig
-from mailtag.metrics import configure_metrics, log_metrics, timed
 from mailtag.models import Email
 from mailtag.utils.email_parsing import extract_body_from_message, parse_sender
 
@@ -43,57 +41,9 @@ class ImapService:
         self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
 
-        # Thread management for metrics logging
-        self._metrics_stop_event = threading.Event()
-        self._metrics_thread: threading.Thread | None = None
-
         # Cache for verified folder existence (avoids repeated IMAP LIST calls)
         self._verified_folders: set[str] = set()
 
-        # Initialize metrics system
-        configure_metrics(
-            enabled=self.fast_parse_config.metrics_enabled, log_level=self.fast_parse_config.metrics_log_level
-        )
-
-        # Start metrics logging thread if enabled
-        if self.fast_parse_config.metrics_enabled and self.fast_parse_config.metrics_log_interval_minutes > 0:
-            self._start_metrics_logging_thread()
-
-    def _start_metrics_logging_thread(self):
-        """Start a background thread to periodically log metrics with proper lifecycle management."""
-        if self._metrics_thread and self._metrics_thread.is_alive():
-            return  # Already running
-
-        def log_metrics_periodically():
-            """Log metrics at configured intervals until stopped."""
-            interval_seconds = self.fast_parse_config.metrics_log_interval_minutes * 60
-            while not self._metrics_stop_event.wait(timeout=interval_seconds):
-                try:
-                    log_metrics()
-                except Exception as e:
-                    logger.error(f"Metrics logging failed: {e}")
-                    # Continue running despite errors
-
-        self._metrics_thread = threading.Thread(
-            target=log_metrics_periodically, daemon=True, name="metrics-logger"
-        )
-        self._metrics_thread.start()
-        interval_minutes = self.fast_parse_config.metrics_log_interval_minutes
-        logger.debug(f"Started metrics logging thread with {interval_minutes} minute interval")
-
-    def _stop_metrics_thread(self):
-        """Stop the metrics logging thread gracefully."""
-        if self._metrics_stop_event:
-            self._metrics_stop_event.set()
-        if self._metrics_thread and self._metrics_thread.is_alive():
-            self._metrics_thread.join(timeout=5.0)  # Wait up to 5s
-            logger.debug("Metrics logging thread stopped")
-
-    def is_connected(self) -> bool:
-        """Checks if the mail client is connected."""
-        return self.client is not None and self.client.is_login()
-
-    @timed(operation_name="imap_connect")
     @contextmanager
     def connect(self):
         """
@@ -109,9 +59,6 @@ class ImapService:
             self.client = None
             raise ConnectionError(f"IMAP connection failed: {e}") from e
         finally:
-            # Stop metrics thread before disconnecting
-            self._stop_metrics_thread()
-
             if self.client:
                 self.client.logout()
                 logger.info("Disconnected from IMAP server.")
@@ -124,7 +71,6 @@ class ImapService:
         self.client = IMAPClient(self.config.host)
         self.client.login(self.config.user, self.config.password)
 
-    @timed(operation_name="imap_batch_fetch")
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))
     def _batch_fetch(
         self, uids: list[str | int], fetch_command: list[bytes], processor: Callable[[dict], dict]
@@ -241,7 +187,6 @@ class ImapService:
                     logger.debug(f"Raw data for {msg_id}: {data}")
         return headers
 
-    @timed(operation_name="imap_get_email_headers")
     def get_email_headers(self, uids: list[str | int]) -> dict[str, dict[str, str]]:
         """
         Fetches 'From' and 'Subject' headers for a given batch of email UIDs.
@@ -260,14 +205,6 @@ class ImapService:
 
         # Use the batch fetch helper
         return self._batch_fetch(int_uids, [HEADER_FETCH], self._process_email_headers)
-
-    def get_email_senders(self, uids: list[str | int]) -> dict[str, str]:
-        """
-        Fetches only the 'From' header for a given batch of email UIDs.
-        DEPRECATED: Use get_email_headers instead.
-        """
-        email_headers = self.get_email_headers(uids)
-        return {uid: headers["sender_address"] for uid, headers in email_headers.items()}
 
     def _process_full_emails(self, response: dict[int, dict[bytes, bytes]]) -> dict[int, Email]:
         """Process full email content from IMAP response."""
@@ -296,7 +233,6 @@ class ImapService:
                 logger.error(f"Could not process email {msg_id}: {e}")
         return emails
 
-    @timed(operation_name="imap_get_full_emails")
     def get_full_emails(self, uids: list[str | int]) -> list[Email]:
         """
         Fetches the full content for the specified email UIDs in batches.
@@ -322,7 +258,6 @@ class ImapService:
         # Return emails in the same order as requested UIDs
         return [results[uid] for uid in int_uids if uid in results]
 
-    @timed(operation_name="imap_batch_move_emails")
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))
     def batch_move_emails(self, uids: list[str], destination: str):
         """Moves a batch of emails to a new destination with retry support."""
@@ -338,7 +273,6 @@ class ImapService:
         logger.info(f"Moved {len(uids)} emails to {destination}")
 
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))
-    @timed(operation_name="imap_select_folder")
     def select_folder(self, folder_name: str) -> None:
         """Selects a folder with retry support."""
         self.client.select_folder(folder_name)
@@ -369,28 +303,6 @@ class ImapService:
     def move_email(self, email_model: Email, destination: str):
         """Moves an email to a new destination."""
         self.batch_move_emails([email_model.msg_id], destination)
-
-    def _move_email_to_folder(self, uid: int, folder: str) -> bool:
-        """Move an email to a specific folder.
-
-        Args:
-            uid: The email UID to move
-            folder: The destination folder
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            # Check if folder exists, create it if it doesn't
-            if not self.client.folder_exists(folder):
-                logger.info(f"Folder {folder} does not exist, creating it")
-                self._create_folder_with_retry(folder)
-
-            self.client.move([uid], folder)
-            return True
-        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Failed to move email {uid} to folder {folder}: {e}")
-            return False
 
     def _parse_sender(self, raw_sender) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""

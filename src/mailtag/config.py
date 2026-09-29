@@ -38,9 +38,6 @@ class GmailConfig:
 class FastParseConfig:
     batch_size: int = 500
     junk_folder_name: str = "Junk"
-    metrics_enabled: bool = True
-    metrics_log_level: str = "DEBUG"
-    metrics_log_interval_minutes: int = 10
 
 
 @dataclass
