@@ -300,10 +300,6 @@ class ImapService:
         """Moves emails with retry support."""
         self.client.move(uids, destination)
 
-    def move_email(self, email_model: Email, destination: str):
-        """Moves an email to a new destination."""
-        self.batch_move_emails([email_model.msg_id], destination)
-
     def _parse_sender(self, raw_sender) -> tuple[str, str]:
         """Parses a raw sender string like 'Sender Name <sender@example.com>'."""
         return parse_sender(raw_sender)

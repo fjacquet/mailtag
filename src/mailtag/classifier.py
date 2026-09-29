@@ -184,8 +184,8 @@ class Classifier:
                     results[i] = (llm_category, True)
         return results
 
-    def _classify_batch_taxonomy(self, emails: list[Email]) -> list[str]:
-        """Rules first, then the nomic/LLM chain; agreements teach the sender rules."""
+    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
+        """One category per email: rules, then the nomic/LLM chain; agreements teach the sender rules."""
         results: list[str | None] = [self._rule_category(e) for e in emails]
         pending = [i for i, category in enumerate(results) if category is None]
         if pending:
@@ -204,8 +204,4 @@ class Classifier:
         return results  # type: ignore[return-value]
 
     def classify_email(self, email: Email) -> str:
-        return self._classify_batch_taxonomy([email])[0]
-
-    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
-        """One category per email, batching embeddings and LLM prompts."""
-        return self._classify_batch_taxonomy(emails)
+        return self.classify_emails_batch([email])[0]
