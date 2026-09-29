@@ -511,6 +511,25 @@ class TestBatchedFetch:
         assert fake.batch_sizes == [3, 1]
         no_sleep.assert_any_call(60)
 
+    def test_progress_is_logged_every_500_messages(self, caplog):
+        client, fake = make_client(messages=self._messages(1200))
+        client.select_folder("INBOX")
+
+        client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+        progress = [r.getMessage() for r in caplog.records if "messages read" in r.getMessage()]
+        assert [line.split(" messages read")[0] for line in progress] == [
+            "Gmail: 500/1200", "Gmail: 1000/1200", "Gmail: 1200/1200"
+        ]  # fmt: skip
+
+    def test_small_fetches_log_no_progress(self, caplog):
+        client, fake = make_client(messages=self._messages(3))
+        client.select_folder("INBOX")
+
+        client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+        assert not [r for r in caplog.records if "messages read" in r.getMessage()]
+
     def test_batch_request_failure_becomes_connection_error(self):
         client, fake = make_client(messages=self._messages(2))
         fake.batch_error = httplib2.ServerNotFoundError("dns lookup failed")
