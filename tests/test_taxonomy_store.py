@@ -44,6 +44,15 @@ def test_own_address_is_never_a_rule_and_never_learned(tmp_path):
     assert not (tmp_path / "senders.json").exists()
 
 
+def test_own_address_is_never_validated(tmp_path):
+    s = TaxonomyStore(tmp_path, own_addresses=["Me@Shop.ch"])
+
+    s.set_validated("me@shop.ch", "Santé")
+    s.save()
+
+    assert not (tmp_path / "validated.json").exists()
+
+
 def test_unpromoted_sender_is_not_a_rule(tmp_path):
     s = store(tmp_path, senders={"b@x.ch": {"category": "Achats", "agreements": 1}})
     assert s.category_for("b@x.ch") is None

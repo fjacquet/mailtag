@@ -201,7 +201,9 @@ class TaxonomyStore:
             self._record(("agree", sender, category))
 
     def set_validated(self, sender_address: str, category: str) -> None:
-        self._record(("validate", normalize_address(sender_address), category))
+        sender = normalize_address(sender_address)
+        if sender not in self.own_addresses:
+            self._record(("validate", sender, category))
 
     def set_folder_category(self, folder: str, category: str | None) -> None:
         """Audit decision for an old folder; None means the folder holds no category."""
