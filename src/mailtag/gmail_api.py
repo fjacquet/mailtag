@@ -22,14 +22,22 @@ _HEADER_FIELDS_RE = re.compile(rb"HEADER\.FIELDS \(([^)]*)\)")
 _MOVE_CHUNK = 1000
 # Gmail allows 250 quota units per second per user and messages.get costs 5: pace calls under 40 a second.
 _MIN_INTERVAL = 0.025
-# The quota is counted per minute: a rate-limited call waits the minute out, at most this many times.
+# A rate-limited call waits 2, 4, 8… seconds, up to a minute (the quota is counted per minute),
+# at most this many times: batches mostly hit the short concurrency limit, not the minute quota.
 _RATE_LIMIT_WAIT = 60
-_RATE_LIMIT_TRIES = 5
+_RATE_LIMIT_TRIES = 8
 # Reads go in batch requests: one HTTP round trip for many messages (each still costs its own quota).
-_HEADER_BATCH = 50
-_BODY_BATCH = 10  # raw bodies can be large
+# Gmail runs a batch's requests concurrently: 50 at once trips its per-user concurrency limit.
+_HEADER_BATCH = 10
+_BODY_BATCH = 10
 _PROGRESS_EVERY = 500  # messages between two progress lines of a long fetch
 _last_call = 0.0
+
+
+def _backoff(waits: int) -> None:
+    pause = min(2**waits, _RATE_LIMIT_WAIT)
+    logger.warning(f"Gmail quota reached, pausing {pause}s ({waits})")
+    time.sleep(pause)
 
 
 def _pace(calls: int = 1) -> None:
@@ -102,8 +110,7 @@ class GmailLabelClient:
                     return None
                 if _rate_limited(e) and waits < _RATE_LIMIT_TRIES:
                     waits += 1
-                    logger.warning(f"Gmail quota reached, pausing {_RATE_LIMIT_WAIT}s ({waits})")
-                    time.sleep(_RATE_LIMIT_WAIT)
+                    _backoff(waits)
                     continue
                 raise ConnectionError(str(e)) from e
             except (httplib2.HttpLib2Error, OSError) as e:
@@ -215,8 +222,7 @@ class GmailLabelClient:
                     raise ConnectionError(f"Gmail quota still exceeded for {len(limited)} messages")
                 if limited:
                     waits += 1
-                    logger.warning(f"Gmail quota reached, pausing {_RATE_LIMIT_WAIT}s ({waits})")
-                    time.sleep(_RATE_LIMIT_WAIT)
+                    _backoff(waits)
                 todo = limited
             done = min(start + size, len(ids))
             if len(ids) > _PROGRESS_EVERY and (done % _PROGRESS_EVERY < size or done == len(ids)):
