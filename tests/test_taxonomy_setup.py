@@ -1,4 +1,9 @@
+import contextlib
+import json
 import os
+from pathlib import Path
+
+import pytest
 
 
 def test_missing_inputs(tmp_path):
@@ -77,3 +82,158 @@ def test_migration_not_blocked_when_enabled_and_rules_present(tmp_path):
     cfg = TaxonomyConfig(enabled=True, taxonomy_db_dir=str(tmp_path))
 
     assert migration_blocked(cfg) is None
+
+
+class FakeProvider:
+    """A provider whose `connect()` is a no-op context manager, like the real ones."""
+
+    @contextlib.contextmanager
+    def connect(self):
+        yield self
+
+
+def test_review_scan_path():
+    from scripts.taxonomy_setup import review_scan_path
+
+    assert review_scan_path("gmail") == Path("data/review_scan_gmail.json")
+    assert review_scan_path("imap") == Path("data/review_scan_imap.json")
+
+
+def test_account_imap_uses_infomaniak_config(mocker):
+    import scripts.taxonomy_setup as ts
+
+    fake_service = mocker.MagicMock()
+    mocker.patch("mailtag.imap_service.ImapService", return_value=fake_service)
+
+    service, cfg = ts._account("imap")
+
+    assert service is fake_service
+    assert cfg is ts.CONFIG.imap
+
+
+def test_account_gmail_uses_gmail_config(mocker):
+    import scripts.taxonomy_setup as ts
+
+    fake_service = mocker.MagicMock()
+    mocker.patch("mailtag.gmail_api.GmailApiService", return_value=fake_service)
+
+    service, cfg = ts._account("gmail")
+
+    assert service is fake_service
+    assert cfg is ts.CONFIG.gmail
+
+
+def test_account_gmail_missing_config_exits(mocker):
+    import scripts.taxonomy_setup as ts
+
+    mocker.patch.object(ts.CONFIG, "gmail", None)
+
+    with pytest.raises(SystemExit):
+        ts._account("gmail")
+
+
+class FakeStore:
+    """`TaxonomyStore` stand-in: every sender is uncovered, whatever the constructor args."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def category_for(self, address):
+        return None
+
+
+def test_review_scan_writes_groups_and_reuses_existing_suggestions(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+
+    scan_path = tmp_path / "review_scan_gmail.json"
+    scan_path.write_text(json.dumps({"groups": {}, "suggestions": {"shop.ch": "Achats"}}))
+    mocker.patch("scripts.taxonomy_setup.review_scan_path", return_value=scan_path)
+    mocker.patch("scripts.taxonomy_setup.TaxonomyStore", FakeStore)
+    mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), object()))
+    mails = [
+        {"sender_address": "a@shop.ch", "sender_name": "A", "subject": "S1", "message_id": "<1>", "uid": "1"}
+    ]
+    mocker.patch("mailtag.review_refile.read_review_mails", return_value=mails)
+    llm_class = mocker.patch("mailtag.mlx_provider.MLXLLM")
+
+    ts.review_scan("gmail")
+
+    written = json.loads(scan_path.read_text())
+    assert written["groups"]["shop.ch"]["mails"] == 1
+    assert written["suggestions"] == {"shop.ch": "Achats"}
+    llm_class.assert_not_called()
+
+
+def test_review_scan_calls_llm_for_groups_without_a_suggestion(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+
+    scan_path = tmp_path / "review_scan_imap.json"
+    mocker.patch("scripts.taxonomy_setup.review_scan_path", return_value=scan_path)
+    mocker.patch("scripts.taxonomy_setup.TaxonomyStore", FakeStore)
+    mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), object()))
+    mails = [
+        {"sender_address": "a@shop.ch", "sender_name": "A", "subject": "S1", "message_id": "<1>", "uid": "1"}
+    ]
+    mocker.patch("mailtag.review_refile.read_review_mails", return_value=mails)
+    fake_llm = mocker.MagicMock()
+    fake_llm.classify_batch.return_value = ["1"]
+    llm_class = mocker.patch("mailtag.mlx_provider.MLXLLM", return_value=fake_llm)
+
+    ts.review_scan("imap")
+
+    llm_class.assert_called_once()
+    written = json.loads(scan_path.read_text())
+    assert written["suggestions"] == {"shop.ch": "Banque & Placements"}
+
+
+def test_refile_blocked_when_rules_missing(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+
+    mocker.patch.object(ts.CONFIG.taxonomy, "enabled", True)
+    mocker.patch.object(ts.CONFIG.taxonomy, "taxonomy_db_dir", str(tmp_path))
+
+    with pytest.raises(SystemExit):
+        ts.refile("imap", apply=False)
+
+
+def test_refile_calls_refile_review_dry_run_and_leaves_pending_save_to_it(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+    from mailtag.config import ImapConfig
+
+    (tmp_path / "senders.json").write_text("{}")
+    (tmp_path / "domains.json").write_text("{}")
+    mocker.patch.object(ts.CONFIG.taxonomy, "enabled", True)
+    mocker.patch.object(ts.CONFIG.taxonomy, "taxonomy_db_dir", str(tmp_path))
+    fake_cfg = ImapConfig(host="h", user="u", password="p", pending_archive_file=str(tmp_path / "p.json"))
+    mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), fake_cfg))
+    mocker.patch("scripts.taxonomy_setup.TaxonomyStore", FakeStore)
+    save_spy = mocker.patch("mailtag.pending_archive.PendingArchive.save")
+    refile_review_mock = mocker.patch(
+        "mailtag.review_refile.refile_review", return_value={"moves": {}, "left": 0}
+    )
+
+    ts.refile("gmail", apply=False)
+
+    refile_review_mock.assert_called_once()
+    assert refile_review_mock.call_args.args[-1] is False
+    save_spy.assert_not_called()
+
+
+def test_review_scan_retries_unreadable_suggestions(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+
+    scan_path = tmp_path / "review_scan_gmail.json"
+    scan_path.write_text(json.dumps({"groups": {}, "suggestions": {"shop.ch": None}}))
+    mocker.patch("scripts.taxonomy_setup.review_scan_path", return_value=scan_path)
+    mocker.patch("scripts.taxonomy_setup.TaxonomyStore", FakeStore)
+    mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), object()))
+    mails = [
+        {"sender_address": "a@shop.ch", "sender_name": "A", "subject": "S1", "message_id": "<1>", "uid": "1"}
+    ]
+    mocker.patch("mailtag.review_refile.read_review_mails", return_value=mails)
+    llm = mocker.patch("mailtag.mlx_provider.MLXLLM").return_value
+    llm.classify_batch.return_value = ["1"]
+
+    ts.review_scan("gmail")
+
+    assert json.loads(scan_path.read_text())["suggestions"]["shop.ch"] == "Banque & Placements"

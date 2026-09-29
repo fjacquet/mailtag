@@ -1,5 +1,7 @@
 """Local review page (spec section 1.3): audit contested folders, review senders, check senders
-learned during runs, then check a random sample of rule-covered senders to measure rule precision.
+learned during runs, check a random sample of rule-covered senders to measure rule precision, and
+decide, by domain or by sender, the mails waiting in 5-A revoir (docs/superpowers/specs/
+2026-09-29-revue-en-masse-design.md), from `scripts/taxonomy_setup.py review-scan` output.
 
     uv run streamlit run scripts/taxonomy_review.py
 
@@ -15,9 +17,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import streamlit as st
-from taxonomy_setup import needs_rescan
+from taxonomy_setup import needs_rescan, review_scan_path
 
 from mailtag.config import CONFIG
+from mailtag.review_refile import coverage as review_coverage
+from mailtag.review_refile import review_queue as review_refile_queue
 from mailtag.taxonomy import TAXONOMY
 from mailtag.taxonomy_build import (
     control_precision,
@@ -42,6 +46,37 @@ CONTROL = Path(CONFIG.taxonomy.taxonomy_db_dir) / "control.json"
 CONTROL_SIZE = 60
 
 
+def _load_review_scans() -> tuple[dict, dict]:
+    """Merge `review_scan_imap.json` and `review_scan_gmail.json`, whichever exist.
+
+    Same key from both accounts: mails add up, senders merge, the first account's subjects and
+    suggestion win.
+    """
+    groups: dict = {}
+    suggestions: dict = {}
+    for provider in ("imap", "gmail"):
+        path = review_scan_path(provider)
+        if not path.exists():
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for key, g in data["groups"].items():
+            if key not in groups:
+                groups[key] = {
+                    "kind": g["kind"],
+                    "mails": 0,
+                    "senders": {},
+                    "subjects": list(g["subjects"]),
+                }
+            existing = groups[key]
+            existing["mails"] += g["mails"]
+            for address, s in g["senders"].items():
+                total = existing["senders"].setdefault(address, {"name": s["name"], "mails": 0})
+                total["mails"] += s["mails"]
+        for key, suggestion in data["suggestions"].items():
+            suggestions.setdefault(key, suggestion)
+    return groups, suggestions
+
+
 def _sort_key(name: str) -> str:
     """Alphabetical, ignoring accents (É sorts with E)."""
     return "".join(c for c in unicodedata.normalize("NFD", name) if not unicodedata.combining(c)).casefold()
@@ -52,15 +87,11 @@ CATEGORIES = sorted(TAXONOMY, key=_sort_key)
 
 st.set_page_config(page_title="MailTag — revue des expéditeurs", layout="wide")
 
-if not SCAN.exists() or not CROSSCHECK.exists():
-    st.error("Lance d'abord `scan` puis `crosscheck` (scripts/taxonomy_setup.py).")
-    st.stop()
-
-scan = json.loads(SCAN.read_text(encoding="utf-8"))
-senders = scan["senders"]
-cross = json.loads(CROSSCHECK.read_text(encoding="utf-8"))
 store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir))
 skipped = st.session_state.setdefault("skipped", set())
+split = st.session_state.setdefault("split", set())
+# Stage 5 keys are domains or addresses: skipping one there must not hide it in stages 2-4
+review_skipped = st.session_state.setdefault("review_skipped", set())
 
 
 def category_buttons(key: str, on_pick) -> None:
@@ -73,40 +104,60 @@ def category_buttons(key: str, on_pick) -> None:
             st.rerun()
 
 
-def skip_button(sender: str) -> None:
+def skip_button(sender: str, into: set | None = None) -> None:
     if st.button("Passer"):
-        skipped.add(sender)
+        (skipped if into is None else into).add(sender)
         st.rerun()
 
 
-folders = folder_queue(scan["folders"], cross, store.folder_overrides)
-cfg = CONFIG.taxonomy
-# What `build` will turn into rules on its own: those senders need no review
-planned = learned_senders(senders, cross, store.validated, cfg.sender_min_mails, cfg.learn_min_agreements)
-planned_domains = domain_rules(senders, store.validated, cfg.domain_min_purity)
-queue = [
-    s
-    for s in review_queue(senders, cross, store.validated, planned, planned_domains, cfg.sender_min_mails)
-    if s not in skipped
-]
-learned = [
-    s
-    for s in learned_to_review(store.senders, senders, store.validated, cfg.learn_min_agreements)
-    if s not in skipped
-]
-if not CONTROL.exists() and (store.senders or store.domains):
-    write_json_atomic(CONTROL, control_sample(senders, store.category_for, store.validated, CONTROL_SIZE, 0))
-control = json.loads(CONTROL.read_text(encoding="utf-8")) if CONTROL.exists() else {}
-to_check = [s for s in control if s not in store.validated and s not in skipped]
+# Stage 5's source (data/review_scan_*.json) is independent of scan/crosscheck, so it is loaded
+# even when those are missing.
+review_groups_data, review_suggestions = _load_review_scans()
+review_rows = review_refile_queue(review_groups_data, store.category_for, split, review_skipped)
+
+scan_ready = SCAN.exists() and CROSSCHECK.exists()
+if scan_ready:
+    scan = json.loads(SCAN.read_text(encoding="utf-8"))
+    senders = scan["senders"]
+    cross = json.loads(CROSSCHECK.read_text(encoding="utf-8"))
+    folders = folder_queue(scan["folders"], cross, store.folder_overrides)
+    cfg = CONFIG.taxonomy
+    # What `build` will turn into rules on its own: those senders need no review
+    planned = learned_senders(senders, cross, store.validated, cfg.sender_min_mails, cfg.learn_min_agreements)
+    planned_domains = domain_rules(senders, store.validated, cfg.domain_min_purity)
+    queue = [
+        s
+        for s in review_queue(senders, cross, store.validated, planned, planned_domains, cfg.sender_min_mails)
+        if s not in skipped
+    ]
+    learned = [
+        s
+        for s in learned_to_review(store.senders, senders, store.validated, cfg.learn_min_agreements)
+        if s not in skipped
+    ]
+    if not CONTROL.exists() and (store.senders or store.domains):
+        write_json_atomic(
+            CONTROL, control_sample(senders, store.category_for, store.validated, CONTROL_SIZE, 0)
+        )
+    control = json.loads(CONTROL.read_text(encoding="utf-8")) if CONTROL.exists() else {}
+    to_check = [s for s in control if s not in store.validated and s not in skipped]
+else:
+    folders, queue, learned, to_check = [], [], [], []
+
 STAGES = {
     f"1. Dossiers contestés ({len(folders)})": "folders",
     f"2. Expéditeurs du scan ({len(queue)})": "senders",
     f"3. Expéditeurs appris pendant les passages ({len(learned)})": "learned",
     f"4. Contrôle des règles ({len(to_check)})": "control",
+    f"5. Mails en revue ({len(review_rows)})": "review",
 }
-default = 0 if folders else 1 if queue else 2 if learned else 3 if to_check else 1
+default = 0 if folders else 1 if queue else 2 if learned else 3 if to_check else 4 if review_rows else 1
 stage = STAGES[st.sidebar.radio("Étape", list(STAGES), index=default)]
 st.caption(f"{len(store.validated)} expéditeurs validés")
+
+if stage != "review" and not scan_ready:
+    st.error("Lance d'abord `scan` puis `crosscheck` (scripts/taxonomy_setup.py).")
+    st.stop()
 
 # --- Stage 1: folder audit ---
 if stage == "folders":
@@ -134,7 +185,7 @@ if stage == "folders":
         st.rerun()
     st.stop()
 
-if needs_rescan(SCAN, OVERRIDES):
+if stage != "review" and needs_rescan(SCAN, OVERRIDES):
     st.info("Audit des dossiers modifié. Relance `scripts/taxonomy_setup.py scan`, puis recharge cette page.")
     st.stop()
 
@@ -175,6 +226,44 @@ if stage == "control":
         st.rerun()
     category_buttons(f"control-{sender}", lambda c: store.set_validated(sender, c))
     skip_button(sender)
+    st.stop()
+
+# --- Stage 5: mails waiting in 5-A revoir (bulk review) ---
+if stage == "review":
+    if not review_rows:
+        st.success(
+            "Aucun mail en revue à traiter."
+            if review_groups_data
+            else "Lance d'abord `review-scan` (scripts/taxonomy_setup.py)."
+        )
+        st.stop()
+    key, group = review_rows[0]
+    covered, total = review_coverage(review_groups_data, store.category_for)
+    st.header(key)
+    st.caption(f"{covered}/{total} mails couverts")
+    st.write(f"{group['mails']} mails · {group['kind']}")
+    for address, s in sorted(group["senders"].items(), key=lambda kv: -kv[1]["mails"])[:5]:
+        st.write(f"- {s['name'] or address} <{address}> ({s['mails']})")
+    for subject in group["subjects"]:
+        st.write(f"- {subject}")
+    suggestion = review_suggestions.get(key)
+    st.write(f"Gemma : **{suggestion or '(illisible)'}**")
+
+    def pick(category: str) -> None:
+        if group["kind"] == "domain":
+            store.set_validated_domain(key, category)
+        else:
+            store.set_validated(key, category)
+
+    if suggestion and st.button(f"Confirmer : {suggestion}"):
+        pick(suggestion)
+        store.save()
+        st.rerun()
+    category_buttons(f"review-{key}", pick)
+    if group["kind"] == "domain" and st.button("Par expéditeur"):
+        split.add(key)
+        st.rerun()
+    skip_button(key, review_skipped)
     st.stop()
 
 # --- Stage 3: senders promoted during runs (not in the scan) ---

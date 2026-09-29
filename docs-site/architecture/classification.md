@@ -89,8 +89,8 @@ Email arrives
 [3. Learned sender]     db/taxonomy/senders.json    --match--> category (after 2 nomic/Gemma agreements)
     |
     v
-[4. Business domain]    db/taxonomy/domains.json    --match--> category (personal mailboxes excluded)
-    |
+[4. Business domain]    db/taxonomy/validated_domains.json, then domains.json --match--> category
+    |                    (personal mailboxes excluded)
     v
 [5. nomic, 19 centroids] score >= nomic_threshold    --match--> category
     |
@@ -117,6 +117,16 @@ A classified email goes to an action folder; its category is remembered in `db/p
 | `5-A revoir` | no signal decided |
 
 Emails that are seen, unflagged and older than `archive_after_days` move from their action folder into their category folder. Category folders follow PARA: `Domaines/` (areas of responsibility), `Ressources/` (topics of interest) and the standard `Archive/` (Achats, Colis & Livraisons); projects are folders you create yourself. When you file a mail out of `5-A revoir` into a category, its sender becomes a validated rule.
+
+### Bulk review of `5-A revoir`
+
+Deciding mail-by-mail does not scale once `5-A revoir` holds thousands of mails from a new account. Instead the owner decides a category per **domain** or per **sender**, and one command moves every mail a rule now covers:
+
+1. `scripts/taxonomy_setup.py review-scan --provider imap|gmail` (read-only) groups `5-A revoir` mail by domain — or by sender for a personal domain like `gmail.com` — skipping mail a rule already covers and the owner's own addresses, and writes a Gemma suggestion per group to `data/review_scan_<provider>.json`. Reruns keep suggestions already computed.
+2. The review page's stage 5 ("Mails en revue") shows both accounts' scans, sorted by uncovered mail count, with a covered/total counter. Confirm Gemma's suggestion, pick one of the 19 categories, split a domain group into one row per sender for this session (`Par expéditeur`), or skip.
+3. `scripts/taxonomy_setup.py refile-review --provider imap|gmail [--apply]` moves the mail a rule now covers to its category folder and drops the matching `pending_archive` entry (so a later archive sweep does not relearn it); mail with no rule stays in `5-A revoir`. Dry run by default, like every mailbox-writing command here.
+
+A domain decision (`TaxonomyStore.set_validated_domain`, `db/taxonomy/validated_domains.json`) sits in the rule order right after learned senders and before the computed domain rules `build` writes to `domains.json`; `build` never replaces `validated_domains.json`.
 
 ### Gmail
 

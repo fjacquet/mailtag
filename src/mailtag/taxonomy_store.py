@@ -1,4 +1,4 @@
-"""Taxonomy rules: validated senders, learned senders and domains (spec sections 2 to 5)."""
+"""Taxonomy rules: validated senders, learned senders, computed and validated domains (spec sections 2-5)."""
 
 import contextlib
 import fcntl
@@ -12,7 +12,7 @@ from loguru import logger
 
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
-_FILES = ("validated", "senders", "domains", "folder_overrides")
+_FILES = ("validated", "senders", "domains", "folder_overrides", "validated_domains")
 
 
 def write_json_files(files: dict[Path, object]) -> None:
@@ -56,6 +56,9 @@ def _load(path: Path) -> dict:
 
 class TaxonomyStore:
     """Signals 1, 3 and 4 of the taxonomy mode, and learning from nomic/Gemma agreements.
+
+    `validated_domains.json` holds the owner's per-domain decisions (bulk review); `build` never
+    replaces it, unlike `domains.json`.
 
     Several processes share these files (the webhook API and a `run`). Each store keeps its
     changes as a list of operations; `save` takes an exclusive file lock and, if another process
@@ -147,6 +150,10 @@ class TaxonomyStore:
             folder, category = args
             self.folder_overrides[folder] = category
             return {"folder_overrides"}
+        if kind == "validate_domain":
+            domain, category = args
+            self.validated_domains[domain] = category
+            return {"validated_domains"}
         learned, domains = args  # "replace"
         self.senders = {**self.senders, **{s: dict(e) for s, e in learned.items()}}
         self.domains = dict(domains)
@@ -174,7 +181,7 @@ class TaxonomyStore:
             return entry["category"]
         domain = extract_domain(sender)
         if domain and not is_non_commercial_domain_cached(domain):
-            return self.domains.get(domain)
+            return self.validated_domains.get(domain) or self.domains.get(domain)
         return None
 
     def record_agreement(self, sender_address: str, category: str) -> None:
@@ -188,6 +195,10 @@ class TaxonomyStore:
     def set_folder_category(self, folder: str, category: str | None) -> None:
         """Audit decision for an old folder; None means the folder holds no category."""
         self._record(("folder", folder, category))
+
+    def set_validated_domain(self, domain: str, category: str) -> None:
+        """Owner's decision for every sender of a domain; `build` never replaces it."""
+        self._record(("validate_domain", normalize_address(domain), category))
 
     def replace_rules(self, learned: dict[str, dict], domains: dict[str, str]) -> None:
         """Install rules from `build`; runtime entries for senders `build` does not know are kept."""

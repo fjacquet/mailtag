@@ -30,6 +30,8 @@ uv sync -U --all-extras
 python src/main.py run --provider imap --validate  # Read-only test
 ```
 
+Then read the [User Guide](user-guide.md) for day-to-day use.
+
 ## Classification Signals
 
 | Signal | Source | Confidence | Speed |

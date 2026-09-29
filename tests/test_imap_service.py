@@ -150,6 +150,7 @@ def test_get_email_headers_includes_list_flags(mock_imap_client, mocker):
 
     assert headers["1"] == {
         "sender_address": "shop@x.ch",
+        "sender_name": "Shop",
         "subject": "Promo",
         "message_id": "<p@x>",
         "has_unsubscribe": True,

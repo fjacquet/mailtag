@@ -244,3 +244,27 @@ def test_read_only_store_keeps_learning_in_memory_without_piling_up(tmp_path):
 
     assert s.category_for("a@x.ch") == "Santé"
     assert s._ops == []
+
+
+def test_validated_domain_is_used_after_senders_and_before_computed_domains(tmp_path):
+    store = TaxonomyStore(tmp_path)
+    store.replace_rules({}, {"shop.ch": "Achats"})
+    store.set_validated_domain("shop.ch", "Voyages & Loisirs")
+    assert store.category_for("news@shop.ch") == "Voyages & Loisirs"
+    store.set_validated("promo@shop.ch", "Achats")
+    assert store.category_for("promo@shop.ch") == "Achats"
+
+
+def test_validated_domain_survives_build_and_reload(tmp_path):
+    store = TaxonomyStore(tmp_path)
+    store.set_validated_domain("Shop.CH", "Achats")
+    store.save()
+    store.replace_rules({}, {})
+    store.save()
+    assert TaxonomyStore(tmp_path).category_for("a@shop.ch") == "Achats"
+
+
+def test_non_commercial_domain_is_never_a_validated_domain_rule(tmp_path):
+    store = TaxonomyStore(tmp_path)
+    store.set_validated_domain("gmail.com", "Contacts")
+    assert store.category_for("someone@gmail.com") is None

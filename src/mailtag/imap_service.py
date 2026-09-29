@@ -270,11 +270,12 @@ class ImapService(EmailProvider):
                 subject_header = self._parse_header_value(msg.get("Subject"))
 
                 # Parse sender information
-                _, sender_address = self._parse_sender(sender_header)
+                name, sender_address = self._parse_sender(sender_header)
 
                 message_id, has_unsubscribe, is_bulk = list_header_flags(msg)
                 headers[str(msg_id)] = {
                     "sender_address": sender_address or "",
+                    "sender_name": name or "",
                     "subject": subject_header or "",
                     "message_id": message_id,
                     "has_unsubscribe": has_unsubscribe,

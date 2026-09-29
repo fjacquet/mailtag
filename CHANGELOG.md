@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User guide** (`docs-site/user-guide.md`): folders, daily routine, archiving, teaching MailTag, bulk review, Gmail specifics
 - **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `5-A revoir`) and is archived into its category after `archive_after_days` (#36)
 - **Learned taxonomy rules** in `db/taxonomy/`: validated senders, senders learned after two nomic/Gemma agreements, business domain rules, and 19 nomic centroids built from verified mail (#38)
 - **Taxonomy setup** `scripts/taxonomy_setup.py` (`scan`, `crosscheck`, `build`) and the local Streamlit review page `scripts/taxonomy_review.py` (folder audit, sender review, runtime-learned senders, rule control sample) (#38, #39, #40, #41)
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Legacy folder migration**: `taxonomy_setup.py migrate` and `prune`, dry run unless `--apply` (#43)
 - **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders and merges duplicate system folders (`Archives`, `Junk`, `Deleted Messages`, `Sent Messages`) into Infomaniak's (`Archive`, `Spam`, `Trash`, `Sent`); Pass 1 now reads `Spam`
 - **Gmail through the API**: `run --provider gmail` (`GmailApiService`) classifies the Gmail inbox through the Gmail API (OAuth) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk label and folder cache (#44, #48)
+- **Bulk review of `5-A revoir`**: validated domain rules (`db/taxonomy/validated_domains.json`, never replaced by `build`); `taxonomy_setup.py review-scan --provider imap|gmail` groups review mail by domain or sender with a Gemma suggestion; the review page's stage 5 lets the owner decide per domain or per sender; `taxonomy_setup.py refile-review --provider imap|gmail [--apply]` moves the mail a rule now covers to its category, dry run by default
 
 ### Changed
 
