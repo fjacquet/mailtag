@@ -50,8 +50,8 @@ class RoutedMail:
 
 def route_to_action_folders(
     provider, pending: PendingArchive, mails: list[RoutedMail], validate: bool, today: date
-) -> int:
-    """Move each email to its action folder and record its category; return the number moved."""
+) -> list[RoutedMail]:
+    """Move each email to its action folder and record its category; return the mails that moved."""
     by_folder: dict[str, list[RoutedMail]] = defaultdict(list)
     for m in mails:
         folder = choose_action(
@@ -61,16 +61,16 @@ def route_to_action_folders(
         by_folder[folder].append(m)
 
     if validate:
-        return 0
+        return []
 
-    moved = 0
+    moved: list[RoutedMail] = []
     for folder, group in by_folder.items():
         try:
             provider.batch_move_emails([m.uid for m in group], folder)
         except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
             logger.error(f"Could not move {len(group)} emails to {folder}: {e}")
             continue
-        moved += len(group)
+        moved.extend(group)
         for m in group:
             if not m.message_id:
                 logger.warning(f"No Message-ID for UID {m.uid} ({m.sender_address}); it will not be archived")

@@ -203,12 +203,3 @@ class Classifier:
             if agreed:
                 self.taxonomy_store.record_agreement(email.sender_address, category)
         self.taxonomy_store.save()
-
-    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
-        """One category per email: rules, then the nomic/LLM chain; agreements teach the sender rules."""
-        results = self.classify_detailed(emails)
-        self.learn(emails, results)
-        return [category for category, _ in results]
-
-    def classify_email(self, email: Email) -> str:
-        return self.classify_emails_batch([email])[0]

@@ -29,7 +29,7 @@ def test_groups_moves_by_action_folder_and_records_category(mocker, pending):
 
     moved = route_to_action_folders(provider, pending, mails, validate=False, today=TODAY)
 
-    assert moved == 4
+    assert [m.uid for m in moved] == ["1", "2", "3", "4"]
     calls = {c.args[1]: c.args[0] for c in provider.batch_move_emails.call_args_list}
     assert calls == {"2-A payer": ["1"], "3-A lire": ["2", "3"], "5-A revoir": ["4"]}
     assert pending.get("<1@x>") == {
@@ -45,7 +45,7 @@ def test_validate_moves_nothing_and_records_nothing(mocker, pending):
     provider = mocker.MagicMock()
 
     assert (
-        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=True, today=TODAY) == 0
+        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=True, today=TODAY) == []
     )
     provider.batch_move_emails.assert_not_called()
     assert pending.items() == []
@@ -79,7 +79,7 @@ def test_failed_move_is_not_recorded(mocker, pending):
     provider.batch_move_emails.side_effect = ConnectionError("down")
 
     assert (
-        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=False, today=TODAY) == 0
+        route_to_action_folders(provider, pending, [routed("1", "Achats")], validate=False, today=TODAY) == []
     )
     assert pending.items() == []
 
@@ -91,7 +91,7 @@ def test_mail_without_message_id_is_moved_but_not_tracked(mocker, pending):
         provider, pending, [routed("1", "Achats", mid="")], validate=False, today=TODAY
     )
 
-    assert moved == 1
+    assert [m.uid for m in moved] == ["1"]
     assert pending.items() == []
 
 
@@ -133,3 +133,18 @@ def test_pass1_routes_known_sender_in_taxonomy_mode(mocker, pending):
     assert uids == ["2"]
     provider.batch_move_emails.assert_called_once_with(["1"], "4-Pour info")
     assert pending.get("<1>")["category"] == "Voyages & Loisirs"
+
+
+def test_reports_only_the_mails_of_groups_that_moved(mocker, pending):
+    provider = mocker.MagicMock()
+    provider.batch_move_emails.side_effect = lambda uids, folder: (
+        (_ for _ in ()).throw(ConnectionError("down")) if folder == "3-A lire" else None
+    )
+    mails = [
+        routed("1", "Banque & Placements", subject="Votre facture"),
+        routed("2", "Médias & Divertissement"),
+    ]
+
+    moved = route_to_action_folders(provider, pending, mails, validate=False, today=TODAY)
+
+    assert [m.uid for m in moved] == ["1"]

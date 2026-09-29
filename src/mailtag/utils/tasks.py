@@ -85,14 +85,19 @@ def run_classification(provider_instance: ImapService, validate: bool, classifie
             logger.info(f"Starting Pass 3: AI classification for {len(remaining)} remaining emails...")
             if remaining:
                 emails = provider.get_full_emails(remaining)
-                categories = classifier.classify_emails_batch(emails)
-                route_to_action_folders(
+                results = classifier.classify_detailed(emails)
+                moved = route_to_action_folders(
                     provider,
                     pending,
-                    [RoutedMail.from_email(e, c) for e, c in zip(emails, categories, strict=True)],
+                    [RoutedMail.from_email(e, c) for e, (c, _) in zip(emails, results, strict=True)],
                     validate,
                     date.today(),
                 )
+                # Only mails that moved teach a rule: a failed move is retried next run
+                moved_uids = {m.uid for m in moved}
+                kept = [(e, r) for e, r in zip(emails, results, strict=True) if e.msg_id in moved_uids]
+                if kept:
+                    classifier.learn([e for e, _ in kept], [r for _, r in kept])
             logger.info("Pass 3 complete.")
 
             run_archive(provider, pending, rules, CONFIG.taxonomy.archive_after_days, date.today(), validate)

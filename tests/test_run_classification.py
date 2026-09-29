@@ -106,6 +106,33 @@ def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
     assert archive.call_args.args[5] is False
 
 
+def _senders(tmp_path):
+    path = tmp_path / "taxonomy" / "senders.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def test_agreement_is_learned_once_the_mail_moved(env, tmp_path):
+    provider, _ = env
+
+    _run(provider, False)
+
+    assert _senders(tmp_path) == {"doc@clinic.ch": {"category": "Santé", "agreements": 1}}
+
+
+def test_agreement_is_not_learned_when_the_move_fails(env, tmp_path):
+    provider, _ = env
+
+    def move(uids, folder):
+        if uids == ["2"]:
+            raise ConnectionError("down")
+
+    provider.batch_move_emails.side_effect = move
+
+    _run(provider, False)
+
+    assert _senders(tmp_path) == {}
+
+
 def test_validate_run_moves_and_writes_nothing(env, tmp_path, mocker):
     provider, archive = env
 

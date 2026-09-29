@@ -19,9 +19,7 @@ def mock_classifier():
     """Create a mock Classifier."""
     classifier = MagicMock()
     classifier.categories = ["Finance/Invoices", "Services/Email", "Shopping/Online"]
-    classifier.classify_email.return_value = "Finance/Invoices"
     classifier.classify_detailed.return_value = [("Finance/Invoices", False)]
-    classifier.classify_emails_batch.return_value = ["Finance/Invoices", "Services/Email"]
     return classifier
 
 
@@ -170,7 +168,8 @@ class TestClassify:
         data = response.json()
         assert data["msg_id"] == "12345"
         assert data["category"] == "Finance/Invoices"
-        mock_classifier.classify_email.assert_called_once()
+        mock_classifier.classify_detailed.assert_called_once()
+        mock_classifier.learn.assert_not_called()
 
     def test_classify_minimal_fields(self, api_client):
         """Classify with only required fields."""
@@ -201,6 +200,10 @@ class TestClassify:
 class TestClassifyBatch:
     def test_classify_batch(self, api_client, mock_classifier):
         """Classify a batch of emails."""
+        mock_classifier.classify_detailed.return_value = [
+            ("Finance/Invoices", False),
+            ("Services/Email", False),
+        ]
         response = api_client.post(
             "/api/v1/classify-batch",
             json={
@@ -220,7 +223,8 @@ class TestClassifyBatch:
         data = response.json()
         assert data["total"] == 2
         assert len(data["results"]) == 2
-        mock_classifier.classify_emails_batch.assert_called_once()
+        mock_classifier.classify_detailed.assert_called_once()
+        mock_classifier.learn.assert_not_called()
 
     def test_classify_batch_exceeds_max(self, api_client):
         """Batch exceeding max_batch_size should return 400."""
@@ -309,6 +313,16 @@ class TestClassifyAndMove:
         assert moved.json()["moved"] is True
         mock_classifier.learn.assert_called_once()
 
+    def test_retry_of_an_already_filed_mail_is_not_learned_again(self, api_client, mock_classifier, move_env):
+        mock_classifier.classify_detailed.return_value = [("Santé", True)]
+
+        first = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+        retry = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+
+        assert first.json()["moved"] is True
+        assert retry.json()["moved"] is True
+        mock_classifier.learn.assert_called_once()
+
     def test_concurrent_moves_keep_every_pending_entry(self, api_client, mock_classifier, move_env):
         provider, _, _, pending_file = move_env
         mock_classifier.classify_detailed.return_value = [("Santé", False)]
@@ -328,7 +342,6 @@ class TestClassifyAndMove:
         assert set(json.loads(pending_file.read_text(encoding="utf-8"))) == {f"<{n}@x>" for n in range(4)}
 
     def test_legacy_labels_field_is_ignored(self, api_client, mock_classifier, move_env):
-        mock_classifier.classify_email.return_value = "Santé"
         mock_classifier.classify_detailed.return_value = [("Santé", False)]
 
         classify = api_client.post(
@@ -389,7 +402,7 @@ class TestClassifyAndMove:
 class TestClassifyBatchTaxonomyReview:
     def test_review_category_not_counted_as_classified(self, api_client, mock_classifier):
         """mailtag.taxonomy.REVIEW ('5-A revoir') must not count towards `classified`."""
-        mock_classifier.classify_emails_batch.return_value = ["Finance/Invoices", "5-A revoir"]
+        mock_classifier.classify_detailed.return_value = [("Finance/Invoices", False), ("5-A revoir", False)]
         response = api_client.post(
             "/api/v1/classify-batch",
             json={

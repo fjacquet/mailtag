@@ -734,7 +734,7 @@ class TestRouteToActionFolders:
 
         moved = route_to_action_folders(service, pending, [mail], validate=False, today=TODAY)
 
-        assert moved == 1
+        assert moved == [mail]
         assert messages["m1"]["labelIds"] == {"INBOX", "CATEGORY_PROMOTIONS"}
         assert pending.get("<promo1>") == {
             "category": "Achats",
