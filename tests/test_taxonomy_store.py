@@ -32,6 +32,18 @@ def test_rule_order_validated_then_learned_then_domain(tmp_path):
     assert s.category_for("c@other.ch") is None
 
 
+def test_own_address_is_never_a_rule_and_never_learned(tmp_path):
+    (tmp_path / "validated.json").write_text(json.dumps({"me@shop.ch": "Santé"}), encoding="utf-8")
+    (tmp_path / "domains.json").write_text(json.dumps({"shop.ch": "Achats"}), encoding="utf-8")
+    s = TaxonomyStore(tmp_path, min_agreements=1, own_addresses=["Me@Shop.ch"])
+
+    assert s.category_for("me@shop.ch") is None
+    assert s.category_for("you@shop.ch") == "Achats"
+    s.record_agreement("me@shop.ch", "Santé")
+    s.save()
+    assert not (tmp_path / "senders.json").exists()
+
+
 def test_unpromoted_sender_is_not_a_rule(tmp_path):
     s = store(tmp_path, senders={"b@x.ch": {"category": "Achats", "agreements": 1}})
     assert s.category_for("b@x.ch") is None

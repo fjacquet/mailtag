@@ -1,6 +1,8 @@
 """Tests for the MailTag webhook API."""
 
 import json
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +20,7 @@ def mock_classifier():
     classifier = MagicMock()
     classifier.categories = ["Finance/Invoices", "Services/Email", "Shopping/Online"]
     classifier.classify_email.return_value = "Finance/Invoices"
+    classifier.classify_detailed.return_value = [("Finance/Invoices", False)]
     classifier.classify_emails_batch.return_value = ["Finance/Invoices", "Services/Email"]
     return classifier
 
@@ -249,7 +252,7 @@ class TestClassifyBatch:
 class TestClassifyAndMove:
     def test_routes_into_action_folder_and_records_category(self, api_client, mock_classifier, move_env):
         provider, imap_cls, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "Santé"
+        mock_classifier.classify_detailed.return_value = [("Santé", False)]
 
         response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
@@ -262,7 +265,7 @@ class TestClassifyAndMove:
 
     def test_review_mail_gets_pending_entry(self, api_client, mock_classifier, move_env):
         provider, _, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "5-A revoir"
+        mock_classifier.classify_detailed.return_value = [("5-A revoir", False)]
 
         response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
@@ -272,7 +275,7 @@ class TestClassifyAndMove:
 
     def test_gmail_goes_through_the_gmail_api(self, api_client, mock_classifier, move_env):
         _, imap_cls, gmail_cls, _ = move_env
-        mock_classifier.classify_email.return_value = "Santé"
+        mock_classifier.classify_detailed.return_value = [("Santé", False)]
 
         response = api_client.post(
             "/api/v1/classify-and-move", json=_move_payload("gmail"), headers=_auth_headers()
@@ -284,7 +287,7 @@ class TestClassifyAndMove:
 
     def test_failed_move_is_reported(self, api_client, mock_classifier, move_env):
         provider, _, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "Santé"
+        mock_classifier.classify_detailed.return_value = [("Santé", False)]
         provider.batch_move_emails.side_effect = ConnectionError("down")
 
         response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
@@ -293,8 +296,40 @@ class TestClassifyAndMove:
         assert response.json()["error"] == "Move failed"
         assert not pending_file.exists()
 
+    def test_agreement_is_learned_only_after_a_successful_move(self, api_client, mock_classifier, move_env):
+        provider, _, _, _ = move_env
+        mock_classifier.classify_detailed.return_value = [("Santé", True)]
+        provider.batch_move_emails.side_effect = [ConnectionError("down"), None]
+
+        failed = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+        assert failed.json()["moved"] is False
+        mock_classifier.learn.assert_not_called()
+
+        moved = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+        assert moved.json()["moved"] is True
+        mock_classifier.learn.assert_called_once()
+
+    def test_concurrent_moves_keep_every_pending_entry(self, api_client, mock_classifier, move_env):
+        provider, _, _, pending_file = move_env
+        mock_classifier.classify_detailed.return_value = [("Santé", False)]
+        provider.batch_move_emails.side_effect = lambda *a: time.sleep(0.1)  # widens the load/save window
+        headers = _auth_headers()
+
+        def post(n):
+            payload = _move_payload(message_id=f"<{n}@x>", msg_id=str(n))
+            api_client.post("/api/v1/classify-and-move", json=payload, headers=headers)
+
+        threads = [threading.Thread(target=post, args=(n,)) for n in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert set(json.loads(pending_file.read_text(encoding="utf-8"))) == {f"<{n}@x>" for n in range(4)}
+
     def test_legacy_labels_field_is_ignored(self, api_client, mock_classifier, move_env):
         mock_classifier.classify_email.return_value = "Santé"
+        mock_classifier.classify_detailed.return_value = [("Santé", False)]
 
         classify = api_client.post(
             "/api/v1/classify", json=_sample_email() | {"labels": ["INBOX"]}, headers=_auth_headers()

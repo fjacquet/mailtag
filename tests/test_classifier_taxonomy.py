@@ -233,3 +233,26 @@ def test_without_mlx_uncovered_mail_goes_to_review(tmp_path, mocker):
 
     assert classifier.classify_emails_batch([mail(sender="new@unknown.ch")]) == [REVIEW]
     network.assert_not_called()
+
+
+def test_no_nomic_category_means_no_llm_call(classifier, mocker):
+    mocker.patch.object(classifier, "_nomic_top", return_value=[(None, 0.0), ("Santé", 0.60)])
+    llm = mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+
+    assert _categories(classifier, [mail(1), mail(2)]) == [REVIEW, "Santé"]
+    assert llm.call_args.args[0] == [mail(2)]
+
+
+def test_classify_detailed_learns_nothing_until_learn_is_called(classifier, tmp_path, mocker):
+    mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
+    mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+    emails = [mail(sender="doc@clinic.ch")]
+
+    results = classifier.classify_detailed(emails)
+
+    assert results == [("Santé", True)]
+    assert not (tmp_path / "senders.json").exists()
+    classifier.learn(emails, results)
+    assert json.loads((tmp_path / "senders.json").read_text(encoding="utf-8")) == {
+        "doc@clinic.ch": {"category": "Santé", "agreements": 1}
+    }

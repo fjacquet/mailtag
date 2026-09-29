@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 import threading
+from collections.abc import Iterable
 from pathlib import Path
 
 from loguru import logger
@@ -67,9 +68,17 @@ class TaxonomyStore:
     The lock is flock(2): it does not cross a Docker Desktop VM boundary (see CLAUDE.md).
     """
 
-    def __init__(self, directory: Path, min_agreements: int = 2, read_only: bool = False):
+    def __init__(
+        self,
+        directory: Path,
+        min_agreements: int = 2,
+        read_only: bool = False,
+        own_addresses: Iterable[str] = (),
+    ):
         self.directory = Path(directory)
         self.min_agreements = min_agreements
+        # The owner's own addresses say nothing about a category: never a rule, never learned from
+        self.own_addresses = {normalize_address(a) for a in own_addresses}
         self.read_only = read_only
         self._ops: list[tuple] = []
         self._touched: set[str] = set()
@@ -169,6 +178,8 @@ class TaxonomyStore:
 
     def category_for(self, sender_address: str) -> str | None:
         sender = normalize_address(sender_address)
+        if sender in self.own_addresses:
+            return None
         with self._lock:
             self._refresh()
             return self._category_for(sender)
@@ -186,7 +197,7 @@ class TaxonomyStore:
 
     def record_agreement(self, sender_address: str, category: str) -> None:
         sender = normalize_address(sender_address)
-        if sender:
+        if sender and sender not in self.own_addresses:
             self._record(("agree", sender, category))
 
     def set_validated(self, sender_address: str, category: str) -> None:

@@ -1,6 +1,7 @@
 """Email classification endpoints."""
 
 import imaplib
+import threading
 from datetime import date
 
 from fastapi import APIRouter, HTTPException
@@ -27,6 +28,9 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+# Handlers run in a thread pool: one lock keeps concurrent moves from overwriting each other's entries
+_pending_lock = threading.Lock()
 
 
 def _to_email(req: ClassifyRequest) -> Email:
@@ -141,12 +145,14 @@ def classify_and_move(request: ClassifyAndMoveRequest):
         has_unsubscribe=request.has_unsubscribe,
         is_bulk=request.is_bulk,
     )
-    category = app_state.classifier.classify_email(email)
+    results = app_state.classifier.classify_detailed([email])
+    category, agreed = results[0]
 
     provider = _provider(request.provider)
-    pending = PendingArchive(pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file))
+    pending_path = pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file)
     try:
-        with provider.connect():
+        with provider.connect(), _pending_lock:  # the lock spans the pending file's load, add and save
+            pending = PendingArchive(pending_path)
             provider.client.select_folder("INBOX")
             moved = route_to_action_folders(
                 provider, pending, [RoutedMail.from_email(email, category)], False, date.today()
@@ -154,6 +160,9 @@ def classify_and_move(request: ClassifyAndMoveRequest):
     except (imaplib.IMAP4.error, ConnectionError, RuntimeError, OSError) as e:
         logger.error("Failed to move email {}: {}", request.msg_id, e)
         return ClassifyAndMoveResponse(msg_id=request.msg_id, category=category, moved=False, error=str(e))
+
+    if moved == 1 and agreed:  # a mail that failed to move is retried: it must not count twice
+        app_state.classifier.learn([email], results)
 
     return ClassifyAndMoveResponse(
         msg_id=request.msg_id,
