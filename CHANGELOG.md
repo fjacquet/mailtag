@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User guide** (`docs-site/user-guide.md`): folders, daily routine, archiving, teaching MailTag, bulk review, Gmail specifics
 - **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `5-A revoir`) and is archived into its category after `archive_after_days` (#36)
 - **Learned taxonomy rules** in `db/taxonomy/`: validated senders, senders learned after two nomic/Gemma agreements, business domain rules, and 19 nomic centroids built from verified mail (#38)
 - **Taxonomy setup** `scripts/taxonomy_setup.py` (`scan`, `crosscheck`, `build`) and the local Streamlit review page `scripts/taxonomy_review.py` (folder audit, sender review, runtime-learned senders, rule control sample) (#38, #39, #40, #41)
