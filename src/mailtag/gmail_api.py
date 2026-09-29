@@ -28,6 +28,7 @@ _RATE_LIMIT_TRIES = 5
 # Reads go in batch requests: one HTTP round trip for many messages (each still costs its own quota).
 _HEADER_BATCH = 50
 _BODY_BATCH = 10  # raw bodies can be large
+_PROGRESS_EVERY = 500  # messages between two progress lines of a long fetch
 _last_call = 0.0
 
 
@@ -181,6 +182,7 @@ class GmailLabelClient:
     def _batch_get(self, ids: list[str], build, size: int) -> dict[str, dict]:
         """messages.get for every id, `size` per batch request; a missing (404) message is left out."""
         found: dict[str, dict] = {}
+        began = time.monotonic()
         for start in range(0, len(ids), size):
             todo, waits = ids[start : start + size], 0
             while todo:
@@ -216,6 +218,10 @@ class GmailLabelClient:
                     logger.warning(f"Gmail quota reached, pausing {_RATE_LIMIT_WAIT}s ({waits})")
                     time.sleep(_RATE_LIMIT_WAIT)
                 todo = limited
+            done = min(start + size, len(ids))
+            if len(ids) > _PROGRESS_EVERY and (done % _PROGRESS_EVERY < size or done == len(ids)):
+                rate = done / max(time.monotonic() - began, 1e-6)
+                logger.info(f"Gmail: {done}/{len(ids)} messages read ({rate:.0f}/s)")
         return found
 
     def fetch(self, uids: list, fields: list[bytes]) -> dict:
