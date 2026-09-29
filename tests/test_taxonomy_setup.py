@@ -217,3 +217,23 @@ def test_refile_calls_refile_review_dry_run_and_leaves_pending_save_to_it(tmp_pa
     refile_review_mock.assert_called_once()
     assert refile_review_mock.call_args.args[-1] is False
     save_spy.assert_not_called()
+
+
+def test_review_scan_retries_unreadable_suggestions(tmp_path, mocker):
+    import scripts.taxonomy_setup as ts
+
+    scan_path = tmp_path / "review_scan_gmail.json"
+    scan_path.write_text(json.dumps({"groups": {}, "suggestions": {"shop.ch": None}}))
+    mocker.patch("scripts.taxonomy_setup.review_scan_path", return_value=scan_path)
+    mocker.patch("scripts.taxonomy_setup.TaxonomyStore", FakeStore)
+    mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), object()))
+    mails = [
+        {"sender_address": "a@shop.ch", "sender_name": "A", "subject": "S1", "message_id": "<1>", "uid": "1"}
+    ]
+    mocker.patch("mailtag.review_refile.read_review_mails", return_value=mails)
+    llm = mocker.patch("mailtag.mlx_provider.MLXLLM").return_value
+    llm.classify_batch.return_value = ["1"]
+
+    ts.review_scan("gmail")
+
+    assert json.loads(scan_path.read_text())["suggestions"]["shop.ch"] == "Banque & Placements"

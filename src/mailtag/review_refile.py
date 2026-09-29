@@ -16,6 +16,9 @@ from .taxonomy import (
 from .taxonomy_store import normalize_address
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
+# A failed move loses only this many mails for the run (they stay in review, with their entries)
+_MOVE_CHUNK = 500
+
 
 def group_key(address: str) -> tuple[str, str]:
     """`("domain", domain)` for a commercial domain, else `("sender", address)`."""
@@ -26,12 +29,12 @@ def group_key(address: str) -> tuple[str, str]:
     return "sender", address
 
 
-def read_review_mails(provider) -> list[dict]:
+def read_review_mails(provider, readonly: bool = True) -> list[dict]:
     """Headers (sender, subject, Message-ID) of every mail waiting in 5-A revoir."""
     client = provider.client
     if not client.folder_exists(REVIEW):
         return []
-    client.select_folder(REVIEW, readonly=True)
+    client.select_folder(REVIEW, readonly=readonly)  # IMAP refuses to move out of a read-only mailbox
     uids = client.search(["ALL"])
     headers = provider.get_email_headers(uids) if uids else {}
     return [{"uid": uid, **h} for uid, h in headers.items()]
@@ -113,7 +116,7 @@ def coverage(groups: dict[str, dict], category_for) -> tuple[int, int]:
 
 def refile_review(provider, category_for, pending, own: set[str], apply: bool) -> dict:
     """Move mails from 5-A revoir that a rule now covers to their category folder."""
-    mails = read_review_mails(provider)
+    mails = read_review_mails(provider, readonly=not apply)
     moves: dict[str, list] = defaultdict(list)
     left = 0
     for m in mails:
@@ -127,14 +130,17 @@ def refile_review(provider, category_for, pending, own: set[str], apply: bool) -
     if not apply:
         return report
     for category, ms in moves.items():
-        try:
-            provider.batch_move_emails([m["uid"] for m in ms], category_folder(category))
-        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
-            logger.error(f"Could not move {len(ms)} emails to {category}: {e}")
-            report["moves"][category] = 0
-            continue
-        for m in ms:
-            if m.get("message_id") and pending.get(m["message_id"]):
-                pending.remove(m["message_id"])
+        report["moves"][category] = 0
+        for start in range(0, len(ms), _MOVE_CHUNK):
+            chunk = ms[start : start + _MOVE_CHUNK]
+            try:
+                provider.batch_move_emails([m["uid"] for m in chunk], category_folder(category))
+            except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+                logger.error(f"Could not move {len(chunk)} emails to {category}: {e}")
+                continue
+            report["moves"][category] += len(chunk)
+            for m in chunk:
+                if m.get("message_id") and pending.get(m["message_id"]):
+                    pending.remove(m["message_id"])
     pending.save()
     return report

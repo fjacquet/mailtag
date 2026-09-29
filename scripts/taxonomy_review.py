@@ -90,6 +90,8 @@ st.set_page_config(page_title="MailTag — revue des expéditeurs", layout="wide
 store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir))
 skipped = st.session_state.setdefault("skipped", set())
 split = st.session_state.setdefault("split", set())
+# Stage 5 keys are domains or addresses: skipping one there must not hide it in stages 2-4
+review_skipped = st.session_state.setdefault("review_skipped", set())
 
 
 def category_buttons(key: str, on_pick) -> None:
@@ -102,16 +104,16 @@ def category_buttons(key: str, on_pick) -> None:
             st.rerun()
 
 
-def skip_button(sender: str) -> None:
+def skip_button(sender: str, into: set | None = None) -> None:
     if st.button("Passer"):
-        skipped.add(sender)
+        (skipped if into is None else into).add(sender)
         st.rerun()
 
 
 # Stage 5's source (data/review_scan_*.json) is independent of scan/crosscheck, so it is loaded
 # even when those are missing.
 review_groups_data, review_suggestions = _load_review_scans()
-review_rows = review_refile_queue(review_groups_data, store.category_for, split, skipped)
+review_rows = review_refile_queue(review_groups_data, store.category_for, split, review_skipped)
 
 scan_ready = SCAN.exists() and CROSSCHECK.exists()
 if scan_ready:
@@ -261,7 +263,7 @@ if stage == "review":
     if group["kind"] == "domain" and st.button("Par expéditeur"):
         split.add(key)
         st.rerun()
-    skip_button(key)
+    skip_button(key, review_skipped)
     st.stop()
 
 # --- Stage 3: senders promoted during runs (not in the scan) ---

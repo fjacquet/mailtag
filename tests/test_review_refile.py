@@ -341,3 +341,33 @@ def test_refile_review_missing_review_folder_reports_nothing(tmp_path):
     report = refile_review(provider, lambda a: "Achats", pending, own=set(), apply=False)
 
     assert report == {"moves": {}, "left": 0}
+
+
+def test_refile_review_opens_review_read_write_only_when_applying(tmp_path):
+    for apply in (False, True):
+        client = FakeClient(exists=True, uids=[])
+        refile_review(FakeProvider(client), lambda a: None, PendingArchive(tmp_path / "p.json"), set(), apply)
+        assert client.readonly is (not apply)
+
+
+def test_refile_review_moves_in_chunks_and_keeps_entries_of_a_failed_chunk(tmp_path, mocker):
+    mocker.patch("mailtag.review_refile._MOVE_CHUNK", 2)
+    mails = {str(i): mail("a@shop.ch", mid=f"<{i}>") for i in range(1, 6)}
+    provider = FakeProvider(FakeClient(exists=True, uids=list(mails)), headers=mails)
+    calls = []
+
+    def move(uids, destination):
+        calls.append(list(uids))
+        if len(calls) == 2:
+            raise ConnectionError("boom")
+
+    provider.batch_move_emails = move
+    pending = PendingArchive(tmp_path / "pending.json")
+    for i in range(1, 6):
+        pending.add(f"<{i}>", None, "a@shop.ch", "2026-01-01")
+
+    report = refile_review(provider, lambda a: "Achats", pending, set(), apply=True)
+
+    assert calls == [["1", "2"], ["3", "4"], ["5"]]
+    assert report["moves"] == {"Achats": 3}
+    assert [mid for mid, _ in pending.items()] == ["<3>", "<4>"]

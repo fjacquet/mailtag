@@ -223,7 +223,8 @@ def review_scan(provider: str) -> None:
     groups = review_groups(mails, store.category_for, own)
 
     path = review_scan_path(provider)
-    done = _read(path)["suggestions"] if path.exists() else {}
+    # An unreadable Gemma answer (None) is asked again
+    done = {k: v for k, v in _read(path)["suggestions"].items() if v} if path.exists() else {}
     if any(key not in done for key in groups):
         llm = MLXLLM(CONFIG.mlx.llm_model, max_tokens=4, temperature=0.0)
         suggestions = suggest_categories(groups, llm, done, batch_size=cfg.llm_batch_size)
