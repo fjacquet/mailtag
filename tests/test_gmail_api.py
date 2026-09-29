@@ -482,13 +482,13 @@ class TestBatchedFetch:
             for i in range(n)
         }
 
-    def test_headers_are_fetched_in_batches_of_50(self):
+    def test_headers_are_fetched_in_batches_of_10(self):
         client, fake = make_client(messages=self._messages(120))
         client.select_folder("INBOX")
 
         result = client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
 
-        assert fake.batch_sizes == [50, 50, 20]
+        assert fake.batch_sizes == [10] * 12
         assert len(result) == 120
 
     def test_bodies_are_fetched_in_batches_of_10(self):
@@ -509,7 +509,7 @@ class TestBatchedFetch:
 
         assert sorted(result) == ["000", "001", "002"]
         assert fake.batch_sizes == [3, 1]
-        no_sleep.assert_any_call(60)
+        no_sleep.assert_any_call(2)  # a short pause first: batches hit the concurrency limit
 
     def test_progress_is_logged_every_500_messages(self, caplog):
         client, fake = make_client(messages=self._messages(1200))
@@ -545,7 +545,7 @@ class TestBatchedFetch:
 
         client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
 
-        assert pytest.approx(1.25) in [c.args[0] for c in no_sleep.call_args_list]
+        assert pytest.approx(0.25) in [c.args[0] for c in no_sleep.call_args_list]
 
 
 class TestGmailLabelClientMove:
@@ -611,13 +611,13 @@ class TestExecuteRetries:
 
         request.execute.assert_called_once_with(num_retries=5)
 
-    def test_rate_limit_waits_out_the_minute_then_retries(self, mocker, no_sleep):
+    def test_rate_limit_backs_off_then_retries(self, mocker, no_sleep):
         request = mocker.Mock()
         request.execute.side_effect = [http_error(403, RATE_LIMITED), {"ok": 1}]
 
         assert GmailLabelClient._execute(request) == {"ok": 1}
 
-        no_sleep.assert_any_call(60)
+        no_sleep.assert_any_call(2)
 
     def test_429_waits_then_retries(self, mocker, no_sleep):
         request = mocker.Mock()
@@ -625,16 +625,17 @@ class TestExecuteRetries:
 
         assert GmailLabelClient._execute(request) == {"ok": 1}
 
-        no_sleep.assert_any_call(60)
+        no_sleep.assert_any_call(2)
 
-    def test_rate_limit_gives_up_after_five_waits(self, mocker, no_sleep):
+    def test_rate_limit_backs_off_up_to_a_minute_then_gives_up(self, mocker, no_sleep):
         request = mocker.Mock()
         request.execute.side_effect = http_error(403, RATE_LIMITED)
 
         with pytest.raises(ConnectionError):
             GmailLabelClient._execute(request)
 
-        assert [c.args for c in no_sleep.call_args_list].count((60,)) == 5
+        waits = [c.args[0] for c in no_sleep.call_args_list if c.args[0] >= 1]
+        assert waits == [2, 4, 8, 16, 32, 60, 60, 60]
 
     def test_other_403_is_not_retried(self, mocker, no_sleep):
         request = mocker.Mock()
