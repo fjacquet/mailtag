@@ -9,7 +9,6 @@ from mailtag.utils.db_backup import (
     backup_all_databases,
     backup_database,
     cleanup_old_backups,
-    get_backup_stats,
 )
 
 
@@ -97,26 +96,6 @@ class TestCleanupOldBackups:
         # Should keep 2, delete 3
         assert deleted == 3
         assert len(list(backup_dir.glob("*.json"))) == 2
-
-
-class TestGetBackupStats:
-    def test_stats_with_backups(self, db_dir: Path):
-        """Test stats with backups."""
-        for name in ("sender_classification_db", "domain_classifications", "validated_classification_db"):
-            backup_database(db_dir / f"{name}.json")
-
-        backup_dir = db_dir / "backups"
-        stats = get_backup_stats(backup_dir)
-
-        assert stats["total_backups"] == 3
-        assert stats["total_size_bytes"] > 0
-
-    def test_stats_empty_directory(self, tmp_path: Path):
-        """Test stats with no backups."""
-        stats = get_backup_stats(tmp_path)
-
-        assert stats["total_backups"] == 0
-        assert stats["oldest_backup"] is None
 
 
 def test_backup_all_covers_taxonomy_rules_and_pending_archives(tmp_path):

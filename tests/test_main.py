@@ -48,16 +48,6 @@ def mock_app_config(mocker: MockerFixture, tmp_path):
 
 
 class TestMain:
-    def test_main_generate_filters(self, mocker: MockerFixture, mock_app_config):
-        """Tests that generate_filters is called with the --generate-filters flag."""
-        from main import cli
-
-        runner = CliRunner()
-        mock_generate = mocker.patch("main.generate_filters")
-        result = runner.invoke(cli, ["filters"])
-        assert result.exit_code == 0
-        mock_generate.assert_called_once()
-
     def test_main_run_classification_default_both_providers(self, mocker: MockerFixture, mock_app_config):
         """Tests that run_classification is called for both providers by default."""
         from main import cli
@@ -67,26 +57,22 @@ class TestMain:
         # Mock the provider classes to avoid actual IMAP/Gmail connections
         mocker.patch("main.ImapService")
         mocker.patch("main.GmailApiService")
-        # Mock refresh_imap_folders to avoid actual server calls
-        mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
         assert mock_run.call_count == 2
 
     def test_main_provider_selection_gmail(self, mocker: MockerFixture, mock_app_config):
-        """--provider gmail builds a GmailApiService from CONFIG.gmail, no folder refresh."""
+        """--provider gmail builds a GmailApiService from CONFIG.gmail."""
         from main import cli
 
         runner = CliRunner()
         mock_run = mocker.patch("main.run_classification")
         mock_gmail_service = mocker.patch("main.GmailApiService")
-        mock_refresh = mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run", "--provider", "gmail"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
         mock_gmail_service.assert_called_once_with(mock_app_config.gmail, mock_app_config.fast_parse)
-        mock_refresh.assert_not_called()
         mock_run.assert_called_once()
 
     def test_main_provider_all_without_gmail_runs_infomaniak_only(
@@ -100,7 +86,6 @@ class TestMain:
         mock_run = mocker.patch("main.run_classification")
         mocker.patch("main.ImapService")
         mocker.patch("main.GmailApiService")
-        mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run", "--provider", "all"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
@@ -117,7 +102,6 @@ class TestMain:
         mock_run = mocker.patch("main.run_classification")
         mocker.patch("main.ImapService")
         mocker.patch("main.GmailApiService")
-        mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run", "--provider", "gmail"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
@@ -135,8 +119,6 @@ class TestMain:
         # Mock the provider classes to avoid actual IMAP/Gmail connections
         mocker.patch("main.ImapService")
         mocker.patch("main.GmailApiService")
-        # Mock refresh_imap_folders to avoid actual server calls
-        mocker.patch("main.refresh_imap_folders")
 
         result = runner.invoke(cli, ["run", "--validate"])
         assert result.exit_code == 0, f"CLI failed with: {result.output}"
@@ -169,3 +151,9 @@ def test_run_passes_validate_to_each_provider(mocker: MockerFixture, validate):
     start_classification_run("imap", validate)
 
     assert run.call_args.args[1] is validate
+
+
+def test_only_run_and_serve_remain():
+    from main import cli
+
+    assert sorted(cli.commands) == ["run", "serve"]
