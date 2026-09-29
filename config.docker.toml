@@ -1,20 +1,12 @@
 # Docker container configuration for MailTag API.
 # Copy to config.toml or mount as a volume.
 #
+# MLX needs Apple Silicon, so the container classifies by rules only
+# (validated sender, learned sender, domain); everything else goes to "5-A revoir".
+# The rules live in db/taxonomy/ (mount db/). Do not run `serve` in Docker while a
+# `run` works on the Mac: the file lock does not cross the Docker Desktop VM.
+#
 # All ${VAR} placeholders are resolved from environment variables.
-# Set them in .env or docker-compose.yml environment section.
-
-[general]
-# Cloud AI model (MLX not available in containers)
-# Examples: "gemini/gemini-2.5-flash", "ollama_chat/gemma3n"
-ollama_model = "${MODEL}"
-api_base = "${API_BASE}"
-
-[classifier]
-ai_confidence_threshold = 0.85
-historical_confidence_threshold = 0.9
-min_count = 5
-num_ctx = 8192
 
 [logging]
 level = "INFO"
@@ -28,23 +20,21 @@ password = "${IMAP_PASSWORD}"
 [gmail]
 credentials_file = "secrets/credentials.json"
 token_file = "secrets/token.json"
+pending_archive_file = "db/pending_archive_gmail.json"
+junk_folder_name = "SPAM"
 
 [fast_parse]
 batch_size = 500
-folder_cache_ttl_hours = 24
-unclassified_folder_name = "Unclassified"
 junk_folder_name = "Junk"
-max_retries = 3
-retry_delay = 1.0
-retry_backoff = 2.0
-retry_jitter = 0.1
-metrics_enabled = true
-metrics_log_level = "INFO"
-metrics_log_interval_minutes = 10
 
 [mlx]
-# MLX requires Apple Silicon — disabled in containers
 enabled = false
+
+[taxonomy]
+archive_after_days = 7
+pending_archive_file = "db/pending_archive.json"
+taxonomy_db_dir = "db/taxonomy"
+# own_addresses = ["me@example.com"]
 
 [webhook]
 # Bind to all interfaces inside the container

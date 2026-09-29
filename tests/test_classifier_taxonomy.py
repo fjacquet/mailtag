@@ -225,3 +225,11 @@ def test_classifier_needs_no_database(tmp_path):
     classifier = Classifier(_config(tmp_path))
 
     assert classifier.categories == list(TAXONOMY)
+
+
+def test_without_mlx_uncovered_mail_goes_to_review(tmp_path, mocker):
+    network = mocker.patch("socket.socket.connect", side_effect=AssertionError("no network"))
+    classifier = Classifier(_config(tmp_path))
+
+    assert classifier.classify_emails_batch([mail(sender="new@unknown.ch")]) == [REVIEW]
+    network.assert_not_called()
