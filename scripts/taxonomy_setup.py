@@ -255,8 +255,8 @@ def refile(provider: str, apply: bool) -> None:
     for category, count in sorted(report["moves"].items()):
         logger.info(f"  {category}: {count}")
     total = sum(report["moves"].values())
-    suffix = "" if apply else " (dry run)"
-    logger.info(f"Refile: {total} mails moved, {report['left']} left{suffix}")
+    moved = "mails moved" if apply else "mails would move (dry run)"
+    logger.info(f"Refile: {total} {moved}, {report['left']} left")
 
 
 def main() -> None:
