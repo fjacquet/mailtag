@@ -1,6 +1,6 @@
 # scripts/
 
-Utility scripts for development, deployment, and database management.
+Shell helpers and taxonomy tooling.
 
 ## Shell Scripts
 
@@ -10,19 +10,19 @@ Start the main application.
 
 ### run.sh
 
-Run classification with default settings.
+Run classification with default settings (calls `cli.sh`).
 
 ### cli.sh
 
-Launch the CLI interface.
+Launch the CLI: `uv run python src/main.py "$@"`.
 
 ### streamlit.sh
 
-Start the Streamlit web UI.
+Start the Streamlit front end for `run`.
 
 ```bash
 ./scripts/streamlit.sh
-# Equivalent to: streamlit run src/streamlit_app.py
+# Equivalent to: streamlit run src/app.py
 ```
 
 ### webhook.sh
@@ -31,7 +31,7 @@ Start the FastAPI webhook server.
 
 ```bash
 ./scripts/webhook.sh
-# Equivalent to: python src/webhook.py
+# Equivalent to: python src/main.py serve --reload
 ```
 
 ### test.sh
@@ -40,38 +40,22 @@ Run the test suite.
 
 ```bash
 ./scripts/test.sh
-# Equivalent to: uv run pytest
+# Equivalent to: uv run pytest --cov-report=html
 ```
 
 ## Python Scripts
 
-### build_domain_database.py
+### taxonomy_setup.py
 
-Build domain classification database from existing data.
+Taxonomy preparation, migration and bulk review. Subcommands: `scan`, `crosscheck`, `build`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`. Those that move mail (`migrate`, `prune`, `reorganize`, `refile-review`) are dry runs unless `--apply`; `scan`, `crosscheck`, `build` and `review-scan` move nothing.
 
-### update_domain_db.py
+### taxonomy_review.py
 
-Update domain database from reviewed candidates.
+Local Streamlit review page (folder audit, scan senders, senders learned during runs, rule control, bulk review of `5-A revoir`): `uv run streamlit run scripts/taxonomy_review.py`.
 
-**Usage:**
+### eval_embeddings.py
 
-```bash
-# First, generate candidates
-python src/main.py analyze-domains --output data/domain_candidates.json
-
-# Review and edit domain_candidates.json
-
-# Then update the database
-python scripts/update_domain_db.py
-```
-
-### inject_filters.py
-
-Inject email filter rules into email client configuration.
-
-### check_duplicates.py
-
-Check for duplicate entries in databases.
+`chain` replays nomic and Gemma on verified mail and picks `nomic_threshold`.
 
 ## Running Scripts
 
@@ -81,7 +65,7 @@ chmod +x scripts/*.sh
 ./scripts/start.sh
 
 # Python scripts
-python scripts/update_domain_db.py
+uv run python scripts/taxonomy_setup.py scan
 ```
 
 ## Notes

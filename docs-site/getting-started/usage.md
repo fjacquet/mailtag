@@ -16,11 +16,11 @@ python src/main.py run --provider imap --validate
 python src/main.py run --provider gmail
 ```
 
-In taxonomy mode, `run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
+`run` files INBOX into the action folders, archives old action-folder mail into its category and learns from the mails you filed out of `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: the rule files' lock does not cross the Docker Desktop VM.
 
 Gmail runs through the **Gmail API** (OAuth, see [Configuration](configuration.md#gmail-api-setup)): the
 `db/taxonomy/` rules and centroids are shared with Infomaniak, but each account keeps its own pending
-archive, junk label and folder cache — Gmail's label listing never replaces `data/imap_folders.json`. On
+archive and junk label. On
 Gmail, "moving" a mail out of `INBOX` removes the `INBOX` label (the mail stays in "All Mail"); `Promotions`
 reuses Gmail's own Promotions tab (`CATEGORY_PROMOTIONS`) instead of a label; labels for other action
 folders and categories are created on demand — see the [folder ↔ label mapping](../architecture/classification.md#gmail).
@@ -48,7 +48,7 @@ The review page has five stages, picked in the sidebar:
 
 Stage 5's source files (`data/review_scan_*.json`) are independent of `scan`/`crosscheck`, so it is available even before you run them.
 
-`scripts/eval_embeddings.py chain` replays signals 5-6 on verified mail to choose `nomic_threshold`.
+`scripts/eval_embeddings.py chain` replays the nomic and Gemma steps on verified mail to choose `nomic_threshold`.
 
 ## Legacy Folder Migration
 
@@ -92,54 +92,31 @@ uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail --ap
 - `refile-review` moves each covered mail to its category folder and drops its `pending_archive` entry, so a later archive sweep does not relearn it as a sender rule. Mail with no rule stays in `5-A revoir` for manual review.
 - Blocked while `migrate`/`prune` would be (taxonomy rules must exist first). Do not run `run` or `serve` during `refile-review --apply`.
 
-## Database Management
+## Webhook API
 
 ```bash
-# Show database statistics
-python src/main.py db-stats
-
-# Analyze domains for potential rules
-python src/main.py analyze-domains --output data/domain_candidates.json
-
-# Clean up old pass3 files
-python src/main.py cleanup --consolidate
-python src/main.py cleanup --max-age 30
+python src/main.py serve                          # 127.0.0.1:8000, Swagger UI at /docs
+python src/main.py serve --host 0.0.0.0 --reload  # development
 ```
 
-## Filter Generation
+Requests carry an `X-API-Key` header (`WEBHOOK_API_KEY`), except `/health`, `/docs`, `/redoc` and `/openapi.json`. `POST /classify` and `/classify-batch` return categories only. `POST /classify-and-move` classifies an INBOX mail, moves it to its action folder like `run` does and records it in the account's pending archive:
 
-```bash
-# Generate email filter rules
-python src/main.py filters
-```
+- `msg_id` is the mail's UID in the account's INBOX.
+- `message_id` is its `Message-ID` header. Without it the mail is moved but not tracked, so it is never archived or learned from.
+- Known limitation: `PendingArchive` has no file lock. An entry `serve` records while a `run` of the same account is in progress can be lost; the mail then stays in its action folder.
 
-## Databases
+The Docker image classifies by rules only (no MLX): validated and learned senders and domain rules; everything else goes to `5-A revoir`.
 
-MailTag uses three JSON databases in `db/`:
+## Backups
 
-| Database | Purpose | Signal |
-|----------|---------|--------|
-| `validated_classification_db.json` | Manually confirmed mappings | Signal 1 |
-| `sender_classification_db.json` | AI suggestions and history | Signal 3 |
-| `domain_classifications.json` | Domain-level rules | Signal 4 |
-
-### Automatic Backups
-
-Databases are backed up to `db/backups/` at the start of each classification run. The 10 most recent backups are kept per database.
+The rules (`db/taxonomy/*.json`) and each account's pending archive (`db/pending_archive*.json`) are copied to `db/backups/` at the start of each `run`. The 10 most recent copies are kept per file.
 
 ## Data Files
 
 | File | Purpose |
 |------|---------|
-| `data/category_embeddings.npz` | Pre-computed embeddings for Signal 5 |
-| `data/imap_folders.json` | Cached IMAP folder structure |
-| `data/pass3_manual_matching_*.json` | Emails needing manual review |
 | `data/non_commercial_domains.yaml` | Personal mailbox domains, never a domain rule |
-
-In taxonomy mode:
-
-| File | Purpose |
-|------|---------|
+| `data/legacy_folders.json` | Frozen list of the legacy folders (migration, centroids) |
 | `db/taxonomy/validated.json` | Senders you confirmed (review page, mail filed out of `5-A revoir`) |
 | `db/taxonomy/senders.json` | Learned senders and their agreement counts |
 | `db/taxonomy/domains.json` | Business domain rules computed by `build` |
@@ -147,8 +124,7 @@ In taxonomy mode:
 | `db/taxonomy/folder_overrides.json` | Folder audit decisions |
 | `db/taxonomy/control.json` | Rule control sample |
 | `db/pending_archive.json` | Category of each email waiting in an action folder (Infomaniak) |
-| `db/pending_archive_gmail.json` | Same, for the Gmail IMAP account |
-| `data/gmail_folders.json` | Cached Gmail (label) folder structure |
+| `db/pending_archive_gmail.json` | Same, for the Gmail account |
 | `data/taxonomy_centroids.npz` | The 19 nomic centroids |
 | `data/mailbox_scan.json`, `data/sender_crosscheck.json` | Scan and Gemma opinions per sender |
 | `data/migration_report.json` | Last `migrate` plan or result |

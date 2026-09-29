@@ -40,5 +40,5 @@ Models are downloaded automatically on first use. The defaults are:
 
 | Component | Model | Size |
 |-----------|-------|------|
-| Embeddings (Signal 5) | `nomic-ai/nomic-embed-text-v1.5` | ~280MB |
-| LLM (Signal 6) | `mlx-community/gemma-4-e4b-it-OptiQ-4bit` | ~2.5GB |
+| Embeddings (nomic centroids) | `nomic-ai/nomic-embed-text-v1.5` | ~280MB |
+| LLM (Gemma second opinion) | `mlx-community/gemma-4-e4b-it-OptiQ-4bit` | ~2.5GB |

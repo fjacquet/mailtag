@@ -47,7 +47,7 @@ class MLXConfig:
     enabled: bool = True
     # Semantic Router (Signal 5) - embedding-based classification
     embedding_model: str = "nomic-ai/nomic-embed-text-v1.5"
-    # LLM Fallback (Signal 6) - text generation
+    # Gemma (Signal 6) - answers by category number
     llm_model: str = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
 
 

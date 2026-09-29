@@ -118,5 +118,5 @@ A validated sender or domain is never overridden by the models. To correct one:
   `refile-review --apply`, and no `serve` in Docker (with `db/` mounted) during a `run` on the Mac.
 - Point your mail client's special folders to `Sent`, `Trash`, `Spam` and `Archive`, or it may
   recreate duplicates (`Sent Messages`, `Junk`…).
-- `db/` holds your rules: back it up. Classification databases are also backed up to `db/backups/` at
-  each run.
+- `db/` holds your rules: back it up. The rules and pending archives are also backed up to `db/backups/` at
+  the start of each run (10 copies per file).

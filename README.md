@@ -1,6 +1,6 @@
 # MailTag
 
-MailTag is a Python-based email automation tool that classifies and organizes emails using on-device AI. It supports both IMAP and Gmail, using a 6-signal classification strategy with MLX-powered local inference on Apple Silicon.
+MailTag is a Python-based email automation tool that classifies and organizes emails into a 19-category business taxonomy using on-device AI. It supports both IMAP and Gmail, with MLX-powered local inference on Apple Silicon.
 
 [![CI Tests and Checks](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/mailtag/actions/workflows/ci.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/fjacquet/mailtag)](https://github.com/fjacquet/mailtag/releases)
@@ -11,22 +11,18 @@ MailTag is a Python-based email automation tool that classifies and organizes em
 
 ## How It Works
 
-MailTag classifies emails through 6 prioritized signals:
+MailTag files mail into **19 business-sector categories** (Banque & Placements, Santé, Achats, Éditeurs IT & Cloud, Contacts…) instead of hundreds of IMAP folders. New mail first lands in an action folder (`1-A traiter`, `2-A payer`, `3-A lire`, `4-Pour info`, the provider's standard `Promotions`, or `5-A revoir` when unsure) and moves into its category once read and a week old. Category folders follow PARA: `Domaines/` (areas: bank, health, family…), `Ressources/` (topics: newsletters, IT vendors, media…) and the standard `Archive/` (purchases, parcels); projects are your own folders.
 
-1. **Validated Database** — manually confirmed sender→category mappings (100% confidence)
-2. **Server-Side Labels** — existing IMAP folders or Gmail labels (95%)
-3. **Historical Database** — sender history patterns (90%+)
-4. **Domain Classification** — commercial domain rules (90%)
-5. **Semantic Router** — MLX embedding similarity via `nomic-embed-text-v1.5` (configurable threshold)
-6. **MLX LLM** — local Gemma 4 E4B model returning JSON `{category, confidence, reason}` (0.85 threshold)
+The classification chain, first match wins:
 
-Each signal stops evaluation when it classifies an email. IMAP uses a 3-pass system (headers → domains → full body + AI) for efficiency.
+1. **Validated sender** — a sender you confirmed
+2. **Learned sender** — a sender that became a rule after two nomic/Gemma agreements
+3. **Validated domain**, then **computed domain** — commercial domain rules (never for gmail.com and the like)
+4. **Nomic centroids** — MLX embeddings with `nomic-embed-text-v1.5`, accepted at a score of at least `nomic_threshold`
+5. **Nomic and Gemma agreeing** — local Gemma 4 E4B answers by category number and must agree with nomic's top choice
+6. **`5-A revoir`** — anything else
 
-### Taxonomy mode
-
-With `[taxonomy] enabled = true` (as in the shipped `config.toml`), MailTag files mail into **19 business-sector categories** (Banque & Placements, Santé, Achats, Éditeurs IT & Cloud, Contacts…) instead of hundreds of IMAP folders. New mail first lands in an action folder (`1-A traiter`, `2-A payer`, `3-A lire`, `4-Pour info`, the provider's standard `Promotions`, or `5-A revoir` when unsure) and moves into its category once read and a week old. Category folders follow PARA: `Domaines/` (areas: bank, health, family…), `Ressources/` (topics: newsletters, IT vendors, media…) and the standard `Archive/` (purchases, parcels); projects are your own folders.
-
-The chain: validated sender → learned sender (after two nomic/Gemma agreements) → business domain → nomic centroids (score ≥ `nomic_threshold`) → nomic and Gemma agreeing → `5-A revoir`. Filing a mail out of `5-A revoir` teaches MailTag its sender. The rules were learned from the legacy folders with `scripts/taxonomy_setup.py` and a local Streamlit review page; see the [usage docs](https://fjacquet.github.io/mailtag/getting-started/usage/). Day-to-day use (folders, archiving, teaching MailTag, Gmail) is in the [user guide](https://fjacquet.github.io/mailtag/user-guide/).
+IMAP runs in two steps: rules on message headers first (junk folder and INBOX), then the models on the full body of the rest. Filing a mail out of `5-A revoir` teaches MailTag its sender. The rules were learned from the legacy folders with `scripts/taxonomy_setup.py` and a local Streamlit review page; see the [usage docs](https://fjacquet.github.io/mailtag/getting-started/usage/). Day-to-day use (folders, archiving, teaching MailTag, Gmail) is in the [user guide](https://fjacquet.github.io/mailtag/user-guide/).
 
 ## Prerequisites
 
@@ -45,27 +41,24 @@ uv sync -U --all-extras
 
 Configuration uses two sources:
 
-- **`config.toml`** — main config (IMAP/Gmail settings, classifier thresholds, MLX models, logging)
-- **`.env`** — secrets and cloud AI provider selection
+- **`config.toml`** — main config (`logging`, `imap`, `gmail`, `fast_parse`, `mlx`, `taxonomy`, `webhook`)
+- **`.env`** — secrets only (`IMAP_USER`, `IMAP_PASSWORD`, `WEBHOOK_API_KEY`)
 
 ### Required `.env` variables
 
 ```bash
 IMAP_USER=your-email@example.com
 IMAP_PASSWORD=your-password
-# Optional: cloud AI provider (MODEL defaults to MLX local inference)
-# MODEL=gemini/gemini-2.5-flash
-# GEMINI_API_KEY=your-key
+# Only for `serve`: WEBHOOK_API_KEY=your-key
 ```
 
 ### MLX Models (config.toml)
 
 ```toml
 [mlx]
-embedding_model = "nomic-ai/nomic-embed-text-v1.5"    # Signal 5: Semantic Router
-llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit" # Signal 6: LLM fallback
-llm_confidence = 0.85
-llm_max_tokens = 128
+enabled = true
+embedding_model = "nomic-ai/nomic-embed-text-v1.5"    # nomic centroids
+llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit" # Gemma second opinion
 ```
 
 ### Gmail Setup
@@ -82,10 +75,7 @@ python src/main.py run --provider all              # Classify all providers
 python src/main.py run --provider imap             # IMAP only
 python src/main.py run --provider gmail             # Gmail (through the Gmail API) only
 python src/main.py run --provider imap --validate  # Read-only (no moves)
-python src/main.py filters                         # Generate email filters
-python src/main.py analyze-domains                 # Find domain candidates
-python src/main.py db-stats                        # Database health check
-python src/main.py cleanup --consolidate           # Remove old pass3 files
+python src/main.py serve                           # Webhook API server
 ```
 
 Taxonomy setup and legacy folder migration (dry run unless `--apply`):
@@ -111,8 +101,13 @@ uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail [--a
 
 ## Data and Database
 
-- `db/validated_classification_db.json`: Manually validated sender→category mappings (Signal 1)
-- `db/sender_classification_db.json`: AI suggestions and historical patterns (Signal 3)
-- `db/domain_classifications.json`: Domain-level classification rules (Signal 4)
-- `data/category_embeddings.npz`: Pre-computed category embeddings for semantic routing (Signal 5)
-- `data/imap_folders.json`: Cached IMAP folder structure (refreshed at startup)
+- `db/taxonomy/`: validated, learned and domain rules (`validated.json`, `senders.json`, `domains.json`, `validated_domains.json`, `folder_overrides.json`, `control.json`)
+- `db/pending_archive*.json`: category of each mail waiting in an action folder (one file per account)
+- `db/backups/`: copies of both, taken at the start of each `run` (10 per file)
+- `data/taxonomy_centroids.npz`: nomic centroids per category
+- `data/legacy_folders.json`: frozen list of the legacy folders (migration, centroids)
+- `data/non_commercial_domains.yaml`: domains that never get a domain rule
+
+## Docker
+
+The Docker image runs the webhook API with rules only (no MLX): validated and learned senders and domain rules classify; everything else goes to `5-A revoir`. Do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac: `flock` does not cross the Docker Desktop VM boundary.

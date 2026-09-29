@@ -2,40 +2,38 @@
 
 ## Cost-Ordered Classification
 
-Signals are ordered from cheapest to most expensive:
+Steps are ordered from cheapest to most expensive:
 
-1. **Dictionary lookups** (Signals 1-4): O(1) hash table lookups, microseconds
-2. **Embedding similarity** (Signal 5): One matrix multiplication, milliseconds
-3. **LLM inference** (Signal 6): Full model forward pass, 1-2 seconds
+1. **Rules** (validated and learned senders, domains): dictionary lookups on headers, microseconds
+2. **Embedding similarity** (nomic centroids): one matrix multiplication, milliseconds
+3. **LLM inference** (Gemma): a model forward pass, 1-2 seconds
 
-This ensures the fastest path is always tried first.
+This ensures the fastest path is always tried first, and only mail no rule covers is read in full.
 
 ## Batch Over Individual
 
 Operations are batched wherever possible:
 
 - IMAP header fetches in configurable batch sizes
-- Embedding computation via `route_batch()` for all pending emails
-- IMAP moves accumulated by category, then executed in bulk
-- Database writes deferred with dirty flags, flushed at pass boundaries
+- Embedding computation for all pending emails in one call (`top_batch()`)
+- Gemma prompts in batches sharing a cached prompt prefix
+- IMAP moves accumulated by destination folder, then executed in bulk
+- Rule changes recorded as operations and written once per `save()`
 
 ## Fail Safe
 
 Every classification failure has a safe fallback:
 
-- Low confidence results route to "A Classer" (unclassified folder)
-- Model errors route to "(Model Error)"
-- Database corruption loads empty databases
+- Anything unsure or failing (model error, missing MLX) routes to `5-A revoir`, never to a guessed category
+- `--validate` moves nothing and writes nothing
+- Rules and pending archives are backed up at the start of each `run`
 - Network failures use configurable retry with exponential backoff
 
-## Thread Safety
+## Shared State
 
-All shared state uses proper locking:
-
-- `threading.RLock` on database mutations
+- `TaxonomyStore.save()` takes an exclusive `flock` on `db/taxonomy/.lock` and replays its operations on top of what other processes wrote
 - Thread-safe lazy initialization for MLX components
-- Deep copy pattern for metrics reads
-- `Event`-based shutdown for IMAP daemon
+- `PendingArchive` has no lock: an entry recorded by `serve` during a `run` of the same account can be lost
 
 ## Normalize Everything
 

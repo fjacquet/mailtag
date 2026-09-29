@@ -9,17 +9,17 @@ AI-powered email classification and organization using on-device inference.
 
 ## What is MailTag?
 
-MailTag is a Python-based email automation tool that classifies and organizes emails using a **6-signal classification strategy** with MLX-powered local inference on Apple Silicon. It supports both IMAP and Gmail providers.
+MailTag is a Python-based email automation tool that classifies and organizes emails into a **19-category business taxonomy** with MLX-powered local inference on Apple Silicon. It supports both IMAP and Gmail providers.
 
 ## Key Features
 
 - **On-device AI** via MLX on Apple Silicon -- no cloud API required
-- **6 prioritized classification signals** for accuracy and speed
-- **Three-pass IMAP processing** (headers, domains, full body + AI)
+- **Rules first, models second**: validated and learned senders, then domain rules, then embeddings and a local LLM
+- **Action folders** (`1-A traiter`, `2-A payer`, `3-A lire`, `4-Pour info`, `Promotions`, `5-A revoir`) and PARA category folders
+- **Learning from your decisions**: filing a mail out of `5-A revoir` teaches MailTag its sender
 - **Batch operations** for efficient email organization
-- **Domain-based rules** for commercial email routing
-- **Semantic routing** via embedding similarity
-- **Automatic database backups** with rotation
+- **Webhook API** for external integrations
+- **Automatic backups** of the rules with rotation
 
 ## Quick Start
 
@@ -32,15 +32,15 @@ python src/main.py run --provider imap --validate  # Read-only test
 
 Then read the [User Guide](user-guide.md) for day-to-day use.
 
-## Classification Signals
+## Classification Chain
 
-| Signal | Source | Confidence | Speed |
-|--------|--------|-----------|-------|
-| 1. Validated DB | Manual mappings | 100% | Instant |
-| 2. Server Labels | IMAP folders / Gmail labels | 95% | Instant |
-| 3. Historical DB | Sender patterns (10+ emails) | 90%+ | Instant |
-| 4. Domain Rules | Commercial domain mappings | 90% | Instant |
-| 5. Semantic Router | Embedding similarity (nomic-embed) | Configurable | Fast |
-| 6. MLX LLM | Gemma 4 E4B local model | 85% threshold | ~1-2s |
+| Step | Source | Speed |
+|------|--------|-------|
+| 1. Validated sender | Senders you confirmed | Instant |
+| 2. Learned sender | Sender after 2 nomic/Gemma agreements | Instant |
+| 3. Domain rules | Validated domains, then computed commercial domains | Instant |
+| 4. Nomic centroids | Embedding similarity, score at least `nomic_threshold` | Fast |
+| 5. Nomic and Gemma agree | Local Gemma 4 E4B answers by category number | ~1-2s |
+| 6. `5-A revoir` | Nothing decided | Instant |
 
-Each signal stops evaluation when it classifies an email, ensuring the fastest path is always tried first.
+The first match wins, so the fastest path is always tried first. See [Classification Strategy](architecture/classification.md).

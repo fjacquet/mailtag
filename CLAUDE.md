@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MailTag is a Python-based email automation tool that classifies and organizes emails using AI. It supports both IMAP and Gmail, using a 6-signal classification strategy that prioritizes efficiency and accuracy. Runs on Apple Silicon via MLX for local inference.
+MailTag is a Python-based email automation tool that classifies emails into a 19-category taxonomy and files them into action and category folders. It supports both IMAP and Gmail, tries cheap rules before models, and runs on Apple Silicon via MLX for local inference.
 
 ## Development Commands
 
@@ -17,10 +17,7 @@ uv sync -U --all-extras
 
 ### AI Model Configuration
 
-Two AI paths coexist — the **MLX local path** (Signals 5+6, configured in `config.toml [mlx]`) and the **cloud/Ollama path** (configured via `.env`):
-
-- **MLX (default for classification)**: Embedding model + LLM set in `config.toml` under `[mlx]`. Currently uses `nomic-ai/nomic-embed-text-v1.5` for embeddings and `mlx-community/gemma-4-e4b-it-OptiQ-4bit` for LLM fallback.
-- **Cloud/Ollama**: Set `MODEL` in `.env` (e.g., `gemini/gemini-2.5-flash`, `ollama_chat/gemma3n`). Used for the litellm-based classification path.
+One AI path: the **MLX local path**, configured in `config.toml [mlx]`. It uses `nomic-ai/nomic-embed-text-v1.5` for embeddings (nomic centroids) and `mlx-community/gemma-4-e4b-it-OptiQ-4bit` for the LLM (Gemma answers by category number). `[mlx] enabled = false` (the Docker image) means rules only: everything the rules do not cover goes to `5-A revoir`. There is no cloud or Ollama path and no `MODEL` variable.
 
 ### Testing
 
@@ -45,53 +42,36 @@ uv run yamlfix .            # Fix YAML
 ```bash
 python src/main.py run --provider all              # Classify all providers
 python src/main.py run --provider imap --validate  # Read-only validation mode
-python src/main.py filters                         # Generate email filters
-python src/main.py analyze-domains --output data/domain_candidates.json
-python src/main.py db-stats                        # Database health check
-python src/main.py cleanup --consolidate           # Remove old pass3 files
 python src/main.py serve                           # Start webhook API server
 python src/main.py serve --host 0.0.0.0 --reload   # Dev mode with auto-reload
 ```
 
+Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` subcommands (`scan`, `crosscheck`, `build`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`), described under Taxonomy below. `src/app.py` is a small Streamlit front end for `run` (`scripts/streamlit.sh`).
+
 ## Architecture
 
-### Multi-Signal Classification Strategy (AMSC)
+### Classification flow
 
-The core classification engine (`src/mailtag/classifier.py`) uses a hierarchical approach with 6 signals, evaluated in priority order:
+`run` (`src/mailtag/utils/tasks.py`) works per account, IMAP or Gmail (`GmailApiService` is an `ImapService`), with a `PendingArchive` and one `TaxonomyStore`:
 
-1. **Validated Database** - Manually validated sender classifications (100% confidence)
-2. **Server-Side Labels** - Existing IMAP folders or Gmail labels matching known categories (95%)
-3. **Historical Database** - Sender history with high-confidence patterns (90%+, 10+ occurrences)
-4. **Domain Classification** - Commercial domain-based rules (90%, skips gmail.com/yahoo.com etc.)
-5. **Semantic Router** - MLX embedding-based classification via `nomic-embed-text-v1.5` (configurable score threshold)
-6. **AI LLM** - Fallback to LLM returning JSON with `{category, confidence, reason}`. Uses MLX locally (Apple Silicon) or litellm (Docker/cloud: Gemini, Ollama, OpenRouter). Below-threshold classifications (0.85) route to "À Classer"
+1. **Pass 1 (rules, headers only)** on the junk folder, then INBOX, in batches of `fast_parse.batch_size`: validated sender → learned sender → validated domain → computed domain. A match is routed to its action folder and recorded in the account's `pending_archive` file.
+2. **Pass 3 (models, full body)** for the rest (`classifier.py`): nomic centroids classify at score ≥ `nomic_threshold`; otherwise Gemma must agree with nomic's top choice; otherwise the mail goes to `5-A revoir`. Routing to action folders (`routing.py`, `action_rules.py`) records a `pending_archive` entry per mail.
+3. **Archive sweep** (`archive.py`): seen, unflagged mail older than `archive_after_days` moves into its category folder.
 
-Each signal can definitively classify an email, stopping further evaluation.
+`--validate` moves nothing and writes nothing (`Classifier(read_only=True)`).
 
-### Three-Pass Processing System (IMAP Only)
-
-For IMAP providers, the classification runs in three passes for performance optimization (`src/mailtag/utils/tasks.py`):
-
-- **Pass 1 (Fast Parse)**: Processes emails using only headers (sender, subject). Uses validated and historical databases for instant classification. Processes emails in configurable batches (default 100).
-- **Pass 2 (Domain Classification)**: Groups remaining emails by commercial domain and applies domain-based rules in bulk. Generates manual matching files in `data/pass3_manual_matching_*.json` for review.
-- **Pass 3 (AI Classification)**: Fetches full email bodies and uses AI classification for remaining emails.
-
-Gmail providers use single-pass processing with the full AMSC strategy.
-
-### Taxonomy Mode (`[taxonomy] enabled = true`)
+### Taxonomy
 
 Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
-19 business-sector categories (`src/mailtag/taxonomy.py`) replace the 611 IMAP folders.
+19 business-sector categories (`src/mailtag/taxonomy.py`) replace the 611 legacy IMAP folders.
 
-- Signals 1-4 map stored old folder paths with `to_category`.
-- Signal 5 (nomic) classifies at score ≥ `nomic_threshold`.
-- Otherwise Signal 6 (Gemma, answers by category number, batched with a cached prompt prefix) must agree with nomic's top choice, else the email goes to `5-A revoir`.
+- Gemma answers by category number, batched with a cached prompt prefix.
 - Category folders follow PARA (`PARA`, `category_folder` in `taxonomy.py`): `Domaines/<category>`, `Ressources/<category>`, `Archive/<category>` (the standard Archive folder); pending entries and rules keep the bare category name. Promos go to the providers' standard `Promotions` folder. `scripts/taxonomy_setup.py reorganize [--apply]` renames flat category folders into PARA and merges `5-Promos`/`9-A revoir` (older names).
 - Emails land in action folders (`src/mailtag/action_rules.py`), with their category remembered in `db/pending_archive.json`.
 - `src/mailtag/archive.py` moves seen, unflagged emails older than `archive_after_days` into their category and learns sender rules from emails filed out of `5-A revoir`.
 - Nomic centroids come from the frozen `data/legacy_folders.json`.
 
-**Learned signals** (`docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md`): old folders map to categories through `map_folder`, overridden by the folder audit (`db/taxonomy/folder_overrides.json`). In taxonomy mode, Signals 1, 3 and 4 come from `TaxonomyStore` (`db/taxonomy/validated.json`, `senders.json`, `domains.json`); Signal 2 (labels) is not used; nomic loads `data/taxonomy_centroids.npz`. A nomic/Gemma agreement counts for the sender; after `learn_min_agreements` (2) agreements the sender becomes a rule, and a contradiction removes it. Emails the user files out of `5-A revoir` go to `validated.json`. Preparation (no email is moved): `scripts/taxonomy_setup.py scan`, `crosscheck`, then `streamlit run scripts/taxonomy_review.py`, then `build`. `serve` (webhook API) and `run` can share these files on the same machine: each `TaxonomyStore` records its changes as operations, and `save()` takes an exclusive `flock` on `db/taxonomy/.lock`, replays them on top of what other processes wrote and writes all changed files at once; lookups reload files another process has saved, under a shared lock. `flock` does not cross the Docker Desktop VM boundary: with taxonomy enabled, do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac. The review page (sidebar: folders, scan senders, senders learned during runs, rule control) lets the user confirm or correct senders promoted during runs; stage 2 only shows senders with at least `sender_min_mails` mails that no validated, learned or domain rule covers; stage 4 measures rule precision on 60 random rule-covered senders (`db/taxonomy/control.json`). Domain rules weigh each sender's validated category, else its audited folder category. `own_addresses` are never a rule and never learned from.
+**Learned signals** (`docs/superpowers/specs/2026-09-28-taxonomie-signaux-design.md`): old folders map to categories through `map_folder`, overridden by the folder audit (`db/taxonomy/folder_overrides.json`). The rules (validated sender, learned sender, domains) come from `TaxonomyStore` (`db/taxonomy/validated.json`, `senders.json`, `domains.json`); nomic loads `data/taxonomy_centroids.npz`. A nomic/Gemma agreement counts for the sender; after `learn_min_agreements` (2) agreements the sender becomes a rule, and a contradiction removes it. Emails the user files out of `5-A revoir` go to `validated.json`. Preparation (no email is moved): `scripts/taxonomy_setup.py scan`, `crosscheck`, then `streamlit run scripts/taxonomy_review.py`, then `build`. `serve` (webhook API) and `run` can share these files on the same machine: each `TaxonomyStore` records its changes as operations, and `save()` takes an exclusive `flock` on `db/taxonomy/.lock`, replays them on top of what other processes wrote and writes all changed files at once; lookups reload files another process has saved, under a shared lock. `flock` does not cross the Docker Desktop VM boundary: do not run `serve` in Docker (with `db/` mounted) while a `run` works on the Mac. The review page (sidebar: folders, scan senders, senders learned during runs, rule control) lets the user confirm or correct senders promoted during runs; stage 2 only shows senders with at least `sender_min_mails` mails that no validated, learned or domain rule covers; stage 4 measures rule precision on 60 random rule-covered senders (`db/taxonomy/control.json`). Domain rules weigh each sender's validated category, else its audited folder category. `own_addresses` are never a rule and never learned from.
 
 **Legacy folder migration** (`docs/superpowers/specs/2026-09-28-migration-dossiers-design.md`, `src/mailtag/migration.py`): `scripts/taxonomy_setup.py migrate` moves each legacy-folder mail to its sender's rule, else its folder's audited category, else `5-A revoir` (with a `db/pending_archive.json` entry so filing it teaches the rule); `prune` deletes emptied legacy folders, deepest first. Both are dry runs unless `--apply`; category, action and system folders are never touched. `migrate --apply` is re-runnable (moved mail leaves its folder). Do not run `run` or `serve` during `migrate --apply`.
 
@@ -99,43 +79,27 @@ Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
 
 ### Provider Architecture
 
-The codebase uses a provider pattern (`src/mailtag/providers.py`):
+There is no provider base class: both providers are `ImapService` (`src/mailtag/imap_service.py`) objects.
 
-- `EmailProvider`: Abstract base class defining the interface
-- `ImapService` (`src/mailtag/imap_service.py`): IMAP implementation with batch operations and folder hierarchy support
+- `ImapService`: IMAP implementation with `connect()` (context manager), `get_email_headers()` (headers only, Pass 1), `get_full_emails()` (bodies, Pass 3), `batch_move_emails()`, `select_folder()`, `move_email()`
 - `GmailApiService` (`src/mailtag/gmail_api.py`): the Gmail provider (`run --provider gmail`); subclasses `ImapService` and only replaces `connect()`, using `GmailLabelClient` — the same small IMAPClient subset the taxonomy flow uses, translated to Gmail API calls (labels, categories) — see below
-- `GmailService` (`src/mailtag/gmail_service.py`): Gmail API implementation with OAuth authentication, from before taxonomy mode. Unused by the CLI; the file stays in place
 
-All providers implement:
+### Data and backups
 
-- `connect()`: Context manager for connection lifecycle
-- `get_emails()`: Fetch emails with optional filters
-- `move_email()`: Move single email to destination folder/label
+Rule state lives in JSON files, no database class:
 
-IMAP additionally supports:
+- `db/taxonomy/`: `validated.json`, `senders.json`, `domains.json`, `validated_domains.json`, `folder_overrides.json`, `control.json` (managed by `TaxonomyStore`)
+- `db/pending_archive.json`, `db/pending_archive_gmail.json`: category of each mail waiting in an action folder, keyed by Message-ID (`PendingArchive`)
+- `data/taxonomy_centroids.npz`, `data/legacy_folders.json`, `data/non_commercial_domains.yaml`
 
-- `batch_move_emails()`: Efficient bulk move operations
-- `get_email_headers()`: Fetch headers without full body
-- `get_folder_hierarchy()`: Retrieve and cache folder structure
-
-### Database Layer
-
-Three JSON databases managed by `ClassificationDatabase` (`src/mailtag/database.py`):
-
-- `db/sender_classification_db.json`: AI suggestions and historical patterns per sender
-- `db/validated_classification_db.json`: Manually validated sender-category mappings
-- `db/domain_classifications.json`: Domain-level classification rules
-
-All databases use lowercase normalization for sender addresses and domains to ensure consistent lookups.
-
-**Automatic Backups**: Databases are backed up to `db/backups/` once at the start of each classification run. Keeps 10 most recent backups per database.
+All lookups lowercase-normalize sender addresses and domains. **Automatic backups**: `db/taxonomy/*.json` and `db/pending_archive*.json` are copied to `db/backups/` at the start of each `run` (`utils/db_backup.py`), 10 most recent copies per file.
 
 ### MLX Provider Architecture
 
 `src/mailtag/mlx_provider.py` provides two classes for Apple Silicon inference:
 
-- **MLXEmbedder** - Generates embeddings via `sentence-transformers` for the Semantic Router (Signal 5)
-- **MLXLLM** - Text generation via `mlx-lm` for classification fallback (Signal 6). Uses `apply_chat_template` with `enable_thinking=False` for Gemma 4 models (prevents thinking tokens from consuming the token budget). Response parsing strips any residual `<|channel>thought...<channel|>` blocks before extracting JSON.
+- **MLXEmbedder** - Generates embeddings via `sentence-transformers` for the nomic centroids (`SemanticRouter`)
+- **MLXLLM** - Text generation via `mlx-lm` for Gemma, which answers short prompts in batches (`classify_batch`). Uses `apply_chat_template` with `enable_thinking=False` for Gemma 4 models (prevents thinking tokens from consuming the token budget).
 
 Both use lazy loading — models are only loaded on first use.
 
@@ -143,25 +107,27 @@ Both use lazy loading — models are only loaded on first use.
 
 FastAPI-based HTTP API (`src/mailtag/api/`) for external integrations (N8N, webhooks):
 
-- **App factory**: `create_app()` in `src/mailtag/api/__init__.py` — lifespan manages Classifier/DB lifecycle
+- **App factory**: `create_app()` in `src/mailtag/api/__init__.py` — lifespan manages the Classifier lifecycle
 - **Routes**: `src/mailtag/api/routes/classify.py` (POST classify, classify-batch, classify-and-move) and `health.py` (GET health, status)
 - **Auth**: `X-API-Key` header via `APIKeyMiddleware` — exempts `/health`, `/docs`, `/redoc`, `/openapi.json`
 - **Schemas**: Pydantic models in `src/mailtag/api/schemas.py` with Swagger examples
 - **State**: `AppState` singleton in `src/mailtag/api/dependencies.py`
 - **Config**: `[webhook]` section in `config.toml` — host, port, api_key, allow_move, max_batch_size
 - **Swagger UI**: Auto-generated at `/docs`, enriched with OpenAPI tags and schema examples
+- **`/classify-and-move`**: selects INBOX, routes the mail to its action folder and records the pending entry, like `run`. `msg_id` must be the mail's **INBOX UID**; `message_id` must be its **Message-ID header**. Without `message_id` the mail is moved but not tracked, so it is never archived or learned from.
+- **Known limitation**: `PendingArchive` has no file lock, so an entry `serve` records while a `run` of the same account is in progress can be lost (the mail then stays in its action folder).
 
-Route handlers use sync `def` (not `async def`) — FastAPI runs them in a thread pool, which is correct since Classifier/DB/Providers are all synchronous.
+Route handlers use sync `def` (not `async def`) — FastAPI runs them in a thread pool, which is correct since Classifier/Providers are all synchronous.
 
 ### Docker Deployment
 
-Multi-stage Docker build for running the API server without Apple Silicon:
+Multi-stage Docker build for running the API server without Apple Silicon. Rules only: no MLX, no litellm.
 
 - `Dockerfile` — `python:3.13-slim` base, excludes MLX deps via uv overrides, non-root user, healthcheck
 - `docker-compose.yml` — Volumes for `db/`, `data/`, `config.toml`; `MLX_ENABLED=false`
 - `config.docker.toml` — Container-optimized template with env var placeholders
 
-When `MLX_ENABLED=false`, Signals 1-4 work via DB lookups. Signal 6 falls back to litellm (`MODEL` env var: Gemini, Ollama, OpenRouter). Signal 5 (semantic router) is skipped.
+With `[mlx] enabled = false`, validated and learned senders and domain rules classify; nomic and Gemma are skipped, so everything else goes to `5-A revoir`.
 
 ```bash
 docker compose build
@@ -173,8 +139,8 @@ curl http://localhost:8000/health
 
 Two config sources:
 
-- **`config.toml`**: Main config — `general`, `classifier`, `imap`, `gmail`, `fast_parse`, `mlx`, `webhook`, `logging` sections. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
-- **`.env`**: Secrets and cloud AI provider selection (`IMAP_USER`, `IMAP_PASSWORD`, `MODEL`, `GEMINI_API_KEY`, etc.). Gmail needs no `.env` entries, only `credentials_file`/`token_file` (OAuth).
+- **`config.toml`**: Main config — sections `logging`, `imap`, `gmail`, `fast_parse`, `mlx`, `taxonomy`, `webhook`. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`.env`**: Secrets only — `IMAP_USER`, `IMAP_PASSWORD`, `WEBHOOK_API_KEY`. Gmail needs no `.env` entries, only `credentials_file`/`token_file` (OAuth).
 
 ### Gmail through the API
 
@@ -189,31 +155,19 @@ folders, `Domaines/…`, `Ressources/…`, `Archive/…`) → a user label of th
 Moving a mail to `Promotions` adds `CATEGORY_PROMOTIONS`, drops the other `CATEGORY_*` labels and keeps
 `INBOX`; moving it elsewhere adds the destination label and removes the source label only — other labels
 on the mail (`github`, `TRAVELS`…) are never touched. `db/taxonomy/` rules and centroids are shared
-between accounts; `pending_archive_file`, `junk_folder_name` and `folder_cache_file` are per account
-(Gmail defaults: `db/pending_archive_gmail.json`, `"SPAM"`, `data/gmail_labels.json`) so Gmail's label
-refresh never overwrites Infomaniak's `data/imap_folders.json` and each account's archive sweep never
+between accounts; `pending_archive_file` and `junk_folder_name` are per account
+(Gmail defaults: `db/pending_archive_gmail.json`, `"SPAM"`) so each account's archive sweep never
 treats the other's mail as orphaned. Gmail is new-mail only: no `scan`/`migrate`/`prune`, and old Gmail
 labels are never touched. While the OAuth app is in "Testing", the token expires after 7 days and the
 browser consent flow runs again.
-
-### Dynamic vs Static Classification
-
-Controlled by `general.use_imap_folders_for_classification`:
-
-- **Dynamic Mode (default)**: Uses live IMAP folder structure from `data/imap_folders.json` as categories. Refreshed at startup.
-- **Static Mode**: Uses fixed categories from `data/classification_schema.yml` (legacy).
-
-### Metrics
-
-Classification metrics are automatically tracked per signal (hit rates, confidence scores, processing times, errors). Export via `classifier.export_metrics(Path("data/metrics"))` or log with `classifier.log_metrics_summary("INFO")`.
 
 ## Key Patterns and Conventions
 
 - Uses `loguru` for structured logging throughout the codebase
 - Configuration uses dataclasses for type safety
-- Email addresses and domains are normalized to lowercase for all database operations
+- Email addresses and domains are normalized to lowercase for all rule lookups
 - IMAP folder names are case-sensitive and use forward slash as delimiter
-- AI prompts are in French (prompts in `classifier.py`)
+- AI prompts are in French (prompts in `taxonomy.py`)
 - Uses context managers (`with` statements) for provider connections
 - Batch operations preferred over individual operations for IMAP efficiency
 
@@ -221,7 +175,6 @@ Classification metrics are automatically tracked per signal (hit rates, confiden
 
 - Tests use `pytest` with `pytest-mock` for mocking
 - `conftest.py` provides common fixtures
-- Mock email data generated using `faker` library
 - Coverage configured in `pyproject.toml` via `addopts`
 
 ## Code Style

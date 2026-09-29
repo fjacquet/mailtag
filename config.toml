@@ -28,14 +28,14 @@ junk_folder_name = "Spam"
 
 [mlx]
 # MLX-based classification (Apple Silicon optimized)
-# Set to false to use legacy litellm/Ollama instead
+# false = rules only (validated/learned senders, domains); everything else goes to 5-A revoir
 enabled = true
 
 # Semantic Router (Signal 5) - embedding-based instant classification
 # Model for generating embeddings (nomic supports French and long context)
 embedding_model = "nomic-ai/nomic-embed-text-v1.5"
 
-# LLM Fallback (Signal 6) - text generation when semantic routing fails
+# Gemma (Signal 6) - answers by category number and must agree with nomic
 # MLX-compatible model from mlx-community
 # llm_model = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
 llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"

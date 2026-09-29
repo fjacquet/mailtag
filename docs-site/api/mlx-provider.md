@@ -8,9 +8,7 @@
       members:
         - __init__
         - encode
-        - encode_query
         - encode_documents
-        - similarity
 
 ## MLXLLM
 
@@ -19,5 +17,4 @@
       show_root_heading: true
       members:
         - __init__
-        - generate
-        - classify
+        - classify_batch

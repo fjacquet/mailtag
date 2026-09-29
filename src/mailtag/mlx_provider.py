@@ -77,7 +77,7 @@ class MLXEmbedder:
 
 
 class MLXLLM:
-    """Generates text using mlx-lm for classification fallback.
+    """Answers short prompts in batches using mlx-lm (Signal 6).
 
     Uses quantized models from mlx-community for efficient inference
     on Apple Silicon.
