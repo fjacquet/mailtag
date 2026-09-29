@@ -25,7 +25,19 @@ _MIN_INTERVAL = 0.025
 # The quota is counted per minute: a rate-limited call waits the minute out, at most this many times.
 _RATE_LIMIT_WAIT = 60
 _RATE_LIMIT_TRIES = 5
+# Reads go in batch requests: one HTTP round trip for many messages (each still costs its own quota).
+_HEADER_BATCH = 50
+_BODY_BATCH = 10  # raw bodies can be large
 _last_call = 0.0
+
+
+def _pace(calls: int = 1) -> None:
+    """Wait until `calls` more calls fit under the per-user quota, counting from the previous call."""
+    global _last_call
+    pause = _last_call + calls * _MIN_INTERVAL - time.monotonic()
+    if pause > 0:
+        time.sleep(pause)
+    _last_call = time.monotonic()
 
 
 def _rate_limited(e: HttpError) -> bool:
@@ -79,13 +91,9 @@ class GmailLabelClient:
 
     @staticmethod
     def _execute(request, ignore_status: int | None = None):
-        global _last_call
         waits = 0
         while True:
-            pause = _last_call + _MIN_INTERVAL - time.monotonic()
-            if pause > 0:
-                time.sleep(pause)
-            _last_call = time.monotonic()
+            _pace()
             try:
                 return request.execute(num_retries=5)
             except HttpError as e:
@@ -170,40 +178,81 @@ class GmailLabelClient:
                 break
         return ids
 
+    def _batch_get(self, ids: list[str], build, size: int) -> dict[str, dict]:
+        """messages.get for every id, `size` per batch request; a missing (404) message is left out."""
+        found: dict[str, dict] = {}
+        for start in range(0, len(ids), size):
+            todo, waits = ids[start : start + size], 0
+            while todo:
+                limited: list[str] = []
+                failed: list[Exception] = []
+
+                def on_reply(request_id, response, exception, limited=limited, failed=failed):
+                    if exception is None:
+                        found[request_id] = response
+                    elif isinstance(exception, HttpError) and exception.resp.status == 404:
+                        logger.warning(
+                            f"Gmail message {request_id} not found (404); skipping, like a missing UID."
+                        )
+                    elif isinstance(exception, HttpError) and _rate_limited(exception):
+                        limited.append(request_id)
+                    else:
+                        failed.append(exception)
+
+                batch = self.service.new_batch_http_request(callback=on_reply)
+                for msg_id in todo:
+                    batch.add(build(msg_id), request_id=msg_id)
+                _pace(len(todo))
+                try:
+                    batch.execute()
+                except (HttpError, httplib2.HttpLib2Error, OSError) as e:
+                    raise ConnectionError(str(e)) from e
+                if failed:
+                    raise ConnectionError(str(failed[0])) from failed[0]
+                if limited and waits >= _RATE_LIMIT_TRIES:
+                    raise ConnectionError(f"Gmail quota still exceeded for {len(limited)} messages")
+                if limited:
+                    waits += 1
+                    logger.warning(f"Gmail quota reached, pausing {_RATE_LIMIT_WAIT}s ({waits})")
+                    time.sleep(_RATE_LIMIT_WAIT)
+                todo = limited
+        return found
+
     def fetch(self, uids: list, fields: list[bytes]) -> dict:
+        messages = self.service.users().messages()
+        ids = list(dict.fromkeys(str(uid) for uid in uids))  # a batch refuses a repeated request id
+        replies: list[tuple[bytes, dict[str, dict]]] = []
+        for field in fields:
+            if b"BODY[]" in field or b"BODY.PEEK[]" in field:
+                got = self._batch_get(
+                    ids, lambda msg_id: messages.get(userId="me", id=msg_id, format="raw"), _BODY_BATCH
+                )
+                replies.append((b"BODY[]", got))
+            elif b"HEADER.FIELDS (" in field:
+                names = _HEADER_FIELDS_RE.search(field).group(1).decode().split()
+                got = self._batch_get(
+                    ids,
+                    lambda msg_id, names=names: messages.get(
+                        userId="me", id=msg_id, format="metadata", metadataHeaders=names
+                    ),
+                    _HEADER_BATCH,
+                )
+                replies.append((field.replace(b".PEEK", b""), got))
+            # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
+
         result = {}
         for uid in uids:
             msg_id = str(uid)
+            if any(msg_id not in got for _, got in replies):
+                continue  # missing (404) for one of the fields
             entry: dict[bytes, bytes] = {}
-            not_found = False
-            for field in fields:
-                if b"BODY[]" in field or b"BODY.PEEK[]" in field:
-                    resp = self._execute(
-                        self.service.users().messages().get(userId="me", id=msg_id, format="raw"),
-                        ignore_status=404,
-                    )
-                    if resp is None:
-                        not_found = True
-                        break
-                    entry[b"BODY[]"] = base64.urlsafe_b64decode(resp["raw"])
-                elif b"HEADER.FIELDS (" in field:
-                    names = _HEADER_FIELDS_RE.search(field).group(1).decode().split()
-                    resp = self._execute(
-                        self.service.users()
-                        .messages()
-                        .get(userId="me", id=msg_id, format="metadata", metadataHeaders=names),
-                        ignore_status=404,
-                    )
-                    if resp is None:
-                        not_found = True
-                        break
+            for key, got in replies:
+                resp = got[msg_id]
+                if key == b"BODY[]":
+                    entry[key] = base64.urlsafe_b64decode(resp["raw"])
+                else:
                     headers = resp.get("payload", {}).get("headers", [])
-                    text = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers)
-                    entry[field.replace(b".PEEK", b"")] = text.encode("utf-8")
-                # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
-            if not_found:
-                logger.warning(f"Gmail message {msg_id} not found (404); skipping, like a missing IMAP UID.")
-                continue
+                    entry[key] = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers).encode("utf-8")
             if entry:
                 result[uid] = entry
         return result
