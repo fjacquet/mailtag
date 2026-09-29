@@ -50,13 +50,8 @@ class MLXConfig:
     enabled: bool = True
     # Semantic Router (Signal 5) - embedding-based classification
     embedding_model: str = "nomic-ai/nomic-embed-text-v1.5"
-    score_threshold: float = 0.75
-    embeddings_file: str = "data/category_embeddings.npz"
     # LLM Fallback (Signal 6) - text generation
     llm_model: str = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
-    llm_confidence: float = 0.85
-    llm_max_tokens: int = 256
-    llm_temperature: float = 0.2
 
 
 @dataclass

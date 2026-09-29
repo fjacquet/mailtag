@@ -25,23 +25,17 @@ class SemanticRouter:
     emails based on semantic similarity to category centroids.
     """
 
-    def __init__(
-        self,
-        embedder: MLXEmbedder,
-        score_threshold: float = 0.75,
-    ):
+    def __init__(self, embedder: MLXEmbedder):
         """Initialize the semantic router.
 
         Args:
             embedder: MLXEmbedder instance for generating embeddings
-            score_threshold: Minimum similarity score to accept a route (0.0-1.0)
         """
         self.embedder = embedder
-        self.score_threshold = score_threshold
         self.category_embeddings: dict[str, np.ndarray] = {}
         self.categories: list[str] = []
         self._embedding_matrix: np.ndarray | None = None
-        logger.info(f"SemanticRouter initialized with threshold: {score_threshold}")
+        logger.info("SemanticRouter initialized")
 
     def load_embeddings(self, path: Path | str) -> bool:
         """Load pre-computed category embeddings from file.
@@ -125,67 +119,6 @@ class SemanticRouter:
         self._build_embedding_matrix()
         logger.info(f"Built embeddings for {len(self.categories)} categories")
 
-    def build_from_validated_db(self, validated_db: dict[str, str], min_examples: int = 1) -> None:
-        """Build category embeddings from validated classification database.
-
-        Args:
-            validated_db: Dict mapping sender email to category
-            min_examples: Minimum examples required per category
-        """
-        # Group by category
-        category_senders: dict[str, list[str]] = {}
-        for sender, category in validated_db.items():
-            if category not in category_senders:
-                category_senders[category] = []
-            category_senders[category].append(sender)
-
-        # Build examples from sender addresses
-        category_examples: dict[str, list[str]] = {}
-        for category, senders in category_senders.items():
-            if len(senders) >= min_examples:
-                # Use sender domain and category name as examples
-                examples = []
-                for sender in senders[:10]:  # Limit to 10 examples per category
-                    # Create representative text from sender
-                    domain = sender.split("@")[-1] if "@" in sender else sender
-                    examples.append(f"Email from {domain} categorized as {category}")
-                category_examples[category] = examples
-
-        self.build_from_examples(category_examples)
-
-    def route(self, text: str) -> tuple[str, float]:
-        """Route text to the most similar category.
-
-        Args:
-            text: Input text to classify
-
-        Returns:
-            Tuple of (category, similarity_score)
-            Returns ("", 0.0) if no category meets threshold
-        """
-        if not self.categories or self._embedding_matrix is None:
-            logger.warning("No category embeddings loaded, cannot route")
-            return "", 0.0
-
-        # Compute query embedding
-        query_embedding = self.embedder.encode_query(text)
-        query_norm = query_embedding / np.linalg.norm(query_embedding)
-
-        # Compute similarities with all categories
-        similarities = np.dot(self._embedding_matrix, query_norm)
-
-        # Find best match
-        best_idx = np.argmax(similarities)
-        best_score = similarities[best_idx]
-        best_category = self.categories[best_idx]
-
-        if best_score >= self.score_threshold:
-            logger.debug(f"Routed to '{best_category}' with score {best_score:.3f}")
-            return best_category, float(best_score)
-        else:
-            logger.debug(f"No route found (best: '{best_category}' with score {best_score:.3f})")
-            return "", float(best_score)
-
     def top_batch(self, texts: list[str]) -> list[tuple[str, float]]:
         """Return the nearest category and its similarity for each text, without threshold."""
         if not self.categories or self._embedding_matrix is None:
@@ -200,95 +133,7 @@ class SemanticRouter:
         best = np.argmax(similarities, axis=1)
         return [(self.categories[j], float(similarities[i][j])) for i, j in enumerate(best)]
 
-    def route_batch(self, texts: list[str]) -> list[tuple[str, float]]:
-        """Route multiple texts to categories in a single batch (more efficient than per-item).
-
-        Args:
-            texts: List of input texts to classify
-
-        Returns:
-            List of (category, similarity_score) tuples, one per input text.
-            Returns ("", score) for texts where no category meets threshold.
-        """
-        return [
-            (category, score) if category and score >= self.score_threshold else ("", score)
-            for category, score in self.top_batch(texts)
-        ]
-
-    def route_with_alternatives(self, text: str, top_k: int = 3) -> list[tuple[str, float]]:
-        """Route text and return top-k alternatives.
-
-        Args:
-            text: Input text to classify
-            top_k: Number of top alternatives to return
-
-        Returns:
-            List of (category, score) tuples sorted by score descending
-        """
-        if not self.categories or self._embedding_matrix is None:
-            return []
-
-        query_embedding = self.embedder.encode_query(text)
-        query_norm = query_embedding / np.linalg.norm(query_embedding)
-        similarities = np.dot(self._embedding_matrix, query_norm)
-
-        # Get top-k indices
-        top_indices = np.argsort(similarities)[-top_k:][::-1]
-
-        results = []
-        for idx in top_indices:
-            results.append((self.categories[idx], float(similarities[idx])))
-
-        return results
-
-    def add_category(self, category: str, examples: list[str]) -> None:
-        """Add a new category with examples.
-
-        Args:
-            category: Category name
-            examples: List of example texts
-        """
-        if not examples:
-            logger.warning(f"No examples provided for category '{category}'")
-            return
-
-        embeddings = self.embedder.encode_documents(examples)
-        centroid = embeddings.mean(axis=0)
-        self.category_embeddings[category] = centroid
-
-        if category not in self.categories:
-            self.categories.append(category)
-
-        self._build_embedding_matrix()
-        logger.info(f"Added category '{category}' with {len(examples)} examples")
-
-    def remove_category(self, category: str) -> bool:
-        """Remove a category.
-
-        Args:
-            category: Category name to remove
-
-        Returns:
-            True if removed, False if not found
-        """
-        if category not in self.category_embeddings:
-            return False
-
-        del self.category_embeddings[category]
-        self.categories.remove(category)
-        self._build_embedding_matrix()
-        logger.info(f"Removed category '{category}'")
-        return True
-
     @property
     def num_categories(self) -> int:
         """Return the number of loaded categories."""
         return len(self.categories)
-
-    def get_category_info(self) -> dict[str, dict]:
-        """Get information about loaded categories.
-
-        Returns:
-            Dict with category names and embedding dimensions
-        """
-        return {cat: {"embedding_dim": emb.shape[0]} for cat, emb in self.category_embeddings.items()}

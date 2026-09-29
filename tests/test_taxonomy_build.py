@@ -211,7 +211,7 @@ def test_build_centroids_groups_production_texts_by_category(mocker):
 
     build_centroids("EMBEDDER", corpus)
 
-    router_cls.assert_called_once_with("EMBEDDER", score_threshold=0.0)
+    router_cls.assert_called_once_with("EMBEDDER")
     router_cls.return_value.build_from_examples.assert_called_once_with(
         {"Achats": ["Email from A: S"], "Santé": ["Email from b@x.ch: T\nB"]}
     )

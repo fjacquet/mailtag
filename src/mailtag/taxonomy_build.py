@@ -172,6 +172,6 @@ def build_centroids(embedder, corpus: list[dict]) -> SemanticRouter:
         examples[mail["category"]].append(
             nomic_text(mail["sender_name"], mail["sender"], mail["subject"], mail["body"])
         )
-    router = SemanticRouter(embedder, score_threshold=0.0)
+    router = SemanticRouter(embedder)
     router.build_from_examples(dict(examples))
     return router

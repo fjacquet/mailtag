@@ -78,10 +78,7 @@ class Classifier:
                 self._embedder = MLXEmbedder(self.config.mlx.embedding_model)
 
                 # Initialize semantic router
-                self._semantic_router = SemanticRouter(
-                    self._embedder,
-                    score_threshold=self.config.mlx.score_threshold,
-                )
+                self._semantic_router = SemanticRouter(self._embedder)
 
                 # Try to load pre-computed embeddings
                 embeddings_path = self._embeddings_path()
@@ -99,11 +96,7 @@ class Classifier:
 
                 # Initialize LLM for fallback
                 logger.info(f"Initializing MLX LLM with model: {self.config.mlx.llm_model}")
-                self._mlx_llm = MLXLLM(
-                    model_name=self.config.mlx.llm_model,
-                    max_tokens=self.config.mlx.llm_max_tokens,
-                    temperature=self.config.mlx.llm_temperature,
-                )
+                self._mlx_llm = MLXLLM(model_name=self.config.mlx.llm_model)
 
                 logger.info("MLX components initialized successfully")
                 return True

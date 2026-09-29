@@ -104,7 +104,7 @@ def crosscheck() -> None:
     if missing := missing_inputs([SCAN]):
         sys.exit(f"Missing {missing[0]}: run `scan` first")
     done = _read(CROSSCHECK) if CROSSCHECK.exists() else {}
-    llm = MLXLLM(CONFIG.mlx.llm_model, max_tokens=4, temperature=0.0)
+    llm = MLXLLM(CONFIG.mlx.llm_model)
     crosscheck_senders(
         _read(SCAN)["senders"], llm, done, batch_size=CONFIG.taxonomy.llm_batch_size,
         on_save=lambda results: write_json_atomic(CROSSCHECK, results),
@@ -224,7 +224,7 @@ def review_scan(provider: str) -> None:
     # An unreadable Gemma answer (None) is asked again
     done = {k: v for k, v in _read(path)["suggestions"].items() if v} if path.exists() else {}
     if any(key not in done for key in groups):
-        llm = MLXLLM(CONFIG.mlx.llm_model, max_tokens=4, temperature=0.0)
+        llm = MLXLLM(CONFIG.mlx.llm_model)
         suggestions = suggest_categories(groups, llm, done, batch_size=cfg.llm_batch_size)
     else:
         suggestions = done

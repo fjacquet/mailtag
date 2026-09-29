@@ -22,24 +22,15 @@ class TestSemanticRouter:
                 [0.0, 0.0, 1.0],
             ]
         )
-        embedder.encode_query.return_value = np.array([0.9, 0.1, 0.0])
         return embedder
 
-    def test_init_default_threshold(self, mock_embedder):
-        """Test initialization with default threshold."""
+    def test_init_defaults(self, mock_embedder):
+        """Test initialization defaults."""
         from mailtag.semantic_router import SemanticRouter
 
         router = SemanticRouter(mock_embedder)
-        assert router.score_threshold == 0.75
         assert router.categories == []
         assert router._embedding_matrix is None
-
-    def test_init_custom_threshold(self, mock_embedder):
-        """Test initialization with custom threshold."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder, score_threshold=0.9)
-        assert router.score_threshold == 0.9
 
     def test_build_from_examples(self, mock_embedder):
         """Test building embeddings from examples."""
@@ -77,159 +68,6 @@ class TestSemanticRouter:
         assert len(router.categories) == 1
         assert "Valid" in router.categories
         assert "Empty" not in router.categories
-
-    def test_route_finds_best_match(self, mock_embedder):
-        """Test that routing finds the best matching category."""
-        from mailtag.semantic_router import SemanticRouter
-
-        # Setup embedder to return specific embeddings
-        mock_embedder.encode_documents.return_value = np.array(
-            [
-                [1.0, 0.0, 0.0],  # Commerce
-                [0.0, 1.0, 0.0],  # Finance
-                [0.0, 0.0, 1.0],  # Travel
-            ]
-        )
-        # Query embedding is close to Commerce
-        mock_embedder.encode_query.return_value = np.array([0.95, 0.05, 0.0])
-
-        router = SemanticRouter(mock_embedder, score_threshold=0.5)
-        router.build_from_examples(
-            {
-                "Commerce": ["shopping"],
-                "Finance": ["banking"],
-                "Travel": ["flights"],
-            }
-        )
-
-        category, score = router.route("shopping related query")
-
-        assert category == "Commerce"
-        assert score > 0.5
-
-    def test_route_below_threshold_returns_empty(self, mock_embedder):
-        """Test that routing below threshold returns empty."""
-        from mailtag.semantic_router import SemanticRouter
-
-        # Setup embedder with orthogonal embeddings
-        mock_embedder.encode_documents.return_value = np.array(
-            [
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-            ]
-        )
-        # Query embedding is not close to any category
-        mock_embedder.encode_query.return_value = np.array([0.3, 0.3, 0.9])
-
-        router = SemanticRouter(mock_embedder, score_threshold=0.75)
-        router.build_from_examples(
-            {
-                "Cat1": ["example1"],
-                "Cat2": ["example2"],
-            }
-        )
-
-        category, score = router.route("unrelated query")
-
-        assert category == ""
-        assert score < 0.75
-
-    def test_route_no_categories_returns_empty(self, mock_embedder):
-        """Test routing with no categories loaded."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-
-        category, score = router.route("any query")
-
-        assert category == ""
-        assert score == 0.0
-
-    def test_route_with_alternatives(self, mock_embedder):
-        """Test getting top-k alternatives."""
-        from mailtag.semantic_router import SemanticRouter
-
-        # Setup embeddings
-        mock_embedder.encode_documents.return_value = np.array(
-            [
-                [1.0, 0.0, 0.0],
-                [0.9, 0.1, 0.0],
-                [0.0, 1.0, 0.0],
-            ]
-        )
-        mock_embedder.encode_query.return_value = np.array([0.95, 0.05, 0.0])
-
-        router = SemanticRouter(mock_embedder)
-        router.build_from_examples(
-            {
-                "Cat1": ["ex1"],
-                "Cat2": ["ex2"],
-                "Cat3": ["ex3"],
-            }
-        )
-
-        alternatives = router.route_with_alternatives("query", top_k=2)
-
-        assert len(alternatives) == 2
-        assert all(isinstance(alt, tuple) for alt in alternatives)
-        assert all(len(alt) == 2 for alt in alternatives)
-        # Results should be sorted by score descending
-        assert alternatives[0][1] >= alternatives[1][1]
-
-    def test_add_category(self, mock_embedder):
-        """Test adding a new category."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-        router.build_from_examples({"Existing": ["example"]})
-
-        assert "Existing" in router.categories
-        assert "NewCat" not in router.categories
-
-        mock_embedder.encode_documents.return_value = np.array([[0.5, 0.5, 0.0]])
-        router.add_category("NewCat", ["new example"])
-
-        assert "NewCat" in router.categories
-        assert router.num_categories == 2
-
-    def test_add_category_empty_examples_ignored(self, mock_embedder):
-        """Test that adding category with empty examples is ignored."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-        initial_count = router.num_categories
-
-        router.add_category("Empty", [])
-
-        assert router.num_categories == initial_count
-
-    def test_remove_category(self, mock_embedder):
-        """Test removing a category."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-        router.build_from_examples(
-            {
-                "Cat1": ["ex1"],
-                "Cat2": ["ex2"],
-            }
-        )
-
-        assert "Cat1" in router.categories
-        result = router.remove_category("Cat1")
-
-        assert result is True
-        assert "Cat1" not in router.categories
-        assert router.num_categories == 1
-
-    def test_remove_nonexistent_category(self, mock_embedder):
-        """Test removing a non-existent category."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-        result = router.remove_category("NonExistent")
-
-        assert result is False
 
     def test_save_and_load_embeddings(self, mock_embedder):
         """Test saving and loading embeddings."""
@@ -285,61 +123,6 @@ class TestSemanticRouter:
         )
         assert router.num_categories == 3
 
-    def test_get_category_info(self, mock_embedder):
-        """Test getting category info."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-        router.build_from_examples(
-            {
-                "Cat1": ["ex1"],
-                "Cat2": ["ex2"],
-            }
-        )
-
-        info = router.get_category_info()
-
-        assert "Cat1" in info
-        assert "Cat2" in info
-        assert "embedding_dim" in info["Cat1"]
-        assert info["Cat1"]["embedding_dim"] == 3
-
-    def test_build_from_validated_db(self, mock_embedder):
-        """Test building from validated database."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-
-        validated_db = {
-            "user@amazon.com": "Commerce/Amazon",
-            "orders@amazon.com": "Commerce/Amazon",
-            "info@bank.com": "Finance/Banking",
-            "single@test.com": "OneEmail",  # Only 1 example
-        }
-
-        router.build_from_validated_db(validated_db, min_examples=1)
-
-        assert "Commerce/Amazon" in router.categories
-        assert "Finance/Banking" in router.categories
-        assert "OneEmail" in router.categories
-
-    def test_build_from_validated_db_min_examples(self, mock_embedder):
-        """Test that min_examples filter works."""
-        from mailtag.semantic_router import SemanticRouter
-
-        router = SemanticRouter(mock_embedder)
-
-        validated_db = {
-            "user@amazon.com": "Commerce/Amazon",
-            "orders@amazon.com": "Commerce/Amazon",
-            "single@test.com": "OneEmail",  # Only 1 example
-        }
-
-        router.build_from_validated_db(validated_db, min_examples=2)
-
-        assert "Commerce/Amazon" in router.categories
-        assert "OneEmail" not in router.categories  # Filtered out
-
 
 class TestSemanticRouterEmbeddingMatrix:
     """Test embedding matrix operations."""
@@ -384,14 +167,14 @@ class TestSemanticRouterEmbeddingMatrix:
         assert router._embedding_matrix is None
 
 
-def test_top_batch_ignores_threshold(mocker):
+def test_top_batch_returns_nearest_category(mocker):
     import numpy as np
 
     from mailtag.semantic_router import SemanticRouter
 
     embedder = mocker.MagicMock()
     embedder.encode.return_value = np.array([[1.0, 0.0], [0.6, 0.8]])
-    router = SemanticRouter(embedder, score_threshold=0.99)
+    router = SemanticRouter(embedder)
     router.category_embeddings = {"A": np.array([1.0, 0.0]), "B": np.array([0.0, 1.0])}
     router.categories = ["A", "B"]
     router._build_embedding_matrix()
@@ -400,7 +183,6 @@ def test_top_batch_ignores_threshold(mocker):
 
     assert [c for c, _ in top] == ["A", "B"]
     assert top[1][1] == pytest.approx(0.8)
-    assert router.route_batch(["x", "y"])[1] == ("", pytest.approx(0.8))
 
 
 def test_top_batch_without_centroids(mocker):
