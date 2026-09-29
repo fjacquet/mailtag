@@ -1,6 +1,5 @@
 """Domain utilities for email classification."""
 
-import re
 from pathlib import Path
 
 import yaml
@@ -45,25 +44,6 @@ def normalize_domain(domain: str) -> str:
     return domain.lower().strip()
 
 
-def is_valid_domain(domain: str) -> bool:
-    """Check if domain is valid format.
-
-    Args:
-        domain: Domain to validate
-
-    Returns:
-        True if domain appears valid
-    """
-    if not domain:
-        return False
-
-    # Basic domain validation - contains dot and valid characters
-    domain_pattern = (
-        r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$"
-    )
-    return bool(re.match(domain_pattern, domain))
-
-
 def load_non_commercial_domains() -> set[str]:
     """Load non-commercial domains from YAML configuration.
 
@@ -88,72 +68,6 @@ def load_non_commercial_domains() -> set[str]:
     except (OSError, PermissionError) as e:
         logger.error(f"Error loading non-commercial domains: {e}")
         return set()
-
-
-def is_non_commercial_domain(domain: str) -> bool:
-    """Check if domain is a non-commercial email provider.
-
-    Args:
-        domain: Domain to check
-
-    Returns:
-        True if domain is a personal email provider
-    """
-    if not domain:
-        return False
-
-    normalized = normalize_domain(domain)
-    non_commercial = load_non_commercial_domains()
-
-    return normalized in non_commercial
-
-
-def get_domain_similarity(domain1: str, domain2: str) -> float:
-    """Calculate similarity between two domains.
-
-    Args:
-        domain1: First domain
-        domain2: Second domain
-
-    Returns:
-        Similarity score between 0.0 and 1.0
-    """
-    if not domain1 or not domain2:
-        return 0.0
-
-    d1 = normalize_domain(domain1)
-    d2 = normalize_domain(domain2)
-
-    if d1 == d2:
-        return 1.0
-
-    # Simple similarity based on common suffixes
-    # e.g., 'mail.google.com' and 'google.com' should be similar
-    parts1 = d1.split(".")
-    parts2 = d2.split(".")
-
-    # Check if one is a subdomain of the other
-    if len(parts1) > len(parts2):
-        if d1.endswith("." + d2):
-            return 0.8
-    elif len(parts2) > len(parts1):
-        if d2.endswith("." + d1):
-            return 0.8
-
-    # Check common suffix length
-    common_suffix_len = 0
-    for p1, p2 in zip(reversed(parts1), reversed(parts2), strict=False):
-        if p1 == p2:
-            common_suffix_len += 1
-        else:
-            break
-
-    if common_suffix_len == 0:
-        return 0.0
-
-    # Similarity based on common suffix ratio
-    max_parts = max(len(parts1), len(parts2))
-    return common_suffix_len / max_parts
 
 
 # Cache for non-commercial domains to avoid repeated file reads
