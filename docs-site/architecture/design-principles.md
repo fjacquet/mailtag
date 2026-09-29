@@ -33,7 +33,7 @@ Every classification failure has a safe fallback:
 
 - `TaxonomyStore.save()` takes an exclusive `flock` on `db/taxonomy/.lock` and replays its operations on top of what other processes wrote
 - Thread-safe lazy initialization for MLX components
-- `PendingArchive` has no lock: an entry recorded by `serve` during a `run` of the same account can be lost
+- `PendingArchive.save()` takes an exclusive `flock` on `<file>.lock` and replays its adds and removes on the reloaded file, so `serve` and a `run` of the same account never overwrite each other's entries
 
 ## Normalize Everything
 

@@ -41,7 +41,7 @@ Banque & Placements, Assurances & Retraite, Impôts & Administration, Énergie &
 | Gemma | answers by category number, batched with a cached prompt prefix; must agree with nomic's top choice | category |
 | Otherwise | | `5-A revoir` |
 
-The owner's own addresses (`own_addresses`) never become a rule and are never learned from. Without MLX (`[mlx] enabled = false`, the Docker image) only the four rule steps run and everything else goes to `5-A revoir`.
+The owner's own addresses (`own_addresses`) never become a rule and are never learned from. A nomic/Gemma agreement is learned only once the mail has moved to its action folder, so a failed move retried later does not count twice; `/classify` and `/classify-batch` never learn. Without MLX (`[mlx] enabled = false`, the Docker image) only the four rule steps run and everything else goes to `5-A revoir`.
 
 ## Action folders
 

@@ -7,21 +7,22 @@ Core package: classifies emails into 19 categories and files them.
 ### Classification
 
 - **classifier.py** - `Classifier(config, read_only=False)`
-  - `classify_email()` / `classify_emails_batch()` - one category per email; rules first, then nomic, then Gemma
+  - `classify_detailed()` - `(category, agreed)` per email: rules first, then nomic, then Gemma; learns nothing
+  - `learn()` - records the nomic/Gemma agreements of `classify_detailed` results; callers use it only for mails that actually moved (`run`, `/classify-and-move`); `/classify` and `/classify-batch` never learn
   - `_rule_category()` - validated sender, learned sender, domains (own addresses never match)
   - `_nomic_top()` - nearest centroid and its score
   - `_llm_categories()` - Gemma answers by category number
   - `_classify_uncertain_detailed()` - nomic at `nomic_threshold`, else nomic/Gemma agreement, else `5-A revoir`
 - **taxonomy.py** - the 19 categories, PARA folders (`category_folder`), action folders, `map_folder`, `to_category`, Gemma and nomic prompt builders
-- **taxonomy_store.py** - `TaxonomyStore`: validated and learned senders, validated and computed domains, folder overrides; `category_for()`, `record_agreement()`, `set_validated()`, `set_validated_domain()`, `save()` (flock, replays operations)
+- **taxonomy_store.py** - `TaxonomyStore`: validated and learned senders, validated and computed domains, folder overrides; `category_for()`, `is_own()`, `record_agreement()`, `set_validated()` (both ignore `own_addresses`), `set_validated_domain()`, `save()` (flock, replays operations)
 - **semantic_router.py** - `SemanticRouter`: nomic centroids (`top_batch()`, `load_embeddings()`, `save_embeddings()`, `build_from_examples()`)
 - **mlx_provider.py** - `MLXEmbedder` (nomic) and `MLXLLM` (Gemma, `classify_batch()`), lazy loaded
 
 ### Routing and archive
 
 - **action_rules.py** - `choose_action()`: action folder for a classified email (pure)
-- **routing.py** - `route_to_action_folders()`: batch moves, one `PendingArchive` entry per mail with a Message-ID
-- **pending_archive.py** - `PendingArchive`: category of each mail waiting in an action folder ; `save()` takes a flock on `<file>.lock` and replays this instance's adds/removes on the reloaded file
+- **routing.py** - `route_to_action_folders()`: batch moves, one `PendingArchive` entry per mail with a Message-ID; returns the mails that moved
+- **pending_archive.py** - `PendingArchive`: category of each mail waiting in an action folder; `save()` takes a flock on `<file>.lock` and replays this instance's adds/removes on the reloaded file
 - **archive.py** - `run_archive()`: end-of-run sweep (archive read mail, learn from `5-A revoir`, drop orphan entries)
 
 ### Providers
