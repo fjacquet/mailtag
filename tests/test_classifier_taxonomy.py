@@ -48,6 +48,21 @@ def test_categories_are_the_taxonomy(classifier):
     assert classifier.categories == list(TAXONOMY)
 
 
+def classify_and_learn(classifier, emails):
+    """What `run` does for mails that moved: classify, then learn from the agreements."""
+    results = classifier.classify_detailed(emails)
+    classifier.learn(emails, results)
+    return [category for category, _ in results]
+
+
+def test_classify_detailed_alone_learns_nothing(classifier, tmp_path, mocker):
+    mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
+    mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+
+    assert classifier.classify_detailed([mail(sender="doc@clinic.ch")]) == [("Santé", True)]
+    assert not (tmp_path / "senders.json").exists()
+
+
 def test_rules_come_from_the_taxonomy_store(tmp_path, mocker):
     write(tmp_path, "validated", {"v@x.ch": "Santé"})
     write(tmp_path, "senders", {"l@x.ch": {"category": "Achats", "agreements": 2}})
@@ -57,38 +72,32 @@ def test_rules_come_from_the_taxonomy_store(tmp_path, mocker):
     # the fixture's classifier was built before the files existed: build a fresh one
     classifier = Classifier(config=_config(tmp_path))
 
-    result = classifier.classify_emails_batch(
-        [mail(1, sender="v@x.ch"), mail(2, sender="l@x.ch"), mail(3, sender="info@bcv.ch")]
+    result = classify_and_learn(
+        classifier, [mail(1, sender="v@x.ch"), mail(2, sender="l@x.ch"), mail(3, sender="info@bcv.ch")]
     )
 
     assert result == ["Santé", "Achats", "Banque & Placements"]
     uncertain.assert_not_called()
 
 
-def test_classify_email_delegates_to_batch(classifier, mocker):
-    mocker.patch.object(classifier, "_classify_uncertain_detailed", return_value=[("Achats", False)])
-
-    assert classifier.classify_email(mail()) == "Achats"
-
-
 def test_two_agreements_make_a_rule(classifier, tmp_path, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
-    classifier.classify_emails_batch([mail(1, sender="doc@clinic.ch")])
-    classifier.classify_emails_batch([mail(2, sender="doc@clinic.ch")])
+    classify_and_learn(classifier, [mail(1, sender="doc@clinic.ch")])
+    classify_and_learn(classifier, [mail(2, sender="doc@clinic.ch")])
 
     saved = json.loads((tmp_path / "senders.json").read_text(encoding="utf-8"))
     assert saved == {"doc@clinic.ch": {"category": "Santé", "agreements": 2}}
     nomic = mocker.patch.object(classifier, "_nomic_top")
-    assert classifier.classify_emails_batch([mail(3, sender="doc@clinic.ch")]) == ["Santé"]
+    assert classify_and_learn(classifier, [mail(3, sender="doc@clinic.ch")]) == ["Santé"]
     nomic.assert_not_called()
 
 
 def test_nomic_alone_does_not_learn(classifier, tmp_path, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Achats", 0.95)])
 
-    assert classifier.classify_emails_batch([mail(sender="shop@x.ch")]) == ["Achats"]
+    assert classify_and_learn(classifier, [mail(sender="shop@x.ch")]) == ["Achats"]
     assert not (tmp_path / "senders.json").exists()
 
 
@@ -97,7 +106,7 @@ def test_read_only_classifier_writes_nothing(tmp_path, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
-    classifier.classify_emails_batch([mail(sender="doc@clinic.ch")])
+    classify_and_learn(classifier, [mail(sender="doc@clinic.ch")])
 
     assert list(tmp_path.iterdir()) == []
 
@@ -215,8 +224,8 @@ def test_owner_address_is_never_a_rule_and_never_learned(tmp_path, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
-    assert classifier.classify_emails_batch([mail(sender="fred.jacquet@gmail.com")]) == ["Santé"]
-    classifier.classify_emails_batch([mail(sender="fred.jacquet@gmail.com")])
+    assert classify_and_learn(classifier, [mail(sender="fred.jacquet@gmail.com")]) == ["Santé"]
+    classify_and_learn(classifier, [mail(sender="fred.jacquet@gmail.com")])
 
     assert not (tmp_path / "senders.json").exists()
 
@@ -231,5 +240,28 @@ def test_without_mlx_uncovered_mail_goes_to_review(tmp_path, mocker):
     network = mocker.patch("socket.socket.connect", side_effect=AssertionError("no network"))
     classifier = Classifier(_config(tmp_path))
 
-    assert classifier.classify_emails_batch([mail(sender="new@unknown.ch")]) == [REVIEW]
+    assert classify_and_learn(classifier, [mail(sender="new@unknown.ch")]) == [REVIEW]
     network.assert_not_called()
+
+
+def test_no_nomic_category_means_no_llm_call(classifier, mocker):
+    mocker.patch.object(classifier, "_nomic_top", return_value=[(None, 0.0), ("Santé", 0.60)])
+    llm = mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+
+    assert _categories(classifier, [mail(1), mail(2)]) == [REVIEW, "Santé"]
+    assert llm.call_args.args[0] == [mail(2)]
+
+
+def test_classify_detailed_learns_nothing_until_learn_is_called(classifier, tmp_path, mocker):
+    mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
+    mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
+    emails = [mail(sender="doc@clinic.ch")]
+
+    results = classifier.classify_detailed(emails)
+
+    assert results == [("Santé", True)]
+    assert not (tmp_path / "senders.json").exists()
+    classifier.learn(emails, results)
+    assert json.loads((tmp_path / "senders.json").read_text(encoding="utf-8")) == {
+        "doc@clinic.ch": {"category": "Santé", "agreements": 1}
+    }

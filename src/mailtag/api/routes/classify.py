@@ -65,7 +65,7 @@ def classify_email(request: ClassifyRequest):
     if not app_state.classifier:
         raise HTTPException(status_code=503, detail="Classifier not ready")
 
-    category = app_state.classifier.classify_email(_to_email(request))
+    ((category, _),) = app_state.classifier.classify_detailed([_to_email(request)])
     return ClassifyResponse(msg_id=request.msg_id, category=category)
 
 
@@ -95,10 +95,10 @@ def classify_batch(request: ClassifyBatchRequest):
         )
 
     emails = [_to_email(req) for req in request.emails]
-    categories = app_state.classifier.classify_emails_batch(emails)
+    detailed = app_state.classifier.classify_detailed(emails)
     results = [
         ClassifyResponse(msg_id=email.msg_id, category=category)
-        for email, category in zip(emails, categories, strict=True)
+        for email, (category, _) in zip(emails, detailed, strict=True)
     ]
     return ClassifyBatchResponse(
         results=results,
@@ -141,12 +141,15 @@ def classify_and_move(request: ClassifyAndMoveRequest):
         has_unsubscribe=request.has_unsubscribe,
         is_bulk=request.is_bulk,
     )
-    category = app_state.classifier.classify_email(email)
+    results = app_state.classifier.classify_detailed([email])
+    category, agreed = results[0]
 
     provider = _provider(request.provider)
-    pending = PendingArchive(pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file))
+    pending_path = pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file)
     try:
         with provider.connect():
+            pending = PendingArchive(pending_path)
+            filed_before = bool(email.message_id and pending.get(email.message_id))
             provider.client.select_folder("INBOX")
             moved = route_to_action_folders(
                 provider, pending, [RoutedMail.from_email(email, category)], False, date.today()
@@ -155,9 +158,13 @@ def classify_and_move(request: ClassifyAndMoveRequest):
         logger.error("Failed to move email {}: {}", request.msg_id, e)
         return ClassifyAndMoveResponse(msg_id=request.msg_id, category=category, moved=False, error=str(e))
 
+    # A failed move is retried and a retried request finds its entry: neither may count twice
+    if moved and agreed and not filed_before:
+        app_state.classifier.learn([email], results)
+
     return ClassifyAndMoveResponse(
         msg_id=request.msg_id,
         category=category,
-        moved=moved == 1,
+        moved=bool(moved),
         error=None if moved else "Move failed",
     )

@@ -20,6 +20,7 @@ except ValueError as e:
     print(f"❌ Configuration validation error: {e}")
     print("Please check your config.toml and .env file settings")
     sys.exit(1)
+from mailtag.classifier import Classifier
 from mailtag.gmail_api import GmailApiService
 from mailtag.imap_service import ImapService
 from mailtag.logging_config import setup_logging
@@ -46,9 +47,10 @@ def start_classification_run(provider, validate):
         logger.warning("No providers configured or selected. Check your config.toml.")
         return
 
+    classifier = Classifier(CONFIG, read_only=validate)
     for p in providers_to_run:
         logger.info(f"Running classification for provider: {type(p).__name__}")
-        run_classification(p, validate)
+        run_classification(p, validate, classifier)
 
 
 @click.group()

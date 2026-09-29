@@ -460,6 +460,19 @@ class TestFetchProgress:
             "Gmail: 500/1200", "Gmail: 1000/1200", "Gmail: 1200/1200"
         ]  # fmt: skip
 
+    def test_bodies_of_a_subset_are_counted_without_the_search_total(self, caplog):
+        messages = {uid: m | {"raw": b"From: a@b\r\n\r\nBody"} for uid, m in self._messages(1200).items()}
+        client, _ = make_client(messages=messages)
+        client.select_folder("INBOX")
+        uids = client.search(["ALL"])
+
+        client.fetch(uids, [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])  # Pass 1 reads every header
+        caplog.clear()
+        client.fetch(uids[:700], [b"BODY.PEEK[]"])  # Pass 3 reads the mails no rule covered
+
+        lines = [r.getMessage() for r in caplog.records if "read (" in r.getMessage()]
+        assert [line.split(" (")[0] for line in lines] == ["Gmail: 500 bodies read"]
+
     def test_small_reads_log_no_progress(self, caplog):
         client, _ = make_client(messages=self._messages(3))
         client.select_folder("INBOX")
@@ -720,7 +733,7 @@ class TestRouteToActionFolders:
 
         moved = route_to_action_folders(service, pending, [mail], validate=False, today=TODAY)
 
-        assert moved == 1
+        assert moved == [mail]
         assert messages["m1"]["labelIds"] == {"INBOX", "CATEGORY_PROMOTIONS"}
         assert pending.get("<promo1>") == {
             "category": "Achats",

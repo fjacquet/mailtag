@@ -103,7 +103,7 @@ Requests carry an `X-API-Key` header (`WEBHOOK_API_KEY`), except `/health`, `/do
 
 - `msg_id` is the mail's UID in the account's INBOX.
 - `message_id` is its `Message-ID` header. Without it the mail is moved but not tracked, so it is never archived or learned from.
-- Known limitation: `PendingArchive` has no file lock. An entry `serve` records while a `run` of the same account is in progress can be lost; the mail then stays in its action folder.
+- A mail that already has a pending entry (a retried request) is not learned from a second time.
 
 The Docker image classifies by rules only (no MLX): validated and learned senders and domain rules; everything else goes to `5-A revoir`.
 

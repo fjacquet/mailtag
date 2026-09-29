@@ -5,5 +5,5 @@
       show_root_heading: true
       members:
         - __init__
-        - classify_email
-        - classify_emails_batch
+        - classify_detailed
+        - learn

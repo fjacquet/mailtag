@@ -49,6 +49,10 @@ def _config(tmp_path):
     )
 
 
+def _run(provider, validate):
+    tasks.run_classification(provider, validate, Classifier(tasks.CONFIG, read_only=validate))
+
+
 def _provider(mocker):
     provider = mocker.MagicMock(spec=ImapService)
     provider.config = ImapConfig(host="h", user="u@x.ch", password="p", junk_folder_name="Junk")
@@ -88,7 +92,7 @@ def env(mocker, tmp_path, monkeypatch):
 def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
     provider, archive = env
 
-    tasks.run_classification(provider, False)
+    _run(provider, False)
 
     moves = [(c.args[0], c.args[1]) for c in provider.batch_move_emails.call_args_list]
     assert moves == [(["1"], "4-Pour info"), (["2"], "4-Pour info"), (["3"], REVIEW)]
@@ -102,10 +106,37 @@ def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
     assert archive.call_args.args[5] is False
 
 
+def _senders(tmp_path):
+    path = tmp_path / "taxonomy" / "senders.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def test_agreement_is_learned_once_the_mail_moved(env, tmp_path):
+    provider, _ = env
+
+    _run(provider, False)
+
+    assert _senders(tmp_path) == {"doc@clinic.ch": {"category": "Santé", "agreements": 1}}
+
+
+def test_agreement_is_not_learned_when_the_move_fails(env, tmp_path):
+    provider, _ = env
+
+    def move(uids, folder):
+        if uids == ["2"]:
+            raise ConnectionError("down")
+
+    provider.batch_move_emails.side_effect = move
+
+    _run(provider, False)
+
+    assert _senders(tmp_path) == {}
+
+
 def test_validate_run_moves_and_writes_nothing(env, tmp_path, mocker):
     provider, archive = env
 
-    tasks.run_classification(provider, True)
+    _run(provider, True)
 
     provider.batch_move_emails.assert_not_called()
     assert not (tmp_path / "pending.json").exists()
@@ -116,7 +147,7 @@ def test_validate_run_moves_and_writes_nothing(env, tmp_path, mocker):
 def test_run_writes_no_manual_matching_dump(env, tmp_path):
     provider, _ = env
 
-    tasks.run_classification(provider, False)
+    _run(provider, False)
 
     assert not (tmp_path / "data").exists()
 
@@ -134,9 +165,44 @@ def test_junk_folder_mail_covered_by_a_rule_is_routed(env, tmp_path, mocker):
         str(u): junk if str(u) == "9" else HEADERS[str(u)] for u in uids
     }
 
-    tasks.run_classification(provider, False)
+    _run(provider, False)
 
     moves = [(c.args[0], c.args[1]) for c in provider.batch_move_emails.call_args_list]
     assert (["9"], "4-Pour info") in moves
     pending = json.loads((tmp_path / "pending.json").read_text(encoding="utf-8"))
     assert pending["<9@x>"]["category"] == "Voyages & Loisirs"
+
+
+def test_pass_1_skips_own_addresses(env, tmp_path):
+    provider, _ = env
+    import dataclasses
+
+    cfg = tasks.CONFIG
+    tasks.CONFIG = dataclasses.replace(
+        cfg, taxonomy=dataclasses.replace(cfg.taxonomy, own_addresses=["A@sixt.ch"])
+    )
+    try:
+        _run(provider, False)
+    finally:
+        tasks.CONFIG = cfg
+
+    pending = json.loads((tmp_path / "pending.json").read_text(encoding="utf-8"))
+    assert "<1@x>" not in pending  # left for Pass 3 instead of routed by a rule
+
+
+def test_all_providers_share_one_classifier(mocker, tmp_path):
+    from main import start_classification_run
+
+    mocker.patch("mailtag.utils.db_backup.backup_all_databases")
+    mocker.patch("mailtag.utils.db_backup.cleanup_old_backups")
+    mocker.patch("main.CONFIG")
+    mocker.patch("main.ImapService")
+    mocker.patch("main.GmailApiService")
+    build = mocker.patch("main.Classifier")
+    run = mocker.patch("main.run_classification")
+
+    start_classification_run("all", True)
+
+    build.assert_called_once()
+    assert build.call_args.kwargs["read_only"] is True
+    assert [c.args[2] for c in run.call_args_list] == [build.return_value] * 2

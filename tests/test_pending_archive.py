@@ -25,7 +25,7 @@ def test_save_is_atomic_and_leaves_no_temp_file(tmp_path):
     store.save()
 
     assert json.loads(path.read_text(encoding="utf-8"))["<a@x>"]["category"] == "Santé"
-    assert [p.name for p in tmp_path.iterdir()] == ["pending.json"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["pending.json", "pending.json.lock"]
 
 
 def test_missing_or_corrupt_file_starts_empty(tmp_path):
@@ -33,3 +33,50 @@ def test_missing_or_corrupt_file_starts_empty(tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
     assert PendingArchive(bad).items() == []
+
+
+def test_two_instances_saving_different_adds_keep_both(tmp_path):
+    path = tmp_path / "pending.json"
+    first, second = PendingArchive(path), PendingArchive(path)
+    first.add("<a@x>", "Achats", "a@x.ch", "2026-09-27")
+    second.add("<b@x>", "Santé", "b@x.ch", "2026-09-27")
+
+    first.save()
+    second.save()
+
+    assert set(json.loads(path.read_text(encoding="utf-8"))) == {"<a@x>", "<b@x>"}
+    assert second.get("<a@x>") is not None  # the saving instance picked up the other's entry
+
+
+def test_a_remove_and_an_add_from_two_instances_are_both_applied(tmp_path):
+    path = tmp_path / "pending.json"
+    seed = PendingArchive(path)
+    seed.add("<old@x>", "Achats", "o@x.ch", "2026-09-01")
+    seed.save()
+    remover, adder = PendingArchive(path), PendingArchive(path)
+    remover.remove("<old@x>")
+    adder.add("<new@x>", "Santé", "n@x.ch", "2026-09-27")
+
+    adder.save()
+    remover.save()
+
+    assert set(json.loads(path.read_text(encoding="utf-8"))) == {"<new@x>"}
+
+
+def test_concurrent_threads_keep_every_entry(tmp_path):
+    import threading
+
+    path = tmp_path / "pending.json"
+
+    def worker(n):
+        pending = PendingArchive(path)
+        pending.add(f"<{n}@x>", "Achats", "a@x.ch", "2026-09-27")
+        pending.save()
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert set(json.loads(path.read_text(encoding="utf-8"))) == {f"<{n}@x>" for n in range(8)}

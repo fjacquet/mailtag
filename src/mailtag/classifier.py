@@ -15,7 +15,7 @@ from .taxonomy import (
     parse_category_number,
     to_category,
 )
-from .taxonomy_store import TaxonomyStore, normalize_address
+from .taxonomy_store import TaxonomyStore
 from .utils.text_utils import smart_truncate
 
 if TYPE_CHECKING:
@@ -41,10 +41,10 @@ class Classifier:
         self._mlx_initialized = False
 
         self.categories = list(TAXONOMY)
-        self._own_addresses = {normalize_address(a) for a in config.taxonomy.own_addresses}
         self.taxonomy_store = TaxonomyStore(
             Path(config.taxonomy.taxonomy_db_dir),
             min_agreements=config.taxonomy.learn_min_agreements,
+            own_addresses=config.taxonomy.own_addresses,
             read_only=read_only,
         )
         logger.info(f"Using the {len(self.categories)}-category taxonomy")
@@ -123,12 +123,7 @@ class Classifier:
         return smart_truncate(body, max_chars=max_chars)
 
     def _rule_category(self, email: Email) -> str | None:
-        """Signals 1, 3 and 4 from the taxonomy store (Signal 2, labels, is not used in taxonomy mode).
-
-        The owner's own addresses say nothing about the category: never a rule.
-        """
-        if normalize_address(email.sender_address) in self._own_addresses:
-            return None
+        """Signals 1, 3 and 4 from the taxonomy store (Signal 2, labels, is not used in taxonomy mode)."""
         return self.taxonomy_store.category_for(email.sender_address)
 
     def _nomic_top(self, emails: list[Email]) -> list[tuple[str | None, float]]:
@@ -171,11 +166,11 @@ class Classifier:
     def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
         """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement."""
         results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
-        need_llm: list[tuple[int, str | None]] = []
+        need_llm: list[tuple[int, str]] = []
         for i, (category, score) in enumerate(self._nomic_top(emails)):
             if category and score >= self.config.taxonomy.nomic_threshold:
                 results[i] = (category, False)
-            else:
+            elif category:  # without a nomic category the LLM cannot agree with it
                 need_llm.append((i, category))
         if need_llm:
             answers = self._llm_categories([emails[i] for i, _ in need_llm])
@@ -184,24 +179,27 @@ class Classifier:
                     results[i] = (llm_category, True)
         return results
 
-    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
-        """One category per email: rules, then the nomic/LLM chain; agreements teach the sender rules."""
-        results: list[str | None] = [self._rule_category(e) for e in emails]
-        pending = [i for i, category in enumerate(results) if category is None]
+    def classify_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
+        """(category, nomic and LLM agreed) per email: rules, then the nomic/LLM chain. Learns nothing."""
+        results: list[tuple[str, bool] | None] = [
+            (category, False) if (category := self._rule_category(e)) else None for e in emails
+        ]
+        pending = [i for i, result in enumerate(results) if result is None]
         if pending:
-            detailed = self._classify_uncertain_detailed([emails[i] for i in pending])
-            for i, (category, agreed) in zip(pending, detailed, strict=True):
-                results[i] = category
-                if agreed:
-                    if normalize_address(emails[i].sender_address) not in self._own_addresses:
-                        self.taxonomy_store.record_agreement(emails[i].sender_address, category)
-            self.taxonomy_store.save()
+            for i, result in zip(
+                pending, self._classify_uncertain_detailed([emails[i] for i in pending]), strict=True
+            ):
+                results[i] = result
         logger.info(
             f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
-            f"{sum(1 for i in pending if results[i] != REVIEW)} by models, "
-            f"{sum(1 for r in results if r == REVIEW)} to review"
+            f"{sum(1 for i in pending if results[i][0] != REVIEW)} by models, "
+            f"{sum(1 for r in results if r[0] == REVIEW)} to review"
         )
         return results  # type: ignore[return-value]
 
-    def classify_email(self, email: Email) -> str:
-        return self.classify_emails_batch([email])[0]
+    def learn(self, emails: list[Email], results: list[tuple[str, bool]]) -> None:
+        """Record the agreements of `classify_detailed` results, so their senders can become rules."""
+        for email, (category, agreed) in zip(emails, results, strict=True):
+            if agreed:
+                self.taxonomy_store.record_agreement(email.sender_address, category)
+        self.taxonomy_store.save()

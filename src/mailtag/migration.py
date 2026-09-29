@@ -23,14 +23,10 @@ def folders_to_migrate(legacy: list[str]) -> list[str]:
     return [folder for folder in legacy if folder not in _PROTECTED]
 
 
-def destination_for(sender: str, folder_category: str | None, rules, own: set[str]) -> str:
-    """Destination category for one mail: owner's address -> folder category; else the
-    sender's rule (validated > learned > domain); else the folder category; else REVIEW."""
-    if sender not in own:
-        category = rules.category_for(sender)
-        if category:
-            return category
-    return folder_category or REVIEW
+def destination_for(sender: str, folder_category: str | None, rules) -> str:
+    """Destination category for one mail: the sender's rule (validated > learned > domain; none
+    for the owner's own addresses); else the folder category; else REVIEW."""
+    return rules.category_for(sender) or folder_category or REVIEW
 
 
 def migrate_folder(
@@ -38,7 +34,6 @@ def migrate_folder(
     folder: str,
     folder_category: str | None,
     rules,
-    own: set[str],
     pending: PendingArchive,
     today: date,
     apply: bool,
@@ -60,7 +55,7 @@ def migrate_folder(
             msg = email.message_from_bytes(data[key])
             _, address = parse_sender(provider._parse_header_value(msg.get("From")))
             address = normalize_address(address)
-            destination = destination_for(address, folder_category, rules, own)
+            destination = destination_for(address, folder_category, rules)
             if destination == folder:
                 continue
             if destination not in TAXONOMY and destination != REVIEW:
@@ -68,7 +63,7 @@ def migrate_folder(
                 logger.warning(f"Unknown destination {destination!r} for a mail in {folder}, left in place")
                 continue
             by_destination[destination].append(uid)
-            if destination == REVIEW and address not in own:  # never learn a rule for the owner
+            if destination == REVIEW and not rules.is_own(address):  # never learn a rule for the owner
                 message_id = str(msg.get("Message-ID") or "").strip()
                 if message_id:
                     review_entries[uid] = (message_id, address)
@@ -97,7 +92,6 @@ def migrate_mailbox(
     folders: list[str],
     overrides: dict,
     rules,
-    own: set[str],
     pending: PendingArchive,
     today: date,
     apply: bool,
@@ -111,7 +105,7 @@ def migrate_mailbox(
     for folder in folders:
         category = overrides[folder] if folder in overrides else to_category(folder)
         try:
-            counts = migrate_folder(provider, folder, category, rules, own, pending, today, apply)
+            counts = migrate_folder(provider, folder, category, rules, pending, today, apply)
         except imaplib.IMAP4.abort as e:
             # Connection lost: every later folder would fail too; a re-run resumes
             logger.error(f"Connection lost at {folder}: {e}")

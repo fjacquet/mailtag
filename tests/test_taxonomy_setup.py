@@ -130,6 +130,23 @@ class FakeStore:
     def category_for(self, address):
         return None
 
+    def is_own(self, address):
+        return False
+
+
+def test_every_store_gets_the_owners_addresses(mocker):
+    import dataclasses
+
+    import scripts.taxonomy_setup as ts
+
+    taxonomy = dataclasses.replace(ts.CONFIG.taxonomy, own_addresses=["me@x.ch"])
+    mocker.patch.object(ts, "CONFIG", dataclasses.replace(ts.CONFIG, taxonomy=taxonomy))
+    store_cls = mocker.patch("scripts.taxonomy_setup.TaxonomyStore")
+
+    ts._store()
+
+    assert store_cls.call_args.kwargs["own_addresses"] == ["me@x.ch"]
+
 
 def test_review_scan_writes_groups_and_reuses_existing_suggestions(tmp_path, mocker):
     import scripts.taxonomy_setup as ts

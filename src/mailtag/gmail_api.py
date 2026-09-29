@@ -85,6 +85,10 @@ def move_changes(source: str, dest: str, label_ids: dict[str, str], junk: str) -
     return [label_ids[dest]], [i for i in source_ids if i]
 
 
+def _is_body(field: bytes) -> bool:
+    return b"BODY[]" in field or b"BODY.PEEK[]" in field
+
+
 class GmailLabelClient:
     """The small IMAPClient subset the taxonomy flow uses (`select_folder`, `search`, `fetch`, `move`,
     `folder_exists`, `create_folder`, `list_folders`, `logout`), implemented on top of the Gmail API."""
@@ -98,6 +102,7 @@ class GmailLabelClient:
         self._search_total = 0
         self._fetched = 0
         self._search_began = 0.0
+        self._fetch_kind = ""
 
     @staticmethod
     def _execute(request, ignore_status: int | None = None):
@@ -186,25 +191,41 @@ class GmailLabelClient:
             if not page_token:
                 break
         self._search_total, self._fetched, self._search_began = len(ids), 0, time.monotonic()
+        self._fetch_kind = ""
         return ids
 
-    def _count_fetched(self) -> None:
-        """Progress of a long read, across the fetch calls that follow one search."""
+    def _count_fetched(self, bodies: bool) -> None:
+        """Progress of a long read, across the fetch calls that follow one search.
+
+        Headers cover the whole search; bodies cover only the mails left for Pass 3, so they
+        have no known total.
+        """
         self._fetched += 1
-        if self._search_total > _PROGRESS_EVERY and (
-            self._fetched % _PROGRESS_EVERY == 0 or self._fetched == self._search_total
-        ):
+        if bodies:
+            due = self._fetched % _PROGRESS_EVERY == 0
+        else:
+            due = self._search_total > _PROGRESS_EVERY and (
+                self._fetched % _PROGRESS_EVERY == 0 or self._fetched == self._search_total
+            )
+        if due:
             rate = self._fetched / max(time.monotonic() - self._search_began, 1e-6)
-            logger.info(f"Gmail: {self._fetched}/{self._search_total} messages read ({rate:.0f}/s)")
+            if bodies:
+                logger.info(f"Gmail: {self._fetched} bodies read ({rate:.0f}/s)")
+            else:
+                logger.info(f"Gmail: {self._fetched}/{self._search_total} messages read ({rate:.0f}/s)")
 
     def fetch(self, uids: list, fields: list[bytes]) -> dict:
+        # Pass 3 reads bodies from the same search Pass 1 read headers from: count each read afresh
+        kind = "bodies" if any(_is_body(f) for f in fields) else "headers"
+        if kind != self._fetch_kind:
+            self._fetch_kind, self._fetched, self._search_began = kind, 0, time.monotonic()
         result = {}
         for uid in uids:
             msg_id = str(uid)
             entry: dict[bytes, bytes] = {}
             not_found = False
             for field in fields:
-                if b"BODY[]" in field or b"BODY.PEEK[]" in field:
+                if _is_body(field):
                     resp = self._execute(
                         self.service.users().messages().get(userId="me", id=msg_id, format="raw"),
                         ignore_status=404,
@@ -228,7 +249,7 @@ class GmailLabelClient:
                     text = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers)
                     entry[field.replace(b".PEEK", b"")] = text.encode("utf-8")
                 # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
-            self._count_fetched()
+            self._count_fetched(kind == "bodies")
             if not_found:
                 logger.warning(f"Gmail message {msg_id} not found (404); skipping, like a missing IMAP UID.")
                 continue
@@ -251,9 +272,6 @@ class GmailLabelClient:
 
     def logout(self) -> None:
         pass
-
-    def is_login(self) -> bool:
-        return True
 
 
 class GmailApiService(ImapService):

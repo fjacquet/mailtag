@@ -40,12 +40,13 @@ def read_review_mails(provider, readonly: bool = True) -> list[dict]:
     return [{"uid": uid, **h} for uid, h in headers.items()]
 
 
-def review_groups(mails: list[dict], category_for, own: set[str], max_subjects: int = 5) -> dict[str, dict]:
-    """Group mails a rule does not already cover, by domain or by sender for personal domains."""
+def review_groups(mails: list[dict], rules, max_subjects: int = 5) -> dict[str, dict]:
+    """Group mails a rule does not already cover (and not the owner's own), by domain or by
+    sender for personal domains."""
     groups: dict[str, dict] = {}
     for m in mails:
         address = normalize_address(m["sender_address"])
-        if not address or address in own or category_for(address):
+        if not address or rules.is_own(address) or rules.category_for(address):
             continue
         kind, key = group_key(address)
         g = groups.setdefault(key, {"kind": kind, "mails": 0, "senders": {}, "subjects": []})
@@ -114,14 +115,14 @@ def coverage(groups: dict[str, dict], category_for) -> tuple[int, int]:
     return total - left, total
 
 
-def refile_review(provider, category_for, pending, own: set[str], apply: bool) -> dict:
+def refile_review(provider, category_for, pending, apply: bool) -> dict:
     """Move mails from 5-A revoir that a rule now covers to their category folder."""
     mails = read_review_mails(provider, readonly=not apply)
     moves: dict[str, list] = defaultdict(list)
     left = 0
     for m in mails:
         address = normalize_address(m["sender_address"])
-        category = None if address in own else category_for(address)
+        category = category_for(address)  # never a category for the owner's own addresses
         if category:
             moves[category].append(m)
         else:

@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from loguru import logger
 
 from mailtag.config import CONFIG, TaxonomyConfig
-from mailtag.taxonomy_store import TaxonomyStore, normalize_address, write_json_atomic
+from mailtag.taxonomy_store import TaxonomyStore, write_json_atomic
 
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
@@ -85,14 +85,22 @@ def _account(provider: str):
     return ImapService(CONFIG.imap, CONFIG.fast_parse), CONFIG.imap
 
 
+def _store() -> TaxonomyStore:
+    cfg = CONFIG.taxonomy
+    return TaxonomyStore(
+        Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements, own_addresses=cfg.own_addresses
+    )
+
+
 def scan() -> None:
     from mailtag.mailbox_scan import scan_mailbox
 
     folders = json.loads(Path(CONFIG.taxonomy.legacy_folders_file).read_text(encoding="utf-8"))
-    overrides = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir)).folder_overrides
+    store = _store()
     with _imap() as provider:
-        own = {normalize_address(address) for address in CONFIG.taxonomy.own_addresses}
-        result = scan_mailbox(provider, folders, overrides=overrides, ignored=own)
+        result = scan_mailbox(
+            provider, folders, overrides=store.folder_overrides, ignored=store.own_addresses
+        )
     write_json_atomic(SCAN, result)
     logger.info(f"Wrote {SCAN}: {len(result['senders'])} senders")
 
@@ -125,7 +133,7 @@ def build() -> None:
         sys.exit(f"Missing {missing[0]}: run `scan` and `crosscheck` first")
     cfg = CONFIG.taxonomy
     senders, cross = _read(SCAN)["senders"], _read(CROSSCHECK)
-    store = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
+    store = _store()
     learned = learned_senders(
         senders, cross, store.validated, min_mails=cfg.sender_min_mails, agreements=cfg.learn_min_agreements
     )
@@ -153,13 +161,12 @@ def migrate(apply: bool) -> None:
         logger.warning("migrate --apply is running: do not run `run` or `serve` until it finishes")
 
     legacy = json.loads(Path(cfg.legacy_folders_file).read_text(encoding="utf-8"))
-    rules = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
+    rules = _store()
     pending = PendingArchive(Path(cfg.pending_archive_file))
-    own = {normalize_address(address) for address in cfg.own_addresses}
 
     with _imap() as provider:
         report = migrate_mailbox(
-            provider, folders_to_migrate(legacy), rules.folder_overrides, rules, own, pending,
+            provider, folders_to_migrate(legacy), rules.folder_overrides, rules, pending,
             date.today(), apply,
         )  # fmt: skip
     write_json_atomic(MIGRATION_REPORT, report)
@@ -213,12 +220,11 @@ def review_scan(provider: str) -> None:
     from mailtag.review_refile import read_review_mails, review_groups, suggest_categories
 
     cfg = CONFIG.taxonomy
-    store = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
-    own = {normalize_address(address) for address in cfg.own_addresses}
+    store = _store()
     service, _ = _account(provider)
     with service.connect() as p:
         mails = read_review_mails(p)
-    groups = review_groups(mails, store.category_for, own)
+    groups = review_groups(mails, store)
 
     path = review_scan_path(provider)
     # An unreadable Gemma answer (None) is asked again
@@ -244,13 +250,12 @@ def refile(provider: str, apply: bool) -> None:
     if apply:
         logger.warning("refile-review --apply is running: do not run `run` or `serve` until it finishes")
 
-    store = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
-    own = {normalize_address(address) for address in cfg.own_addresses}
+    store = _store()
     service, account_cfg = _account(provider)
     pending = PendingArchive(pending_archive_path(account_cfg, cfg.pending_archive_file))
 
     with service.connect() as p:
-        report = refile_review(p, store.category_for, pending, own, apply)
+        report = refile_review(p, store.category_for, pending, apply)
 
     for category, count in sorted(report["moves"].items()):
         logger.info(f"  {category}: {count}")
