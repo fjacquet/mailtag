@@ -49,7 +49,7 @@ def _config(tmp_path):
     )
 
 
-def _provider(mocker, tmp_path):
+def _provider(mocker):
     provider = mocker.MagicMock(spec=ImapService)
     provider.config = ImapConfig(host="h", user="u@x.ch", password="p", junk_folder_name="Junk")
     provider.fast_parse_config = FastParseConfig(batch_size=100)
@@ -82,7 +82,7 @@ def env(mocker, tmp_path, monkeypatch):
     )
     mocker.patch.object(Classifier, "_llm_categories", side_effect=lambda emails: ["Santé"] * len(emails))
     archive = mocker.patch.object(tasks, "run_archive")
-    return _provider(mocker, tmp_path), archive
+    return _provider(mocker), archive
 
 
 def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
@@ -119,3 +119,24 @@ def test_run_writes_no_manual_matching_dump(env, tmp_path):
     tasks.run_classification(provider, False)
 
     assert not (tmp_path / "data").exists()
+
+
+def test_junk_folder_mail_covered_by_a_rule_is_routed(env, tmp_path, mocker):
+    _, _ = env
+    provider = _provider(mocker)
+    selected = {}
+    provider.client.select_folder.side_effect = lambda name, readonly=False: selected.update(name=name)
+    provider.client.search.side_effect = lambda *a: {"INBOX": [1, 2, 3], "Junk": [9]}.get(
+        selected["name"], []
+    )
+    junk = {**HEADERS["1"], "message_id": "<9@x>"}
+    provider.get_email_headers.side_effect = lambda uids: {
+        str(u): junk if str(u) == "9" else HEADERS[str(u)] for u in uids
+    }
+
+    tasks.run_classification(provider, False)
+
+    moves = [(c.args[0], c.args[1]) for c in provider.batch_move_emails.call_args_list]
+    assert (["9"], "4-Pour info") in moves
+    pending = json.loads((tmp_path / "pending.json").read_text(encoding="utf-8"))
+    assert pending["<9@x>"]["category"] == "Voyages & Loisirs"
