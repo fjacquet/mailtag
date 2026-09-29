@@ -41,9 +41,7 @@ class FakeClient:
 
 @pytest.fixture
 def provider():
-    service = ImapService(
-        ImapConfig(host="h", user="u", password="p"), FastParseConfig()
-    )
+    service = ImapService(ImapConfig(host="h", user="u", password="p"), FastParseConfig())
     return service
 
 

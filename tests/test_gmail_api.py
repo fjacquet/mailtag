@@ -89,6 +89,12 @@ class FakeGmail:
         self.batch_modify_calls: list[dict] = []
         self.error: Exception | None = None
         self.errors_by_id: dict[str, Exception] = {}
+        self.errors_once: dict[str, Exception] = {}  # raised on the first get of that id only
+        self.batch_error: Exception | None = None  # raised by the whole batch request
+        self.batch_sizes: list[int] = []
+
+    def new_batch_http_request(self, callback=None):
+        return _FakeBatch(self, callback)
 
     def users(self):
         return self
@@ -108,6 +114,30 @@ class FakeGmail:
         label_id = f"Label_{self._next_id}"
         self._next_id += 1
         return label_id
+
+
+class _FakeBatch:
+    """googleapiclient's BatchHttpRequest: one callback per sub-request, errors passed, not raised."""
+
+    def __init__(self, gmail: FakeGmail, callback):
+        self.gmail = gmail
+        self.callback = callback
+        self.requests: list[tuple[str, _Req]] = []
+
+    def add(self, request, callback=None, request_id=None):
+        self.requests.append((request_id, request))
+
+    def execute(self, http=None):
+        if self.gmail.batch_error:
+            err, self.gmail.batch_error = self.gmail.batch_error, None
+            raise err
+        self.gmail.batch_sizes.append(len(self.requests))
+        for request_id, request in self.requests:
+            try:
+                response, exception = request.execute(), None
+            except HttpError as e:
+                response, exception = None, e
+            self.callback(request_id, response, exception)
 
 
 class _LabelsResource:
@@ -165,6 +195,8 @@ class _MessagesResource:
             self.gmail._raise_if_needed()
             if id in self.gmail.errors_by_id:
                 raise self.gmail.errors_by_id[id]
+            if id in self.gmail.errors_once:
+                raise self.gmail.errors_once.pop(id)
             msg = self.gmail.by_id[id]
             if format == "raw":
                 return {"id": id, "raw": base64.urlsafe_b64encode(msg["raw"]).decode()}
@@ -440,6 +472,61 @@ class TestGmailLabelClientFetch:
         field = b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"
         with pytest.raises(ConnectionError):
             client.fetch(["1"], [field])
+
+
+class TestBatchedFetch:
+    @staticmethod
+    def _messages(n):
+        return {
+            f"{i:03d}": {"labelIds": {"INBOX"}, "headers": {"Message-ID": f"<{i}>"}, "raw": b"x"}
+            for i in range(n)
+        }
+
+    def test_headers_are_fetched_in_batches_of_50(self):
+        client, fake = make_client(messages=self._messages(120))
+        client.select_folder("INBOX")
+
+        result = client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+        assert fake.batch_sizes == [50, 50, 20]
+        assert len(result) == 120
+
+    def test_bodies_are_fetched_in_batches_of_10(self):
+        client, fake = make_client(messages=self._messages(25))
+        client.select_folder("INBOX")
+
+        result = client.fetch(list(fake.by_id), [b"BODY.PEEK[]"])
+
+        assert fake.batch_sizes == [10, 10, 5]
+        assert result["000"][b"BODY[]"] == b"x"
+
+    def test_rate_limited_messages_are_retried_after_the_pause(self, no_sleep):
+        client, fake = make_client(messages=self._messages(3))
+        fake.errors_once = {"001": http_error(403, RATE_LIMITED)}
+        client.select_folder("INBOX")
+
+        result = client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+        assert sorted(result) == ["000", "001", "002"]
+        assert fake.batch_sizes == [3, 1]
+        no_sleep.assert_any_call(60)
+
+    def test_batch_request_failure_becomes_connection_error(self):
+        client, fake = make_client(messages=self._messages(2))
+        fake.batch_error = httplib2.ServerNotFoundError("dns lookup failed")
+        client.select_folder("INBOX")
+
+        with pytest.raises(ConnectionError):
+            client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+    def test_batches_are_paced_under_the_per_user_quota(self, mocker, no_sleep):
+        mocker.patch("mailtag.gmail_api.time.monotonic", return_value=100.0)
+        client, fake = make_client(messages=self._messages(100))
+        client.select_folder("INBOX")
+
+        client.fetch(list(fake.by_id), [b"BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)]"])
+
+        assert pytest.approx(1.25) in [c.args[0] for c in no_sleep.call_args_list]
 
 
 class TestGmailLabelClientMove:

@@ -92,13 +92,11 @@ In `src/mailtag/classifier.py`, change the signature and the store creation:
 In `src/mailtag/utils/tasks.py` `run_classification`, pass the flag on both `Classifier(...)` calls:
 
 ```python
-        if isinstance(provider_instance, ImapService):
-            classifier = Classifier(CONFIG, database, read_only=validate)
-        else:
-            gmail_config = dataclasses.replace(
-                CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
-            )
-            classifier = Classifier(gmail_config, database, read_only=validate)
+if isinstance(provider_instance, ImapService):
+    classifier = Classifier(CONFIG, database, read_only=validate)
+else:
+    gmail_config = dataclasses.replace(CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False))
+    classifier = Classifier(gmail_config, database, read_only=validate)
 ```
 
 - [ ] **Step 4: Run tests**
@@ -732,64 +730,68 @@ def _move_payload(provider="imap", **extra):
 - add in `TestClassifyAndMove`:
 
 ```python
-    def test_routes_into_action_folder_and_records_category(self, api_client, mock_classifier, move_env):
-        provider, imap_cls, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "Santé"
+def test_routes_into_action_folder_and_records_category(self, api_client, mock_classifier, move_env):
+    provider, imap_cls, _, pending_file = move_env
+    mock_classifier.classify_email.return_value = "Santé"
 
-        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+    response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
-        assert response.status_code == 200
-        assert response.json() == {"msg_id": "12345", "category": "Santé", "moved": True, "error": None}
-        imap_cls.assert_called_once()
-        provider.client.select_folder.assert_called_once_with("INBOX")
-        provider.batch_move_emails.assert_called_once_with(["12345"], "4-Pour info")
-        assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] == "Santé"
+    assert response.status_code == 200
+    assert response.json() == {"msg_id": "12345", "category": "Santé", "moved": True, "error": None}
+    imap_cls.assert_called_once()
+    provider.client.select_folder.assert_called_once_with("INBOX")
+    provider.batch_move_emails.assert_called_once_with(["12345"], "4-Pour info")
+    assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] == "Santé"
 
-    def test_review_mail_gets_pending_entry(self, api_client, mock_classifier, move_env):
-        provider, _, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "5-A revoir"
 
-        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+def test_review_mail_gets_pending_entry(self, api_client, mock_classifier, move_env):
+    provider, _, _, pending_file = move_env
+    mock_classifier.classify_email.return_value = "5-A revoir"
 
-        assert response.json()["moved"] is True
-        provider.batch_move_emails.assert_called_once_with(["12345"], "5-A revoir")
-        assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] is None
+    response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
-    def test_gmail_goes_through_the_gmail_api(self, api_client, mock_classifier, move_env):
-        _, imap_cls, gmail_cls, _ = move_env
-        mock_classifier.classify_email.return_value = "Santé"
+    assert response.json()["moved"] is True
+    provider.batch_move_emails.assert_called_once_with(["12345"], "5-A revoir")
+    assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] is None
 
-        response = api_client.post(
-            "/api/v1/classify-and-move", json=_move_payload("gmail"), headers=_auth_headers()
-        )
 
-        assert response.status_code == 200
-        gmail_cls.assert_called_once()
-        imap_cls.assert_not_called()
+def test_gmail_goes_through_the_gmail_api(self, api_client, mock_classifier, move_env):
+    _, imap_cls, gmail_cls, _ = move_env
+    mock_classifier.classify_email.return_value = "Santé"
 
-    def test_failed_move_is_reported(self, api_client, mock_classifier, move_env):
-        provider, _, _, pending_file = move_env
-        mock_classifier.classify_email.return_value = "Santé"
-        provider.batch_move_emails.side_effect = ConnectionError("down")
+    response = api_client.post(
+        "/api/v1/classify-and-move", json=_move_payload("gmail"), headers=_auth_headers()
+    )
 
-        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+    assert response.status_code == 200
+    gmail_cls.assert_called_once()
+    imap_cls.assert_not_called()
 
-        assert response.json()["moved"] is False
-        assert response.json()["error"] == "Move failed"
-        assert not pending_file.exists()
 
-    def test_legacy_labels_field_is_ignored(self, api_client, mock_classifier, move_env):
-        mock_classifier.classify_email.return_value = "Santé"
+def test_failed_move_is_reported(self, api_client, mock_classifier, move_env):
+    provider, _, _, pending_file = move_env
+    mock_classifier.classify_email.return_value = "Santé"
+    provider.batch_move_emails.side_effect = ConnectionError("down")
 
-        classify = api_client.post(
-            "/api/v1/classify", json=_sample_email() | {"labels": ["INBOX"]}, headers=_auth_headers()
-        )
-        move = api_client.post(
-            "/api/v1/classify-and-move", json=_move_payload(labels=["INBOX"]), headers=_auth_headers()
-        )
+    response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
-        assert classify.status_code == 200
-        assert move.status_code == 200
+    assert response.json()["moved"] is False
+    assert response.json()["error"] == "Move failed"
+    assert not pending_file.exists()
+
+
+def test_legacy_labels_field_is_ignored(self, api_client, mock_classifier, move_env):
+    mock_classifier.classify_email.return_value = "Santé"
+
+    classify = api_client.post(
+        "/api/v1/classify", json=_sample_email() | {"labels": ["INBOX"]}, headers=_auth_headers()
+    )
+    move = api_client.post(
+        "/api/v1/classify-and-move", json=_move_payload(labels=["INBOX"]), headers=_auth_headers()
+    )
+
+    assert classify.status_code == 200
+    assert move.status_code == 200
 ```
 
 Add `import json` at the top of the test file. Keep `test_classify_and_move_disabled` and `test_classify_and_move_invalid_provider`.
@@ -1140,12 +1142,13 @@ class Classifier:
 Then copy unchanged from the current file, in this order: `_init_mlx_components` (current lines 89-149; in it, replace the "Run 'python scripts/build_category_embeddings.py' to generate." message by "Run 'python scripts/taxonomy_setup.py build' to generate."), `_truncate_body` (281-293), `_rule_category`, `_nomic_top`, `_llm_categories`, `_classify_uncertain_detailed`, `_classify_batch_taxonomy` (the block after `# --- Taxonomy mode ...`, current lines ~842-927, **without** `_classify_uncertain`). Rename `_classify_batch_taxonomy`'s docstring to `"""Rules first, then the nomic/LLM chain; agreements teach the sender rules."""`. Then add:
 
 ```python
-    def classify_email(self, email: Email) -> str:
-        return self._classify_batch_taxonomy([email])[0]
+def classify_email(self, email: Email) -> str:
+    return self._classify_batch_taxonomy([email])[0]
 
-    def classify_emails_batch(self, emails: list[Email]) -> list[str]:
-        """One category per email, batching embeddings and LLM prompts."""
-        return self._classify_batch_taxonomy(emails)
+
+def classify_emails_batch(self, emails: list[Email]) -> list[str]:
+    """One category per email, batching embeddings and LLM prompts."""
+    return self._classify_batch_taxonomy(emails)
 ```
 
 Everything else in the old file goes (legacy signals, AI cache, proposals, litellm, `export_metrics`, `log_metrics_summary`, `_classify_uncertain`).
