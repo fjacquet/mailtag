@@ -11,6 +11,11 @@ No preparation step moves an email. Legacy folder migration (docs/superpowers/sp
     uv run python scripts/taxonomy_setup.py migrate [--apply]  # legacy folder mail -> the 19 categories
     uv run python scripts/taxonomy_setup.py prune [--apply]    # delete emptied legacy folders
     uv run python scripts/taxonomy_setup.py reorganize [--apply]  # PARA folders, standard Promotions
+
+Bulk review of 5-A revoir (docs/superpowers/specs/2026-09-29-revue-en-masse-design.md):
+
+    uv run python scripts/taxonomy_setup.py review-scan --provider imap|gmail     # group, suggest categories
+    uv run python scripts/taxonomy_setup.py refile-review --provider imap|gmail [--apply]  # move covered mail
 """
 
 import argparse
@@ -30,6 +35,10 @@ SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
 CORPUS = Path("data/taxonomy_corpus.json")
 MIGRATION_REPORT = Path("data/migration_report.json")
+
+
+def review_scan_path(provider: str) -> Path:
+    return Path("data") / f"review_scan_{provider}.json"
 
 
 def missing_inputs(paths: list[Path]) -> list[Path]:
@@ -63,6 +72,19 @@ def _imap():
     from mailtag.imap_service import ImapService
 
     return ImapService(CONFIG.imap, CONFIG.fast_parse).connect()
+
+
+def _account(provider: str):
+    """The service and account config for `--provider imap|gmail` (not connected yet)."""
+    if provider == "gmail":
+        from mailtag.gmail_api import GmailApiService
+
+        if CONFIG.gmail is None:
+            sys.exit("No [gmail] section in config.toml")
+        return GmailApiService(CONFIG.gmail, CONFIG.fast_parse), CONFIG.gmail
+    from mailtag.imap_service import ImapService
+
+    return ImapService(CONFIG.imap, CONFIG.fast_parse), CONFIG.imap
 
 
 def scan() -> None:
@@ -188,15 +210,75 @@ def reorganize_folders(apply: bool) -> None:
     )
 
 
+def review_scan(provider: str) -> None:
+    from mailtag.mlx_provider import MLXLLM
+    from mailtag.review_refile import read_review_mails, review_groups, suggest_categories
+
+    cfg = CONFIG.taxonomy
+    store = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
+    own = {normalize_address(address) for address in cfg.own_addresses}
+    service, _ = _account(provider)
+    with service.connect() as p:
+        mails = read_review_mails(p)
+    groups = review_groups(mails, store.category_for, own)
+
+    path = review_scan_path(provider)
+    done = _read(path)["suggestions"] if path.exists() else {}
+    if any(key not in done for key in groups):
+        llm = MLXLLM(CONFIG.mlx.llm_model, max_tokens=4, temperature=0.0)
+        suggestions = suggest_categories(groups, llm, done, batch_size=cfg.llm_batch_size)
+    else:
+        suggestions = done
+    write_json_atomic(path, {"groups": groups, "suggestions": suggestions})
+    total_mails = sum(g["mails"] for g in groups.values())
+    logger.info(f"Wrote {path}: {len(groups)} groups, {total_mails} mails")
+
+
+def refile(provider: str, apply: bool) -> None:
+    from mailtag.pending_archive import PendingArchive
+    from mailtag.review_refile import refile_review
+    from mailtag.utils.tasks import pending_archive_path
+
+    cfg = CONFIG.taxonomy
+    if reason := migration_blocked(cfg):
+        sys.exit(reason)
+    if apply:
+        logger.warning("refile-review --apply is running: do not run `run` or `serve` until it finishes")
+
+    store = TaxonomyStore(Path(cfg.taxonomy_db_dir), min_agreements=cfg.learn_min_agreements)
+    own = {normalize_address(address) for address in cfg.own_addresses}
+    service, account_cfg = _account(provider)
+    pending = PendingArchive(pending_archive_path(account_cfg, cfg.pending_archive_file))
+
+    with service.connect() as p:
+        report = refile_review(p, store.category_for, pending, own, apply)
+
+    for category, count in sorted(report["moves"].items()):
+        logger.info(f"  {category}: {count}")
+    total = sum(report["moves"].values())
+    suffix = "" if apply else " (dry run)"
+    logger.info(f"Refile: {total} mails moved, {report['left']} left{suffix}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("command", choices=["scan", "crosscheck", "build", "migrate", "prune", "reorganize"])
+    parser.add_argument(
+        "command",
+        choices=[
+            "scan", "crosscheck", "build", "migrate", "prune", "reorganize", "review-scan", "refile-review",
+        ],
+    )  # fmt: skip
     parser.add_argument("--apply", action="store_true", help="Actually move/delete (default: dry run)")
+    parser.add_argument("--provider", choices=["imap", "gmail"], default="imap", help="Account to use")
     args = parser.parse_args()
     if args.command in ("migrate", "prune", "reorganize"):
         {"migrate": migrate, "prune": prune, "reorganize": reorganize_folders}[args.command](args.apply)
+    elif args.command == "review-scan":
+        review_scan(args.provider)
+    elif args.command == "refile-review":
+        refile(args.provider, args.apply)
     else:
         {"scan": scan, "crosscheck": crosscheck, "build": build}[args.command]()
 
