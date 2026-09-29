@@ -24,8 +24,8 @@ One AI path: the **MLX local path**, configured in `config.toml [mlx]`. It uses 
 ```bash
 uv run pytest                                      # Run all tests
 uv run pytest --cov --cov-branch --cov-report=xml  # With coverage
-uv run pytest tests/test_database.py               # Single file
-uv run pytest tests/test_database.py::test_func    # Single test
+uv run pytest tests/test_taxonomy_store.py        # Single file
+uv run pytest tests/test_taxonomy_store.py::test_unpromoted_sender_is_not_a_rule  # Single test
 ```
 
 ### Linting and Formatting
