@@ -139,6 +139,22 @@ def test_run_passes_validate_to_each_provider(mocker: MockerFixture, validate):
     assert run.call_args.args[1] is validate
 
 
+@pytest.mark.parametrize("validate", [True, False])
+def test_backups_only_on_real_runs(mocker: MockerFixture, validate):
+    from main import start_classification_run
+
+    backup = mocker.patch("mailtag.utils.db_backup.backup_all_databases")
+    cleanup = mocker.patch("mailtag.utils.db_backup.cleanup_old_backups")
+    config = mocker.patch("main.CONFIG")
+    config.gmail = None
+    mocker.patch("main.ImapService")
+    mocker.patch("main.run_classification")
+
+    start_classification_run("imap", validate)
+
+    assert backup.call_count == cleanup.call_count == (0 if validate else 1)
+
+
 def test_only_run_and_serve_remain():
     from main import cli
 

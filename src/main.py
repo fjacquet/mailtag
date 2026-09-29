@@ -30,10 +30,11 @@ def start_classification_run(provider, validate):
     """Sets up and starts the classification run."""
     from mailtag.utils.db_backup import backup_all_databases, cleanup_old_backups
 
-    db_dir = Path("db")
-    logger.info("Creating database backups...")
-    backup_all_databases(db_dir)
-    cleanup_old_backups(db_dir / "backups", keep_count=10)
+    if not validate:  # validation is a read-only dry run: no backup, no cleanup
+        db_dir = Path("db")
+        logger.info("Creating database backups...")
+        backup_all_databases(db_dir)
+        cleanup_old_backups(db_dir / "backups", keep_count=10)
 
     providers_to_run = []
     if provider in ("imap", "all") and CONFIG.imap:
