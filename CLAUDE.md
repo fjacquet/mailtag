@@ -115,7 +115,7 @@ FastAPI-based HTTP API (`src/mailtag/api/`) for external integrations (N8N, webh
 - **Config**: `[webhook]` section in `config.toml` — host, port, api_key, allow_move, max_batch_size
 - **Swagger UI**: Auto-generated at `/docs`, enriched with OpenAPI tags and schema examples
 - **`/classify-and-move`**: selects INBOX, routes the mail to its action folder and records the pending entry, like `run`. `msg_id` must be the mail's **INBOX UID**; `message_id` must be its **Message-ID header**. Without `message_id` the mail is moved but not tracked, so it is never archived or learned from.
-- **Known limitation**: `PendingArchive` has no file lock, so an entry `serve` records while a `run` of the same account is in progress can be lost (the mail then stays in its action folder).
+- **Concurrency**: `PendingArchive.save()` takes an exclusive `flock` on `<file>.lock`, reloads the file and replays this instance's adds and removes, so `serve` handlers and a `run` of the same account never overwrite each other's entries (same machine only, like `TaxonomyStore`).
 
 Route handlers use sync `def` (not `async def`) — FastAPI runs them in a thread pool, which is correct since Classifier/Providers are all synchronous.
 

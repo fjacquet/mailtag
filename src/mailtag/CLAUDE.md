@@ -21,7 +21,7 @@ Core package: classifies emails into 19 categories and files them.
 
 - **action_rules.py** - `choose_action()`: action folder for a classified email (pure)
 - **routing.py** - `route_to_action_folders()`: batch moves, one `PendingArchive` entry per mail with a Message-ID
-- **pending_archive.py** - `PendingArchive`: category of each mail waiting in an action folder (no file lock)
+- **pending_archive.py** - `PendingArchive`: category of each mail waiting in an action folder ; `save()` takes a flock on `<file>.lock` and replays this instance's adds/removes on the reloaded file
 - **archive.py** - `run_archive()`: end-of-run sweep (archive read mail, learn from `5-A revoir`, drop orphan entries)
 
 ### Providers

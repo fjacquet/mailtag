@@ -1,7 +1,6 @@
 """Email classification endpoints."""
 
 import imaplib
-import threading
 from datetime import date
 
 from fastapi import APIRouter, HTTPException
@@ -28,9 +27,6 @@ from ..schemas import (
 )
 
 router = APIRouter()
-
-# Handlers run in a thread pool: one lock keeps concurrent moves from overwriting each other's entries
-_pending_lock = threading.Lock()
 
 
 def _to_email(req: ClassifyRequest) -> Email:
@@ -151,7 +147,7 @@ def classify_and_move(request: ClassifyAndMoveRequest):
     provider = _provider(request.provider)
     pending_path = pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file)
     try:
-        with provider.connect(), _pending_lock:  # the lock spans the pending file's load, add and save
+        with provider.connect():
             pending = PendingArchive(pending_path)
             provider.client.select_folder("INBOX")
             moved = route_to_action_folders(
