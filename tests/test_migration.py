@@ -15,6 +15,7 @@ from mailtag.migration import (
 )
 from mailtag.pending_archive import PendingArchive
 from mailtag.taxonomy import REVIEW
+from mailtag.taxonomy_store import TaxonomyStore
 
 
 def test_categories_and_action_folders_and_inbox_are_excluded():
@@ -48,35 +49,40 @@ class FakeRules:
     def category_for(self, sender):
         return self.categories.get(sender)
 
+    def is_own(self, address):
+        return False
+
 
 def test_validated_sender_rule_wins_over_folder_category():
     rules = FakeRules({"a@x.ch": "Santé"})
 
-    assert destination_for("a@x.ch", "Achats", rules, own=set()) == "Santé"
+    assert destination_for("a@x.ch", "Achats", rules) == "Santé"
 
 
 def test_folder_category_used_when_no_sender_rule():
     rules = FakeRules({})
 
-    assert destination_for("a@x.ch", "Achats", rules, own=set()) == "Achats"
+    assert destination_for("a@x.ch", "Achats", rules) == "Achats"
 
 
 def test_review_when_no_sender_rule_and_no_folder_category():
     rules = FakeRules({})
 
-    assert destination_for("a@x.ch", None, rules, own=set()) == REVIEW
+    assert destination_for("a@x.ch", None, rules) == REVIEW
 
 
-def test_own_address_uses_folder_category_ignoring_sender_rules():
-    rules = FakeRules({"me@x.ch": "Achats"})
+def own_rules(tmp_path):
+    """A real store that has a rule for the owner's address and knows it is the owner's."""
+    (tmp_path / "validated.json").write_text('{"me@x.ch": "Achats"}', encoding="utf-8")
+    return TaxonomyStore(tmp_path, own_addresses=["me@x.ch"])
 
-    assert destination_for("me@x.ch", "Santé", rules, own={"me@x.ch"}) == "Santé"
+
+def test_own_address_uses_folder_category_ignoring_sender_rules(tmp_path):
+    assert destination_for("me@x.ch", "Santé", own_rules(tmp_path)) == "Santé"
 
 
-def test_own_address_with_no_folder_category_goes_to_review():
-    rules = FakeRules({"me@x.ch": "Achats"})
-
-    assert destination_for("me@x.ch", None, rules, own={"me@x.ch"}) == REVIEW
+def test_own_address_with_no_folder_category_goes_to_review(tmp_path):
+    assert destination_for("me@x.ch", None, own_rules(tmp_path)) == REVIEW
 
 
 TODAY = date(2026, 9, 27)
@@ -146,7 +152,7 @@ def test_migrate_folder_dry_run_moves_nothing_and_touches_no_pending(mocker, pro
     provider.client = client
     provider.batch_move_emails = mocker.MagicMock()
 
-    counts = migrate_folder(provider, "Voyages", "Achats", FakeRules(), set(), pending, TODAY, apply=False)
+    counts = migrate_folder(provider, "Voyages", "Achats", FakeRules(), pending, TODAY, apply=False)
 
     assert counts == {"Achats": 1}
     provider.batch_move_emails.assert_not_called()
@@ -161,7 +167,7 @@ def test_migrate_folder_apply_groups_by_destination(mocker, provider, pending):
     spy = mocker.spy(provider, "batch_move_emails")
     rules = FakeRules({"a@x.ch": "Santé"})
 
-    counts = migrate_folder(provider, "Voyages", "Achats", rules, set(), pending, TODAY, apply=True)
+    counts = migrate_folder(provider, "Voyages", "Achats", rules, pending, TODAY, apply=True)
 
     assert counts == {"Santé": 1, "Achats": 1}
     assert spy.call_count == 2
@@ -174,9 +180,7 @@ def test_migrate_folder_review_destination_adds_pending_entry_before_move(provid
     client = FakeClient({"Finance/Locale/BCV": {1: mail("a@x.ch", "<1>")}})
     moving(provider, client)
 
-    counts = migrate_folder(
-        provider, "Finance/Locale/BCV", None, FakeRules(), set(), pending, TODAY, apply=True
-    )
+    counts = migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), pending, TODAY, apply=True)
 
     assert counts == {REVIEW: 1}
     assert pending.get("<1>") == {"category": None, "sender": "a@x.ch", "added": TODAY.isoformat()}
@@ -187,21 +191,19 @@ def test_mail_without_message_id_goes_to_review_without_pending_entry(provider, 
     client = FakeClient({"Finance/Locale/BCV": {1: mail("a@x.ch", None)}})
     moving(provider, client)
 
-    counts = migrate_folder(
-        provider, "Finance/Locale/BCV", None, FakeRules(), set(), pending, TODAY, apply=True
-    )
+    counts = migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), pending, TODAY, apply=True)
 
     assert counts == {REVIEW: 1}
     assert pending.items() == []
     assert client.folders[REVIEW] == {1: mail("a@x.ch", None)}
 
 
-def test_own_address_sent_to_review_gets_no_pending_entry(provider, pending):
+def test_own_address_sent_to_review_gets_no_pending_entry(provider, pending, tmp_path):
     """Filing it later must not turn the owner's address into a validated rule."""
     client = FakeClient({"Finance/Locale/BCV": {1: mail("me@x.ch", "<1>")}})
     moving(provider, client)
 
-    migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), {"me@x.ch"}, pending, TODAY, apply=True)
+    migrate_folder(provider, "Finance/Locale/BCV", None, own_rules(tmp_path), pending, TODAY, apply=True)
 
     assert pending.items() == []
     assert client.folders[REVIEW] == {1: mail("me@x.ch", "<1>")}
@@ -212,9 +214,7 @@ def test_moves_are_sent_in_batches(mocker, provider, pending):
     moving(provider, client)
     spy = mocker.spy(provider, "batch_move_emails")
 
-    migrate_folder(
-        provider, "Voyages", "Achats", FakeRules(), set(), pending, TODAY, apply=True, batch_size=1
-    )
+    migrate_folder(provider, "Voyages", "Achats", FakeRules(), pending, TODAY, apply=True, batch_size=1)
 
     assert spy.call_count == 2
     assert client.folders["Achats"] == {1: mail("a@x.ch", "<1>"), 2: mail("b@x.ch", "<2>")}
@@ -224,7 +224,7 @@ def test_mail_whose_destination_is_its_own_folder_is_not_moved(provider, pending
     client = FakeClient({"Achats": {1: mail("a@x.ch", "<1>")}})
     moving(provider, client)
 
-    counts = migrate_folder(provider, "Achats", "Achats", FakeRules(), set(), pending, TODAY, apply=True)
+    counts = migrate_folder(provider, "Achats", "Achats", FakeRules(), pending, TODAY, apply=True)
 
     assert counts == {}
     assert client.folders["Achats"] == {1: mail("a@x.ch", "<1>")}
@@ -235,10 +235,8 @@ def test_second_pass_finds_nothing_left_to_migrate(provider, pending):
     moving(provider, client)
     rules = FakeRules()
 
-    migrate_folder(provider, "Voyages", "Voyages & Loisirs", rules, set(), pending, TODAY, apply=True)
-    counts = migrate_folder(
-        provider, "Voyages", "Voyages & Loisirs", rules, set(), pending, TODAY, apply=False
-    )
+    migrate_folder(provider, "Voyages", "Voyages & Loisirs", rules, pending, TODAY, apply=True)
+    counts = migrate_folder(provider, "Voyages", "Voyages & Loisirs", rules, pending, TODAY, apply=False)
 
     assert counts == {}
 
@@ -255,7 +253,6 @@ def test_migrate_mailbox_skips_broken_folder_others_continue(provider, pending):
         ["Broken", "Voyages"],
         overrides={},
         rules=FakeRules(),
-        own=set(),
         pending=pending,
         today=TODAY,
         apply=True,
@@ -276,7 +273,6 @@ def test_migrate_mailbox_uses_folder_override_and_counts_review_total(provider, 
         ["Finance/Locale/BCV"],
         overrides={"Finance/Locale/BCV": None},
         rules=FakeRules(),
-        own=set(),
         pending=pending,
         today=TODAY,
         apply=True,
@@ -392,7 +388,7 @@ def test_existing_pending_entry_is_not_overwritten(provider, pending):
     client = FakeClient({"Finance/Locale/BCV": {1: mail("a@x.ch", "<1>")}})
     moving(provider, client)
 
-    migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), set(), pending, TODAY, apply=True)
+    migrate_folder(provider, "Finance/Locale/BCV", None, FakeRules(), pending, TODAY, apply=True)
 
     assert pending.get("<1>")["category"] == "Achats"
 
@@ -401,9 +397,7 @@ def test_unknown_destination_is_left_in_place(provider, pending):
     client = FakeClient({"Voyages": {1: mail("a@x.ch", "<1>")}})
     moving(provider, client)
 
-    counts = migrate_folder(
-        provider, "Voyages", "Not a category", FakeRules(), set(), pending, TODAY, apply=True
-    )
+    counts = migrate_folder(provider, "Voyages", "Not a category", FakeRules(), pending, TODAY, apply=True)
 
     assert counts == {}
     assert client.folders["Voyages"] == {1: mail("a@x.ch", "<1>")}
@@ -419,7 +413,7 @@ def test_migrate_mailbox_stops_on_lost_connection(provider, pending):
     client = Dropping({"A": {1: mail("a@x.ch", "<1>")}, "B": {}, "C": {2: mail("c@x.ch", "<2>")}})
     moving(provider, client)
 
-    report = migrate_mailbox(provider, ["A", "B", "C"], {"A": "Achats", "C": "Achats"}, FakeRules(), set(),
+    report = migrate_mailbox(provider, ["A", "B", "C"], {"A": "Achats", "C": "Achats"}, FakeRules(),
                              pending, TODAY, apply=False)  # fmt: skip
 
     assert report["aborted_at"] == "B"

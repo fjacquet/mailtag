@@ -11,6 +11,7 @@ from mailtag.review_refile import (
     suggest_categories,
 )
 from mailtag.taxonomy import category_folder, llm_sender_part
+from mailtag.taxonomy_store import TaxonomyStore
 
 
 @pytest.fixture(autouse=True)
@@ -94,10 +95,21 @@ def test_read_review_mails_merges_uid_with_headers():
 # --- review_groups ---
 
 
+class FakeRules:
+    def __init__(self, categories=None, own=()):
+        self.categories, self.own = categories or {}, set(own)
+
+    def category_for(self, address):
+        return self.categories.get(address)
+
+    def is_own(self, address):
+        return address in self.own
+
+
 def test_review_groups_groups_domain_mails_together():
     mails = [mail("a@shop.ch", "A", "S1"), mail("a@shop.ch", "A", "S1"), mail("b@shop.ch", "B", "S2")]
 
-    groups = review_groups(mails, category_for=lambda a: None, own=set())
+    groups = review_groups(mails, FakeRules())
 
     assert groups == {
         "shop.ch": {
@@ -115,7 +127,7 @@ def test_review_groups_groups_domain_mails_together():
 def test_review_groups_sender_group_for_non_commercial_domain():
     mails = [mail("x@gmail.com", "X", "Hi")]
 
-    groups = review_groups(mails, category_for=lambda a: None, own=set())
+    groups = review_groups(mails, FakeRules())
 
     assert groups == {
         "x@gmail.com": {
@@ -131,7 +143,7 @@ def test_review_groups_excludes_covered_senders_and_own_addresses():
     mails = [mail("a@shop.ch"), mail("b@shop.ch"), mail("me@shop.ch")]
     covered = {"a@shop.ch": "Achats"}
 
-    groups = review_groups(mails, category_for=lambda a: covered.get(a), own={"me@shop.ch"})
+    groups = review_groups(mails, FakeRules(covered, own={"me@shop.ch"}))
 
     assert list(groups["shop.ch"]["senders"]) == ["b@shop.ch"]
 
@@ -139,7 +151,7 @@ def test_review_groups_excludes_covered_senders_and_own_addresses():
 def test_review_groups_caps_subjects_at_max_subjects():
     mails = [mail("a@shop.ch", subject=f"S{i}") for i in range(8)]
 
-    groups = review_groups(mails, category_for=lambda a: None, own=set(), max_subjects=3)
+    groups = review_groups(mails, FakeRules(), max_subjects=3)
 
     assert len(groups["shop.ch"]["subjects"]) == 3
 
@@ -287,9 +299,7 @@ def test_refile_review_dry_run_reports_without_moving_or_writing(tmp_path):
     pending.add("<1>", None, "a@shop.ch", "2026-01-01")
     pending.save()
 
-    report = refile_review(
-        provider, lambda a: "Achats" if a == "a@shop.ch" else None, pending, own=set(), apply=False
-    )
+    report = refile_review(provider, lambda a: "Achats" if a == "a@shop.ch" else None, pending, apply=False)
 
     assert report == {"moves": {"Achats": 2}, "left": 1}
     assert provider.moves == []
@@ -309,9 +319,10 @@ def test_refile_review_apply_moves_removes_pending_and_leaves_own_and_uncovered(
     pending.save()
     save = mocker.spy(pending, "save")
 
-    report = refile_review(
-        provider, lambda a: "Achats" if a == "a@shop.ch" else None, pending, own={"me@shop.ch"}, apply=True
-    )
+    (tmp_path / "domains.json").write_text('{"shop.ch": "Achats"}', encoding="utf-8")
+    store = TaxonomyStore(tmp_path, own_addresses=["me@shop.ch"])
+
+    report = refile_review(provider, store.category_for, pending, apply=True)
 
     assert report == {"moves": {"Achats": 2}, "left": 2}
     assert provider.moves == [(["1", "2"], category_folder("Achats"))]
@@ -329,7 +340,7 @@ def test_refile_review_apply_handles_move_failure_without_raising(tmp_path):
     provider.batch_move_emails = failing_move
     pending = PendingArchive(tmp_path / "pending.json")
 
-    report = refile_review(provider, lambda a: "Achats", pending, own=set(), apply=True)
+    report = refile_review(provider, lambda a: "Achats", pending, apply=True)
 
     assert report == {"moves": {"Achats": 0}, "left": 0}
 
@@ -338,7 +349,7 @@ def test_refile_review_missing_review_folder_reports_nothing(tmp_path):
     provider = FakeProvider(FakeClient(exists=False))
     pending = PendingArchive(tmp_path / "pending.json")
 
-    report = refile_review(provider, lambda a: "Achats", pending, own=set(), apply=False)
+    report = refile_review(provider, lambda a: "Achats", pending, apply=False)
 
     assert report == {"moves": {}, "left": 0}
 
@@ -346,7 +357,7 @@ def test_refile_review_missing_review_folder_reports_nothing(tmp_path):
 def test_refile_review_opens_review_read_write_only_when_applying(tmp_path):
     for apply in (False, True):
         client = FakeClient(exists=True, uids=[])
-        refile_review(FakeProvider(client), lambda a: None, PendingArchive(tmp_path / "p.json"), set(), apply)
+        refile_review(FakeProvider(client), lambda a: None, PendingArchive(tmp_path / "p.json"), apply)
         assert client.readonly is (not apply)
 
 
@@ -366,7 +377,7 @@ def test_refile_review_moves_in_chunks_and_keeps_entries_of_a_failed_chunk(tmp_p
     for i in range(1, 6):
         pending.add(f"<{i}>", None, "a@shop.ch", "2026-01-01")
 
-    report = refile_review(provider, lambda a: "Achats", pending, set(), apply=True)
+    report = refile_review(provider, lambda a: "Achats", pending, apply=True)
 
     assert calls == [["1", "2"], ["3", "4"], ["5"]]
     assert report["moves"] == {"Achats": 3}

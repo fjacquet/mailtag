@@ -176,6 +176,9 @@ class TaxonomyStore:
                 self._ops.append(op)
                 self._touched |= changed
 
+    def is_own(self, address: str) -> bool:
+        return normalize_address(address) in self.own_addresses
+
     def category_for(self, sender_address: str) -> str | None:
         sender = normalize_address(sender_address)
         if sender in self.own_addresses:

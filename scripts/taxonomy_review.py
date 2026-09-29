@@ -87,7 +87,7 @@ CATEGORIES = sorted(TAXONOMY, key=_sort_key)
 
 st.set_page_config(page_title="MailTag — revue des expéditeurs", layout="wide")
 
-store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir))
+store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir), own_addresses=CONFIG.taxonomy.own_addresses)
 skipped = st.session_state.setdefault("skipped", set())
 split = st.session_state.setdefault("split", set())
 # Stage 5 keys are domains or addresses: skipping one there must not hide it in stages 2-4
