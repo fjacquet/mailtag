@@ -10,8 +10,6 @@ from mailtag.utils.db_backup import (
     backup_database,
     cleanup_old_backups,
     get_backup_stats,
-    list_backups,
-    restore_database,
 )
 
 
@@ -69,45 +67,12 @@ class TestBackupDatabase:
         assert backup_path.parent == custom_backup_dir
 
 
-class TestBackupAllDatabases:
-    def test_backup_all(self, db_dir: Path):
-        """Test backing up all databases."""
-        backups = backup_all_databases(db_dir)
-
-        assert len(backups) == 3
-        backup_dir = db_dir / "backups"
-        assert backup_dir.exists()
-        assert len(list(backup_dir.glob("*.json"))) == 3
-
-
-class TestRestoreDatabase:
-    def test_restore_from_backup(self, db_dir: Path):
-        """Test restoring database from backup."""
-        db_path = db_dir / "sender_classification_db.json"
-        original_content = db_path.read_text()
-
-        backup_path = backup_database(db_path)
-
-        # Modify original
-        db_path.write_text(json.dumps({"modified": True}))
-
-        # Restore
-        restore_database(backup_path, db_path)
-
-        assert db_path.read_text() == original_content
-
-    def test_restore_nonexistent_backup(self, tmp_path: Path):
-        """Test restoring from nonexistent backup raises error."""
-        with pytest.raises(FileNotFoundError):
-            restore_database(tmp_path / "nonexistent.json", tmp_path / "db.json")
-
-
 class TestCleanupOldBackups:
     def test_cleanup_keeps_recent(self, db_dir: Path):
         """Test that cleanup keeps recent backups."""
         # Create multiple backups
         for _ in range(5):
-            backup_all_databases(db_dir)
+            backup_database(db_dir / "sender_classification_db.json")
 
         backup_dir = db_dir / "backups"
         deleted = cleanup_old_backups(backup_dir, keep_count=10)
@@ -134,31 +99,11 @@ class TestCleanupOldBackups:
         assert len(list(backup_dir.glob("*.json"))) == 2
 
 
-class TestListBackups:
-    def test_list_backups(self, db_dir: Path):
-        """Test listing backups."""
-        backup_all_databases(db_dir)
-
-        backup_dir = db_dir / "backups"
-        backups = list_backups(backup_dir)
-
-        assert len(backups) == 3
-        for backup in backups:
-            assert "path" in backup
-            assert "name" in backup
-            assert "size_bytes" in backup
-            assert "created" in backup
-
-    def test_list_empty_directory(self, tmp_path: Path):
-        """Test listing backups in empty directory."""
-        backups = list_backups(tmp_path)
-        assert backups == []
-
-
 class TestGetBackupStats:
     def test_stats_with_backups(self, db_dir: Path):
         """Test stats with backups."""
-        backup_all_databases(db_dir)
+        for name in ("sender_classification_db", "domain_classifications", "validated_classification_db"):
+            backup_database(db_dir / f"{name}.json")
 
         backup_dir = db_dir / "backups"
         stats = get_backup_stats(backup_dir)
@@ -172,3 +117,21 @@ class TestGetBackupStats:
 
         assert stats["total_backups"] == 0
         assert stats["oldest_backup"] is None
+
+
+def test_backup_all_covers_taxonomy_rules_and_pending_archives(tmp_path):
+    db = tmp_path / "db"
+    (db / "taxonomy").mkdir(parents=True)
+    for name in ("taxonomy/validated.json", "taxonomy/senders.json", "pending_archive.json",
+                 "pending_archive_gmail.json", "sender_classification_db.json"):  # fmt: skip
+        (db / name).write_text("{}", encoding="utf-8")
+
+    backups = backup_all_databases(db)
+
+    assert sorted(p.name.rsplit("_", 2)[0] for p in backups) == [
+        "pending_archive",
+        "pending_archive_gmail",
+        "senders",
+        "validated",
+    ]
+    assert all(p.parent == db / "backups" for p in backups)

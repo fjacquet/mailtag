@@ -1,4 +1,4 @@
-"""Utilities for database backup and restore."""
+"""Timestamped backups of the taxonomy rules and pending archives."""
 
 import shutil
 from datetime import datetime
@@ -38,50 +38,15 @@ def backup_database(db_path: Path, backup_dir: Path | None = None) -> Path | Non
 
 
 def backup_all_databases(db_dir: Path, backup_dir: Path | None = None) -> list[Path]:
-    """
-    Backup all JSON database files in the db directory.
-
-    Args:
-        db_dir: Path to the database directory
-        backup_dir: Directory for backups (default: db/backups/)
-
-    Returns:
-        List of backup file paths created
-    """
+    """Back up the taxonomy rules (`db/taxonomy/*.json`) and each account's pending archive."""
     if backup_dir is None:
         backup_dir = db_dir / "backups"
 
-    backups = []
-    db_files = [
-        "sender_classification_db.json",
-        "domain_classifications.json",
-        "validated_classification_db.json",
-    ]
-
-    for db_file in db_files:
-        db_path = db_dir / db_file
-        if db_path.exists():
-            backup_path = backup_database(db_path, backup_dir)
-            if backup_path:
-                backups.append(backup_path)
+    db_files = sorted((db_dir / "taxonomy").glob("*.json")) + sorted(db_dir.glob("pending_archive*.json"))
+    backups = [path for path in (backup_database(f, backup_dir) for f in db_files) if path]
 
     logger.info(f"Backed up {len(backups)} database files to {backup_dir}")
     return backups
-
-
-def restore_database(backup_path: Path, db_path: Path) -> None:
-    """
-    Restore a database from a backup file.
-
-    Args:
-        backup_path: Path to the backup file
-        db_path: Path to restore to
-    """
-    if not backup_path.exists():
-        raise FileNotFoundError(f"Backup file not found: {backup_path}")
-
-    shutil.copy2(backup_path, db_path)
-    logger.info(f"Restored {db_path} from {backup_path}")
 
 
 def cleanup_old_backups(backup_dir: Path, keep_count: int = 10) -> int:
@@ -127,35 +92,6 @@ def cleanup_old_backups(backup_dir: Path, keep_count: int = 10) -> int:
         logger.info(f"Cleaned up {deleted_count} old backup files")
 
     return deleted_count
-
-
-def list_backups(backup_dir: Path) -> list[dict]:
-    """
-    List all available backups with metadata.
-
-    Args:
-        backup_dir: Directory containing backups
-
-    Returns:
-        List of backup info dictionaries
-    """
-    if not backup_dir.exists():
-        return []
-
-    backups = []
-
-    for backup_file in sorted(backup_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-        stat = backup_file.stat()
-        backups.append(
-            {
-                "path": backup_file,
-                "name": backup_file.name,
-                "size_bytes": stat.st_size,
-                "created": datetime.fromtimestamp(stat.st_mtime),
-            }
-        )
-
-    return backups
 
 
 def get_backup_stats(backup_dir: Path) -> dict:

@@ -23,7 +23,7 @@ from mailtag.config import (
 )
 from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
-from mailtag.utils.db_backup import backup_database, cleanup_old_backups, restore_database
+from mailtag.utils.db_backup import backup_database, cleanup_old_backups
 
 
 @pytest.fixture
@@ -105,26 +105,6 @@ class TestDatabaseCorruption:
 
         # Database loads as empty when corrupted
         assert len(db.suggestion_db) == 0
-
-    def test_backup_and_restore_workflow(self, tmp_path):
-        """Test complete backup and restore workflow."""
-        # Arrange - create database with data
-        db_path = tmp_path / "sender_classification_db.json"
-        test_data = {"test@example.com": {"Finance/Banking": 10, "Other": 1}}
-        db_path.write_text(json.dumps(test_data))
-
-        # Act - backup database
-        backup_path = backup_database(db_path)
-
-        # Corrupt original
-        db_path.write_text("{ corrupted }")
-
-        # Restore from backup (args: source backup, destination db)
-        restore_database(backup_path, db_path)
-
-        # Assert - data restored correctly
-        restored_data = json.loads(db_path.read_text())
-        assert restored_data == test_data
 
     def test_backup_rotation_keeps_recent_backups(self, tmp_path):
         """Test backup rotation keeps only recent backups."""
