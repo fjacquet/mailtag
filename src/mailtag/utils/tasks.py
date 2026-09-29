@@ -65,10 +65,12 @@ def junk_folder(provider: ImapService) -> str | None:
     return provider.config.junk_folder_name or provider.fast_parse_config.junk_folder_name
 
 
-def run_classification(provider_instance: ImapService, validate: bool) -> None:
-    """Pass 1 (rules) on junk and INBOX, Pass 3 (nomic/Gemma) on the rest, then the archive sweep."""
+def run_classification(provider_instance: ImapService, validate: bool, classifier: Classifier) -> None:
+    """Pass 1 (rules) on junk and INBOX, Pass 3 (nomic/Gemma) on the rest, then the archive sweep.
+
+    The classifier is built once per run and shared by the providers, so the models load once.
+    """
     try:
-        classifier = Classifier(CONFIG, read_only=validate)
         rules = classifier.taxonomy_store
         pending = PendingArchive(
             pending_archive_path(provider_instance.config, CONFIG.taxonomy.pending_archive_file)
