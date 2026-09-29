@@ -151,7 +151,16 @@ STAGES = {
     f"4. Contrôle des règles ({len(to_check)})": "control",
     f"5. Mails en revue ({len(review_rows)})": "review",
 }
-default = 0 if folders else 1 if queue else 2 if learned else 3 if to_check else 4 if review_rows else 1
+# Stages 2-4 wait for a new `scan` after a folder audit: open on stage 5 rather than on that notice
+current = not (scan_ready and needs_rescan(SCAN, OVERRIDES))
+default = (
+    0 if folders
+    else 1 if queue and current
+    else 2 if learned and current
+    else 3 if to_check and current
+    else 4 if review_rows
+    else 1
+)  # fmt: skip
 stage = STAGES[st.sidebar.radio("Étape", list(STAGES), index=default)]
 st.caption(f"{len(store.validated)} expéditeurs validés")
 
