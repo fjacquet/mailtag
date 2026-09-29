@@ -21,7 +21,6 @@ def health_check():
         version="1.0.0",
         uptime_seconds=round(app_state.uptime_seconds, 1),
         classifier_ready=app_state.classifier is not None,
-        database_loaded=app_state.database is not None,
     )
 
 
@@ -45,7 +44,6 @@ def detailed_status():
         version="1.0.0",
         uptime_seconds=round(app_state.uptime_seconds, 1),
         classifier_ready=app_state.classifier is not None,
-        database_loaded=app_state.database is not None,
         categories_count=categories_count,
         providers={
             "imap": bool(CONFIG.imap and CONFIG.imap.host),

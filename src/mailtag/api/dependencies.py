@@ -1,16 +1,11 @@
-"""Shared application state for the MailTag webhook server.
-
-Manages the lifecycle of Classifier and ClassificationDatabase instances.
-"""
+"""Shared application state for the MailTag webhook server."""
 
 import time
-from pathlib import Path
 
 from loguru import logger
 
 from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
-from mailtag.database import ClassificationDatabase
 
 
 class AppState:
@@ -18,33 +13,16 @@ class AppState:
 
     def __init__(self):
         self.start_time = time.time()
-        self.database: ClassificationDatabase | None = None
         self.classifier: Classifier | None = None
-        # Legacy (taxonomy-disabled) classifier, built lazily for Gmail requests
-        # when [taxonomy] enabled = true — Gmail always keeps the legacy flow.
-        self.legacy_classifier: Classifier | None = None
 
     def initialize(self) -> None:
-        """Initialize classifier and database (called during FastAPI lifespan startup)."""
-        db_dir = Path("db")
-        suggestion_db_path = db_dir / "sender_classification_db.json"
-        validated_db_path = db_dir / "validated_classification_db.json"
+        """Build the classifier (called during FastAPI lifespan startup).
 
-        logger.info("Initializing classification database...")
-        self.database = ClassificationDatabase(suggestion_db_path, validated_db_path)
-
+        Nothing needs flushing at shutdown: the taxonomy store saves itself after each batch.
+        """
         logger.info("Initializing classifier...")
-        self.classifier = Classifier(CONFIG, self.database)
-        logger.info(
-            "Classifier ready with {} categories",
-            len(self.classifier.categories) if self.classifier.categories else 0,
-        )
-
-    def shutdown(self) -> None:
-        """Clean shutdown: flush databases."""
-        if self.database:
-            self.database.flush()
-            logger.info("Database flushed on shutdown")
+        self.classifier = Classifier(CONFIG, None)
+        logger.info("Classifier ready with {} categories", len(self.classifier.categories))
 
     @property
     def uptime_seconds(self) -> float:

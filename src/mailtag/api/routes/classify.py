@@ -1,16 +1,19 @@
 """Email classification endpoints."""
 
-import dataclasses
+import imaplib
+from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from loguru import logger
 
-from mailtag.classifier import Classifier
 from mailtag.config import CONFIG
-from mailtag.gmail_service import GmailService
+from mailtag.gmail_api import GmailApiService
 from mailtag.imap_service import ImapService
 from mailtag.models import Email
-from mailtag.taxonomy import REVIEW, category_folder
+from mailtag.pending_archive import PendingArchive
+from mailtag.routing import RoutedMail, route_to_action_folders
+from mailtag.taxonomy import REVIEW
+from mailtag.utils.tasks import pending_archive_path
 
 from ..dependencies import app_state
 from ..schemas import (
@@ -25,29 +28,6 @@ from ..schemas import (
 
 router = APIRouter()
 
-# Categories that classify-and-move must not try to move (not actionable folders).
-UNACTIONABLE_CATEGORIES = frozenset({"À Classer", "(Model Error)", "Unclassified"})
-# Same, plus the taxonomy review bucket — used only for the classify-batch "classified" count,
-# since REVIEW ("5-A revoir") is a valid destination for classify-and-move.
-UNCLASSIFIED_CATEGORIES = UNACTIONABLE_CATEGORIES | {REVIEW}
-
-
-def _classifier_for(provider: str) -> Classifier:
-    """Return the classifier to use for a provider.
-
-    Gmail stays on the legacy (non-taxonomy) flow even when `[taxonomy] enabled = true`
-    (see global constraint). The legacy classifier is built lazily, once, and reuses the
-    main database — mirrors `run_classification` in `mailtag.utils.tasks`.
-    """
-    if provider == "gmail" and CONFIG.taxonomy.enabled:
-        if app_state.legacy_classifier is None:
-            legacy_config = dataclasses.replace(
-                CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
-            )
-            app_state.legacy_classifier = Classifier(legacy_config, app_state.database)
-        return app_state.legacy_classifier
-    return app_state.classifier
-
 
 def _to_email(req: ClassifyRequest) -> Email:
     """Convert API request to internal Email model."""
@@ -57,8 +37,13 @@ def _to_email(req: ClassifyRequest) -> Email:
         sender_address=req.sender_address,
         sender_name=req.sender_name,
         body=req.body,
-        labels=req.labels,
     )
+
+
+def _provider(name: str) -> ImapService:
+    if name == "gmail":
+        return GmailApiService(CONFIG.gmail, CONFIG.fast_parse)
+    return ImapService(CONFIG.imap, CONFIG.fast_parse)
 
 
 @router.post(
@@ -71,21 +56,16 @@ def _to_email(req: ClassifyRequest) -> Email:
     summary="Classify a single email",
 )
 def classify_email(request: ClassifyRequest):
-    """Classify a single email using the 6-signal AMSC strategy.
+    """Classify a single email into one of the 19 taxonomy categories (or `5-A revoir`).
 
-    Returns the assigned category. The email is not moved — use
-    `/classify-and-move` for classification with provider-based email moving.
+    The email is not moved — use `/classify-and-move` to file it.
 
     **N8N usage**: Send a POST with the email fields from your trigger node.
     """
     if not app_state.classifier:
         raise HTTPException(status_code=503, detail="Classifier not ready")
 
-    email = _to_email(request)
-    category = app_state.classifier.classify_email(email)
-    if app_state.database:
-        app_state.database.flush()
-
+    category = app_state.classifier.classify_email(_to_email(request))
     return ClassifyResponse(msg_id=request.msg_id, category=category)
 
 
@@ -100,11 +80,9 @@ def classify_email(request: ClassifyRequest):
     summary="Classify a batch of emails",
 )
 def classify_batch(request: ClassifyBatchRequest):
-    """Classify multiple emails in a single request.
+    """Classify multiple emails in a single request (batched embeddings and LLM prompts).
 
-    More efficient than individual calls — uses batch embeddings for
-    the semantic router signal. Limited to `max_batch_size` emails per request
-    (default: 50, configured in config.toml).
+    Limited to `max_batch_size` emails per request (default: 50, configured in config.toml).
     """
     if not app_state.classifier:
         raise HTTPException(status_code=503, detail="Classifier not ready")
@@ -118,18 +96,14 @@ def classify_batch(request: ClassifyBatchRequest):
 
     emails = [_to_email(req) for req in request.emails]
     categories = app_state.classifier.classify_emails_batch(emails)
-    if app_state.database:
-        app_state.database.flush()
-
     results = [
         ClassifyResponse(msg_id=email.msg_id, category=category)
         for email, category in zip(emails, categories, strict=True)
     ]
-
     return ClassifyBatchResponse(
         results=results,
         total=len(results),
-        classified=sum(1 for r in results if r.category not in UNCLASSIFIED_CATEGORIES),
+        classified=sum(1 for r in results if r.category != REVIEW),
     )
 
 
@@ -145,14 +119,11 @@ def classify_batch(request: ClassifyBatchRequest):
     summary="Classify and move an email",
 )
 def classify_and_move(request: ClassifyAndMoveRequest):
-    """Classify an email and move it to the assigned category folder/label.
+    """Classify an INBOX email and move it to its action folder, like `run` does.
 
-    Opens a connection to the specified provider (IMAP or Gmail), classifies
-    the email, and moves it. Each request uses its own provider connection
-    (stateless design suitable for webhook usage).
-
-    **Note**: The `msg_id` must correspond to an existing message on the
-    provider's server.
+    Its category is recorded in the account's pending archive (by `message_id`), so the
+    archive sweep later files it into its category, or learns from it if it went to review.
+    `msg_id` must be the email's UID in the account's INBOX.
     """
     if not app_state.classifier:
         raise HTTPException(status_code=503, detail="Classifier not ready")
@@ -166,44 +137,27 @@ def classify_and_move(request: ClassifyAndMoveRequest):
         sender_address=request.sender_address,
         sender_name=request.sender_name,
         body=request.body,
-        labels=request.labels,
+        message_id=request.message_id,
+        has_unsubscribe=request.has_unsubscribe,
+        is_bulk=request.is_bulk,
     )
+    category = app_state.classifier.classify_email(email)
 
-    classifier = _classifier_for(request.provider)
-    category = classifier.classify_email(email)
-    if app_state.database:
-        app_state.database.flush()
-
-    if category in UNACTIONABLE_CATEGORIES:
-        return ClassifyAndMoveResponse(
-            msg_id=request.msg_id,
-            category=category,
-            moved=False,
-            error="Category not actionable for move",
-        )
-
-    # Taxonomy categories live in their PARA folder (e.g. "Domaines/Santé")
-    folder = category_folder(category) if CONFIG.taxonomy.enabled else category
+    provider = _provider(request.provider)
+    pending = PendingArchive(pending_archive_path(provider.config, CONFIG.taxonomy.pending_archive_file))
     try:
-        if request.provider == "imap":
-            provider = ImapService(CONFIG.imap, CONFIG.fast_parse)
-            with provider.connect():
-                provider.move_email(email, folder)
-        elif request.provider == "gmail":
-            provider = GmailService(CONFIG.gmail)
-            with provider.connect():
-                provider.move_email(email, folder)
-
-        return ClassifyAndMoveResponse(
-            msg_id=request.msg_id,
-            category=category,
-            moved=True,
-        )
-    except (ConnectionError, RuntimeError, OSError) as e:
+        with provider.connect():
+            provider.client.select_folder("INBOX")
+            moved = route_to_action_folders(
+                provider, pending, [RoutedMail.from_email(email, category)], False, date.today()
+            )
+    except (imaplib.IMAP4.error, ConnectionError, RuntimeError, OSError) as e:
         logger.error("Failed to move email {}: {}", request.msg_id, e)
-        return ClassifyAndMoveResponse(
-            msg_id=request.msg_id,
-            category=category,
-            moved=False,
-            error=str(e),
-        )
+        return ClassifyAndMoveResponse(msg_id=request.msg_id, category=category, moved=False, error=str(e))
+
+    return ClassifyAndMoveResponse(
+        msg_id=request.msg_id,
+        category=category,
+        moved=moved == 1,
+        error=None if moved else "Move failed",
+    )

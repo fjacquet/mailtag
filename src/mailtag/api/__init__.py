@@ -26,8 +26,8 @@ OPENAPI_TAGS = [
     {
         "name": "classification",
         "description": (
-            "Email classification endpoints. Uses the 6-signal AMSC strategy: "
-            "Validated DB → Server Labels → History → Domain → Semantic Router → LLM fallback."
+            "Email classification into the 19-category taxonomy: rules (validated sender, learned sender, "
+            "domain), then nomic embeddings and the Gemma LLM."
         ),
     },
 ]
@@ -38,18 +38,11 @@ DESCRIPTION = """\
 External services like [N8N](https://n8n.io) can trigger email classification
 via HTTP POST requests instead of running batch CLI commands.
 
-## Classification Strategy (AMSC)
+## Classification
 
-Emails are classified using 6 signals evaluated in priority order:
-
-| Signal | Method | Confidence |
-|--------|--------|-----------|
-| 1 | Validated Database | 100% |
-| 2 | Server-Side Labels | 95% |
-| 3 | Historical Patterns | 90%+ |
-| 4 | Domain Classification | 90% |
-| 5 | Semantic Router (embeddings) | Variable |
-| 6 | LLM Fallback | Variable |
+Rules first (validated sender, learned sender, validated domain, computed domain), then
+nomic embeddings above the threshold, else nomic and the Gemma LLM must agree. Anything else
+goes to `5-A revoir`. Without MLX (Docker), only the rules run.
 
 ## Authentication
 
@@ -65,7 +58,6 @@ async def lifespan(app: FastAPI):
     app_state.initialize()
     yield
     logger.info("Shutting down MailTag webhook server...")
-    app_state.shutdown()
 
 
 def create_app() -> FastAPI:

@@ -1,42 +1,15 @@
 """Tests for the MailTag webhook API."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from mailtag.api.dependencies import app_state
-from mailtag.config import (
-    AppConfig,
-    ClassifierConfig,
-    FastParseConfig,
-    GeneralConfig,
-    GmailConfig,
-    ImapConfig,
-    LoggingConfig,
-    MLXConfig,
-    TaxonomyConfig,
-    WebhookConfig,
-)
+from mailtag.config import WebhookConfig
 
 TEST_API_KEY = "test-api-key-12345"
-
-
-def _real_config(*, taxonomy_enabled: bool, allow_move: bool = True) -> AppConfig:
-    """A real AppConfig (not a MagicMock) so `dataclasses.replace` works on it."""
-    return AppConfig(
-        general=GeneralConfig(ollama_model="m", api_base=""),
-        logging=LoggingConfig(level="DEBUG", file=""),
-        classifier=ClassifierConfig(
-            ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3
-        ),
-        imap=ImapConfig(host="imap.test.com", user="u@test.com", password="p"),
-        gmail=GmailConfig(credentials_file="creds.json", token_file="token.json"),
-        fast_parse=FastParseConfig(),
-        mlx=MLXConfig(enabled=False),
-        webhook=WebhookConfig(api_key=TEST_API_KEY, allow_move=allow_move, max_batch_size=5),
-        taxonomy=TaxonomyConfig(enabled=taxonomy_enabled),
-    )
 
 
 @pytest.fixture
@@ -49,18 +22,11 @@ def mock_classifier():
     return classifier
 
 
-@pytest.fixture
-def mock_database():
-    """Create a mock ClassificationDatabase."""
-    return MagicMock()
-
-
-def _make_client(mock_classifier, mock_database, api_key):
+def _make_client(mock_classifier, api_key):
     """Create a TestClient with mocked app_state and config."""
     original_init = app_state.initialize
 
     def mock_initialize():
-        app_state.database = mock_database
         app_state.classifier = mock_classifier
 
     app_state.initialize = mock_initialize
@@ -70,6 +36,7 @@ def _make_client(mock_classifier, mock_database, api_key):
     mock_config.imap = MagicMock(host="imap.test.com")
     mock_config.gmail = MagicMock(credentials_file="creds.json")
     mock_config.fast_parse = MagicMock()
+    mock_config.taxonomy = MagicMock(pending_archive_file="db/pending_archive.json")
 
     with (
         patch("mailtag.api.CONFIG", mock_config),
@@ -85,20 +52,18 @@ def _make_client(mock_classifier, mock_database, api_key):
     # Restore original initialize and reset state
     app_state.initialize = original_init
     app_state.classifier = None
-    app_state.database = None
-    app_state.legacy_classifier = None
 
 
 @pytest.fixture
-def api_client(mock_classifier, mock_database):
+def api_client(mock_classifier):
     """Create a test client with mocked dependencies and API key auth."""
-    yield from _make_client(mock_classifier, mock_database, TEST_API_KEY)
+    yield from _make_client(mock_classifier, TEST_API_KEY)
 
 
 @pytest.fixture
-def api_client_no_auth(mock_classifier, mock_database):
+def api_client_no_auth(mock_classifier):
     """Create a test client without API key auth."""
-    yield from _make_client(mock_classifier, mock_database, "")
+    yield from _make_client(mock_classifier, "")
 
 
 def _auth_headers():
@@ -112,8 +77,26 @@ def _sample_email():
         "sender_address": "billing@example.com",
         "sender_name": "Billing Dept",
         "body": "Please find your invoice attached.",
-        "labels": ["INBOX"],
     }
+
+
+@pytest.fixture
+def move_env(tmp_path):
+    provider = MagicMock()
+    provider.connect.return_value.__enter__ = MagicMock(return_value=provider)
+    provider.connect.return_value.__exit__ = MagicMock(return_value=False)
+    pending_file = tmp_path / "pending.json"
+    with (
+        patch("mailtag.api.routes.classify.ImapService", return_value=provider) as imap_cls,
+        patch("mailtag.api.routes.classify.GmailApiService", return_value=provider) as gmail_cls,
+        patch("mailtag.api.routes.classify.pending_archive_path", return_value=pending_file),
+    ):
+        yield provider, imap_cls, gmail_cls, pending_file
+
+
+def _move_payload(provider="imap", **extra):
+    payload = _sample_email() | {"provider": provider, "message_id": "<m@x>", "is_bulk": True}
+    return payload | extra
 
 
 # --- Health endpoint tests ---
@@ -127,7 +110,6 @@ class TestHealth:
         data = response.json()
         assert data["status"] == "ok"
         assert data["classifier_ready"] is True
-        assert data["database_loaded"] is True
         assert "version" in data
         assert "uptime_seconds" in data
 
@@ -265,58 +247,64 @@ class TestClassifyBatch:
 
 
 class TestClassifyAndMove:
-    def test_classify_and_move_success(self, api_client, mock_classifier):
-        """Classify and move via IMAP provider."""
-        with patch("mailtag.api.routes.classify.ImapService") as mock_imap:
-            mock_provider = MagicMock()
-            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
-            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
-            mock_imap.return_value = mock_provider
-
-            payload = _sample_email()
-            payload["provider"] = "imap"
-            response = api_client.post(
-                "/api/v1/classify-and-move",
-                json=payload,
-                headers=_auth_headers(),
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert data["category"] == "Finance/Invoices"
-            assert data["moved"] is True
-
-    def test_classify_and_move_files_a_category_into_its_para_folder(self, api_client, mock_classifier):
+    def test_routes_into_action_folder_and_records_category(self, api_client, mock_classifier, move_env):
+        provider, imap_cls, _, pending_file = move_env
         mock_classifier.classify_email.return_value = "Santé"
-        with (
-            patch("mailtag.api.routes.classify.ImapService") as mock_imap,
-            patch("mailtag.api.routes.classify.CONFIG.taxonomy.enabled", True),
-        ):
-            mock_provider = MagicMock()
-            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
-            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
-            mock_imap.return_value = mock_provider
 
-            payload = _sample_email()
-            payload["provider"] = "imap"
-            response = api_client.post("/api/v1/classify-and-move", json=payload, headers=_auth_headers())
+        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
 
-            assert response.status_code == 200
-            assert mock_provider.move_email.call_args.args[1] == "Domaines/Santé"
-
-    def test_classify_and_move_unactionable(self, api_client, mock_classifier):
-        """Unactionable category should not trigger a move."""
-        mock_classifier.classify_email.return_value = "À Classer"
-        payload = _sample_email()
-        payload["provider"] = "imap"
-        response = api_client.post(
-            "/api/v1/classify-and-move",
-            json=payload,
-            headers=_auth_headers(),
-        )
         assert response.status_code == 200
-        data = response.json()
-        assert data["moved"] is False
-        assert data["error"] == "Category not actionable for move"
+        assert response.json() == {"msg_id": "12345", "category": "Santé", "moved": True, "error": None}
+        imap_cls.assert_called_once()
+        provider.client.select_folder.assert_called_once_with("INBOX")
+        provider.batch_move_emails.assert_called_once_with(["12345"], "4-Pour info")
+        assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] == "Santé"
+
+    def test_review_mail_gets_pending_entry(self, api_client, mock_classifier, move_env):
+        provider, _, _, pending_file = move_env
+        mock_classifier.classify_email.return_value = "5-A revoir"
+
+        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+
+        assert response.json()["moved"] is True
+        provider.batch_move_emails.assert_called_once_with(["12345"], "5-A revoir")
+        assert json.loads(pending_file.read_text(encoding="utf-8"))["<m@x>"]["category"] is None
+
+    def test_gmail_goes_through_the_gmail_api(self, api_client, mock_classifier, move_env):
+        _, imap_cls, gmail_cls, _ = move_env
+        mock_classifier.classify_email.return_value = "Santé"
+
+        response = api_client.post(
+            "/api/v1/classify-and-move", json=_move_payload("gmail"), headers=_auth_headers()
+        )
+
+        assert response.status_code == 200
+        gmail_cls.assert_called_once()
+        imap_cls.assert_not_called()
+
+    def test_failed_move_is_reported(self, api_client, mock_classifier, move_env):
+        provider, _, _, pending_file = move_env
+        mock_classifier.classify_email.return_value = "Santé"
+        provider.batch_move_emails.side_effect = ConnectionError("down")
+
+        response = api_client.post("/api/v1/classify-and-move", json=_move_payload(), headers=_auth_headers())
+
+        assert response.json()["moved"] is False
+        assert response.json()["error"] == "Move failed"
+        assert not pending_file.exists()
+
+    def test_legacy_labels_field_is_ignored(self, api_client, mock_classifier, move_env):
+        mock_classifier.classify_email.return_value = "Santé"
+
+        classify = api_client.post(
+            "/api/v1/classify", json=_sample_email() | {"labels": ["INBOX"]}, headers=_auth_headers()
+        )
+        move = api_client.post(
+            "/api/v1/classify-and-move", json=_move_payload(labels=["INBOX"]), headers=_auth_headers()
+        )
+
+        assert classify.status_code == 200
+        assert move.status_code == 200
 
     def test_classify_and_move_disabled(self, api_client):
         """When allow_move is False, should return 403."""
@@ -386,96 +374,6 @@ class TestClassifyBatchTaxonomyReview:
         data = response.json()
         assert data["total"] == 2
         assert data["classified"] == 1
-
-
-# --- classify-and-move: Gmail stays on the legacy (non-taxonomy) flow ---
-
-
-class TestClassifyAndMoveGmailTaxonomy:
-    def _gmail_payload(self):
-        payload = _sample_email()
-        payload["provider"] = "gmail"
-        return payload
-
-    def test_gmail_uses_legacy_classifier_when_taxonomy_enabled(
-        self, api_client, mock_classifier, mock_database
-    ):
-        """Gmail must never classify with the taxonomy-enabled main classifier."""
-        with (
-            patch("mailtag.api.routes.classify.CONFIG", _real_config(taxonomy_enabled=True)),
-            patch("mailtag.api.routes.classify.Classifier") as mock_classifier_cls,
-            patch("mailtag.api.routes.classify.GmailService") as mock_gmail,
-        ):
-            legacy_classifier = MagicMock()
-            legacy_classifier.classify_email.return_value = "Finance/Invoices"
-            mock_classifier_cls.return_value = legacy_classifier
-
-            mock_provider = MagicMock()
-            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
-            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
-            mock_gmail.return_value = mock_provider
-
-            response = api_client.post(
-                "/api/v1/classify-and-move",
-                json=self._gmail_payload(),
-                headers=_auth_headers(),
-            )
-
-            assert response.status_code == 200
-            legacy_classifier.classify_email.assert_called_once()
-            mock_classifier.classify_email.assert_not_called()
-            # Built once, config taxonomy disabled, reusing the shared database.
-            mock_classifier_cls.assert_called_once()
-            args, _ = mock_classifier_cls.call_args
-            legacy_config = args[0]
-            assert legacy_config.taxonomy.enabled is False
-            assert args[1] is mock_database
-
-    def test_imap_uses_main_classifier_when_taxonomy_enabled(self, api_client, mock_classifier):
-        """IMAP keeps using the main (taxonomy-enabled) classifier, never the legacy one."""
-        with (
-            patch("mailtag.api.routes.classify.CONFIG", _real_config(taxonomy_enabled=True)),
-            patch("mailtag.api.routes.classify.Classifier") as mock_classifier_cls,
-            patch("mailtag.api.routes.classify.ImapService") as mock_imap,
-        ):
-            mock_provider = MagicMock()
-            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
-            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
-            mock_imap.return_value = mock_provider
-
-            payload = _sample_email()
-            payload["provider"] = "imap"
-            response = api_client.post(
-                "/api/v1/classify-and-move",
-                json=payload,
-                headers=_auth_headers(),
-            )
-
-            assert response.status_code == 200
-            mock_classifier.classify_email.assert_called_once()
-            mock_classifier_cls.assert_not_called()
-
-    def test_taxonomy_disabled_never_builds_second_classifier(self, api_client, mock_classifier):
-        """When taxonomy mode is off, Gmail requests use the single main classifier."""
-        with (
-            patch("mailtag.api.routes.classify.CONFIG", _real_config(taxonomy_enabled=False)),
-            patch("mailtag.api.routes.classify.Classifier") as mock_classifier_cls,
-            patch("mailtag.api.routes.classify.GmailService") as mock_gmail,
-        ):
-            mock_provider = MagicMock()
-            mock_provider.connect.return_value.__enter__ = MagicMock(return_value=mock_provider)
-            mock_provider.connect.return_value.__exit__ = MagicMock(return_value=False)
-            mock_gmail.return_value = mock_provider
-
-            response = api_client.post(
-                "/api/v1/classify-and-move",
-                json=self._gmail_payload(),
-                headers=_auth_headers(),
-            )
-
-            assert response.status_code == 200
-            mock_classifier.classify_email.assert_called_once()
-            mock_classifier_cls.assert_not_called()
 
 
 # --- Swagger / OpenAPI tests ---

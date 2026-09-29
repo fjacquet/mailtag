@@ -18,7 +18,6 @@ class ClassifyRequest(BaseModel):
                     "sender_address": "billing@example.com",
                     "sender_name": "Billing Department",
                     "body": "Please find attached your invoice for January 2024.",
-                    "labels": ["INBOX"],
                 }
             ]
         }
@@ -29,7 +28,6 @@ class ClassifyRequest(BaseModel):
     sender_address: str = Field(..., description="Sender email address")
     sender_name: str = Field(default="", description="Sender display name")
     body: str = Field(default="", description="Email body text (plain text preferred)")
-    labels: list[str] = Field(default_factory=list, description="Existing server-side labels/folders")
 
 
 class ClassifyResponse(BaseModel):
@@ -40,7 +38,7 @@ class ClassifyResponse(BaseModel):
             "examples": [
                 {
                     "msg_id": "12345",
-                    "category": "Finance/Invoices",
+                    "category": "Banque & Placements",
                 }
             ]
         }
@@ -99,7 +97,6 @@ class ClassifyAndMoveRequest(BaseModel):
                     "sender_address": "billing@example.com",
                     "sender_name": "Billing Department",
                     "body": "Please find attached your invoice.",
-                    "labels": ["INBOX"],
                     "provider": "imap",
                 }
             ]
@@ -111,7 +108,9 @@ class ClassifyAndMoveRequest(BaseModel):
     sender_address: str = Field(..., description="Sender email address")
     sender_name: str = Field(default="", description="Sender display name")
     body: str = Field(default="", description="Email body text")
-    labels: list[str] = Field(default_factory=list, description="Existing labels/folders")
+    message_id: str = Field(default="", description="Message-ID header; needed to archive the email later")
+    has_unsubscribe: bool = Field(default=False, description="The email has a List-Unsubscribe header")
+    is_bulk: bool = Field(default=False, description="The email has Precedence: bulk/list")
     provider: str = Field(
         ..., pattern="^(imap|gmail)$", description="Provider to use for moving (imap or gmail)"
     )
@@ -133,7 +132,6 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     uptime_seconds: float = Field(..., description="Server uptime in seconds")
     classifier_ready: bool = Field(..., description="Whether the classifier is initialized")
-    database_loaded: bool = Field(..., description="Whether the classification database is loaded")
 
 
 class StatusResponse(BaseModel):
@@ -143,7 +141,6 @@ class StatusResponse(BaseModel):
     version: str = Field(..., description="API version")
     uptime_seconds: float = Field(..., description="Server uptime in seconds")
     classifier_ready: bool = Field(..., description="Whether the classifier is initialized")
-    database_loaded: bool = Field(..., description="Whether the classification database is loaded")
     categories_count: int = Field(..., description="Number of known classification categories")
     providers: dict[str, bool] = Field(..., description="Available providers and their configuration status")
 
