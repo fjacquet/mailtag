@@ -35,7 +35,7 @@ class Classifier:
     labels, then historical data, semantic routing, and finally an AI model.
     """
 
-    def __init__(self, config: AppConfig, database: ClassificationDatabase):
+    def __init__(self, config: AppConfig, database: ClassificationDatabase, read_only: bool = False):
         import threading
 
         self.config = config
@@ -68,7 +68,7 @@ class Classifier:
             self.taxonomy_store = TaxonomyStore(
                 Path(config.taxonomy.taxonomy_db_dir),
                 min_agreements=config.taxonomy.learn_min_agreements,
-                read_only=getattr(database, "read_only", False) is True,
+                read_only=read_only,
             )
             logger.info(f"Using the {len(self.categories)}-category taxonomy")
         elif config.general.use_imap_folders_for_classification:

@@ -117,9 +117,8 @@ def test_nomic_alone_does_not_learn(classifier, tmp_path, mocker):
     assert not (tmp_path / "senders.json").exists()
 
 
-def test_read_only_database_means_no_learning_written(db, tmp_path, mocker):
-    db.read_only = True
-    classifier = Classifier(config=_config(tmp_path), database=db)
+def test_read_only_classifier_writes_nothing(db, tmp_path, mocker):
+    classifier = Classifier(config=_config(tmp_path), database=db, read_only=True)
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 

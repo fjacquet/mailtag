@@ -213,12 +213,12 @@ def run_classification(provider_instance: Provider, database: ClassificationData
     """Runs the email classification process using a given provider instance."""
     try:
         if isinstance(provider_instance, ImapService):
-            classifier = Classifier(CONFIG, database)
+            classifier = Classifier(CONFIG, database, read_only=validate)
         else:
             gmail_config = dataclasses.replace(
                 CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=False)
             )
-            classifier = Classifier(gmail_config, database)
+            classifier = Classifier(gmail_config, database, read_only=validate)
         if isinstance(provider_instance, ImapService):
             pending_file = pending_archive_path(
                 provider_instance.config, CONFIG.taxonomy.pending_archive_file
