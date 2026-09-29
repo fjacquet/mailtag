@@ -273,3 +273,26 @@ nomic_threshold = 0.7
     assert cfg.gmail.junk_folder_name == "SPAM"
     assert cfg.taxonomy.nomic_threshold == 0.7
     assert not hasattr(cfg, "general")
+
+
+def test_gmail_section_missing_token_file_is_a_config_error(tmp_path, monkeypatch):
+    from mailtag.config import load_config
+
+    monkeypatch.setenv("IMAP_USER", "me@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    path = tmp_path / "config.toml"
+    path.write_text(
+        """
+[logging]
+level = "INFO"
+file = "logs/mailtag.log"
+[imap]
+host = "mail.example.com"
+[gmail]
+credentials_file = "c.json"
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to load or parse config file"):
+        load_config(path)

@@ -138,7 +138,7 @@ def load_config(path: Path) -> AppConfig:
             webhook=webhook_config,
             taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
         )
-    except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
+    except (FileNotFoundError, KeyError, TypeError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
 
 
