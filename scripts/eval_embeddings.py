@@ -628,12 +628,10 @@ def best_threshold(sweep, min_precision=0.90):
 
 def chain_eval(n: int, seed: int) -> None:
     """Replay signals 5-6 on verified mails (leave-sender-out centroids) and pick the nomic threshold."""
-    import dataclasses
     import random
 
     from mailtag.classifier import Classifier
     from mailtag.config import CONFIG
-    from mailtag.database import ClassificationDatabase
     from mailtag.mlx_provider import MLXEmbedder
     from mailtag.models import Email
     from mailtag.taxonomy import nomic_text
@@ -665,10 +663,7 @@ def chain_eval(n: int, seed: int) -> None:
         [m["sender"] for m in test],
     )
 
-    config = dataclasses.replace(CONFIG, taxonomy=dataclasses.replace(CONFIG.taxonomy, enabled=True))
-    classifier = Classifier(config, ClassificationDatabase(Path("db/sender_classification_db.json"),
-                                                           Path("db/validated_classification_db.json"),
-                                                           read_only=True))  # fmt: skip
+    classifier = Classifier(CONFIG, read_only=True)
     emails = [
         Email(msg_id=str(i), subject=m["subject"], sender_address=m["sender"], sender_name=m["sender_name"],
               body=m["body"])

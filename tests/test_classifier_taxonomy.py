@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 
 import pytest
 
@@ -15,19 +14,8 @@ from mailtag.config import (
     MLXConfig,
     TaxonomyConfig,
 )
-from mailtag.database import ClassificationDatabase
 from mailtag.models import Email
 from mailtag.taxonomy import REVIEW, TAXONOMY
-
-
-@pytest.fixture
-def db(mocker):
-    db = mocker.MagicMock(spec=ClassificationDatabase)
-    db.get_dominant_classification.return_value = None
-    db.get_sender_classifications.return_value = {}
-    db.get_category_by_domain.return_value = None
-    db.suggestion_db = defaultdict(lambda: defaultdict(int))
-    return db
 
 
 def _config(tmp_path):
@@ -48,14 +36,16 @@ def _config(tmp_path):
 
 
 @pytest.fixture
-def classifier(db, tmp_path):
-    return Classifier(config=_config(tmp_path), database=db)
+def classifier(tmp_path):
+    return Classifier(config=_config(tmp_path))
 
 
-def mail(i=1, sender="x@shop.ch", subject="S", body="B", labels=None):
-    return Email(
-        msg_id=str(i), subject=subject, sender_address=sender, sender_name="", body=body, labels=labels or []
-    )
+def mail(i=1, sender="x@shop.ch", subject="S", body="B"):
+    return Email(msg_id=str(i), subject=subject, sender_address=sender, sender_name="", body=body)
+
+
+def _categories(classifier, emails):
+    return [category for category, _ in classifier._classify_uncertain_detailed(emails)]
 
 
 def write(tmp_path, name, data):
@@ -66,14 +56,14 @@ def test_categories_are_the_taxonomy(classifier):
     assert classifier.categories == list(TAXONOMY)
 
 
-def test_rules_come_from_the_taxonomy_store(db, tmp_path, mocker):
+def test_rules_come_from_the_taxonomy_store(tmp_path, mocker):
     write(tmp_path, "validated", {"v@x.ch": "Santé"})
     write(tmp_path, "senders", {"l@x.ch": {"category": "Achats", "agreements": 2}})
     write(tmp_path, "domains", {"bcv.ch": "Banque & Placements"})
     mocker.patch("mailtag.taxonomy_store.is_non_commercial_domain_cached", return_value=False)
     uncertain = mocker.patch.object(Classifier, "_classify_uncertain_detailed")
     # the fixture's classifier was built before the files existed: build a fresh one
-    classifier = Classifier(config=_config(tmp_path), database=db)
+    classifier = Classifier(config=_config(tmp_path))
 
     result = classifier.classify_emails_batch(
         [mail(1, sender="v@x.ch"), mail(2, sender="l@x.ch"), mail(3, sender="info@bcv.ch")]
@@ -81,13 +71,6 @@ def test_rules_come_from_the_taxonomy_store(db, tmp_path, mocker):
 
     assert result == ["Santé", "Achats", "Banque & Placements"]
     uncertain.assert_not_called()
-    db.get_dominant_classification.assert_not_called()
-
-
-def test_labels_are_ignored_in_taxonomy_mode(classifier, mocker):
-    mocker.patch.object(classifier, "_classify_uncertain_detailed", return_value=[(REVIEW, False)])
-
-    assert classifier.classify_emails_batch([mail(labels=["Voyages/Sixt"])]) == [REVIEW]
 
 
 def test_classify_email_delegates_to_batch(classifier, mocker):
@@ -117,23 +100,14 @@ def test_nomic_alone_does_not_learn(classifier, tmp_path, mocker):
     assert not (tmp_path / "senders.json").exists()
 
 
-def test_read_only_classifier_writes_nothing(db, tmp_path, mocker):
-    classifier = Classifier(config=_config(tmp_path), database=db, read_only=True)
+def test_read_only_classifier_writes_nothing(tmp_path, mocker):
+    classifier = Classifier(config=_config(tmp_path), read_only=True)
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
     classifier.classify_emails_batch([mail(sender="doc@clinic.ch")])
 
     assert list(tmp_path.iterdir()) == []
-
-
-def test_no_suggestion_db_writes_in_taxonomy_mode(classifier, db, mocker):
-    mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
-    mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
-
-    classifier.classify_emails_batch([mail()])
-
-    db.update_suggestion.assert_not_called()
 
 
 def test_embeddings_path_uses_taxonomy_centroids(classifier):
@@ -144,7 +118,7 @@ def test_chain_nomic_above_threshold_wins(classifier, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Achats", 0.75)])
     llm = mocker.patch.object(classifier, "_llm_categories")
 
-    assert classifier._classify_uncertain([mail()]) == ["Achats"]
+    assert _categories(classifier, [mail()]) == ["Achats"]
     llm.assert_not_called()
 
 
@@ -152,21 +126,21 @@ def test_chain_agreement_classifies(classifier, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
-    assert classifier._classify_uncertain([mail()]) == ["Santé"]
+    assert _categories(classifier, [mail()]) == ["Santé"]
 
 
 def test_chain_disagreement_goes_to_review(classifier, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Achats"])
 
-    assert classifier._classify_uncertain([mail()]) == [REVIEW]
+    assert _categories(classifier, [mail()]) == [REVIEW]
 
 
 def test_chain_unparsable_llm_goes_to_review(classifier, mocker):
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=[None])
 
-    assert classifier._classify_uncertain([mail()]) == [REVIEW]
+    assert _categories(classifier, [mail()]) == [REVIEW]
 
 
 def test_chain_mixed_batch_keeps_order(classifier, mocker):
@@ -175,7 +149,7 @@ def test_chain_mixed_batch_keeps_order(classifier, mocker):
     )
     llm = mocker.patch.object(classifier, "_llm_categories", return_value=["Santé", "Achats"])
 
-    result = classifier._classify_uncertain([mail(1), mail(2), mail(3)])
+    result = _categories(classifier, [mail(1), mail(2), mail(3)])
 
     assert result == ["Achats", "Santé", REVIEW]
     assert [e.msg_id for e in llm.call_args.args[0]] == ["2", "3"]
@@ -202,7 +176,7 @@ def test_nomic_failure_sends_everything_to_review(classifier, mocker):
     classifier._semantic_router = router
     mocker.patch.object(classifier, "_llm_categories", return_value=["Achats", "Santé"])
 
-    assert classifier._classify_uncertain([mail(1), mail(2)]) == [REVIEW, REVIEW]
+    assert _categories(classifier, [mail(1), mail(2)]) == [REVIEW, REVIEW]
 
 
 def test_nomic_top_maps_old_folder_to_category(classifier, mocker):
@@ -237,7 +211,7 @@ def test_llm_failure_returns_none(classifier, mocker):
     assert classifier._llm_categories([mail()]) == [None]
 
 
-def test_owner_address_is_never_a_rule_and_never_learned(db, tmp_path, mocker):
+def test_owner_address_is_never_a_rule_and_never_learned(tmp_path, mocker):
     import dataclasses
 
     write(tmp_path, "validated", {"fred.jacquet@gmail.com": "Achats"})
@@ -245,7 +219,7 @@ def test_owner_address_is_never_a_rule_and_never_learned(db, tmp_path, mocker):
     config = dataclasses.replace(
         config, taxonomy=dataclasses.replace(config.taxonomy, own_addresses=["Fred.Jacquet@gmail.com"])
     )
-    classifier = Classifier(config=config, database=db)
+    classifier = Classifier(config=config)
     mocker.patch.object(classifier, "_nomic_top", return_value=[("Santé", 0.60)])
     mocker.patch.object(classifier, "_llm_categories", return_value=["Santé"])
 
@@ -253,3 +227,9 @@ def test_owner_address_is_never_a_rule_and_never_learned(db, tmp_path, mocker):
     classifier.classify_emails_batch([mail(sender="fred.jacquet@gmail.com")])
 
     assert not (tmp_path / "senders.json").exists()
+
+
+def test_classifier_needs_no_database(tmp_path):
+    classifier = Classifier(_config(tmp_path))
+
+    assert classifier.categories == list(TAXONOMY)

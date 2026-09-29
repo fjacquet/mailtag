@@ -68,7 +68,7 @@ def junk_folder(provider: ImapService) -> str | None:
 def run_classification(provider_instance: ImapService, validate: bool) -> None:
     """Pass 1 (rules) on junk and INBOX, Pass 3 (nomic/Gemma) on the rest, then the archive sweep."""
     try:
-        classifier = Classifier(CONFIG, None, read_only=validate)
+        classifier = Classifier(CONFIG, read_only=validate)
         rules = classifier.taxonomy_store
         pending = PendingArchive(
             pending_archive_path(provider_instance.config, CONFIG.taxonomy.pending_archive_file)

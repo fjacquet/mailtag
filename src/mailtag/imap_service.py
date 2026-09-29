@@ -328,10 +328,6 @@ class ImapService(EmailProvider):
 
                 sender_name, sender_address = self._parse_sender(sender_header or "")
                 body = self._get_body_from_msg(msg)
-                labels = [
-                    label.decode() if isinstance(label, bytes) else str(label)
-                    for label in data.get(b"X-GM-LABELS", [])
-                ]
                 message_id, has_unsubscribe, is_bulk = list_header_flags(msg)
 
                 emails[msg_id] = Email(
@@ -340,7 +336,6 @@ class ImapService(EmailProvider):
                     sender_address=sender_address or "",
                     sender_name=sender_name or "",
                     body=body,
-                    labels=labels,
                     message_id=message_id,
                     has_unsubscribe=has_unsubscribe,
                     is_bulk=is_bulk,
@@ -368,8 +363,6 @@ class ImapService(EmailProvider):
 
         # Prepare fetch command
         fetch_command = [b"BODY.PEEK[]"]
-        if self.config.use_gmail_extensions:
-            fetch_command.append(b"X-GM-LABELS")
 
         # Use the batch fetch helper
         results = self._batch_fetch(int_uids, fetch_command, self._process_full_emails)

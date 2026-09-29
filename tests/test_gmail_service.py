@@ -44,7 +44,6 @@ def test_get_emails_integration(gmail_service_instance: GmailService, mock_gmail
         emails = service.get_emails()
         assert len(emails) == 1
         assert emails[0].body == "Test body"
-        assert "MyLabel" in emails[0].labels
 
 
 def test_move_email(

@@ -21,7 +21,7 @@ class AppState:
         Nothing needs flushing at shutdown: the taxonomy store saves itself after each batch.
         """
         logger.info("Initializing classifier...")
-        self.classifier = Classifier(CONFIG, None)
+        self.classifier = Classifier(CONFIG)
         logger.info("Classifier ready with {} categories", len(self.classifier.categories))
 
     @property
