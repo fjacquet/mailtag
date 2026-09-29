@@ -95,7 +95,7 @@ def env(mocker, tmp_path, monkeypatch):
 def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
     provider, archive = env
 
-    tasks.run_classification(provider, mocker.MagicMock(), False)
+    tasks.run_classification(provider, False)
 
     moves = [(c.args[0], c.args[1]) for c in provider.batch_move_emails.call_args_list]
     assert moves == [(["1"], "4-Pour info"), (["2"], "4-Pour info"), (["3"], REVIEW)]
@@ -112,9 +112,17 @@ def test_run_routes_rules_and_models_into_action_folders(env, tmp_path, mocker):
 def test_validate_run_moves_and_writes_nothing(env, tmp_path, mocker):
     provider, archive = env
 
-    tasks.run_classification(provider, mocker.MagicMock(), True)
+    tasks.run_classification(provider, True)
 
     provider.batch_move_emails.assert_not_called()
     assert not (tmp_path / "pending.json").exists()
     assert sorted(p.name for p in (tmp_path / "taxonomy").iterdir()) == ["validated.json"]
     assert archive.call_args.args[5] is True
+
+
+def test_run_writes_no_manual_matching_dump(env, tmp_path):
+    provider, _ = env
+
+    tasks.run_classification(provider, False)
+
+    assert not (tmp_path / "data").exists()

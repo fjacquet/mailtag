@@ -144,7 +144,7 @@ class TestMain:
         # Check that validate=True was passed
         for call in mock_run.call_args_list:
             args, kwargs = call
-            assert args[2] is True  # validate argument
+            assert args[1] is True  # validate argument
 
     def test_main_invalid_provider(self, mocker: MockerFixture, mock_app_config):
         """Tests that the program exits with an error for an invalid provider."""
@@ -156,15 +156,16 @@ class TestMain:
 
 
 @pytest.mark.parametrize("validate", [True, False])
-def test_validate_opens_database_read_only(mocker: MockerFixture, validate):
+def test_run_passes_validate_to_each_provider(mocker: MockerFixture, validate):
     from main import start_classification_run
 
     mocker.patch("mailtag.utils.db_backup.backup_all_databases")
     mocker.patch("mailtag.utils.db_backup.cleanup_old_backups")
     config = mocker.patch("main.CONFIG")
-    config.imap = None
-    database = mocker.patch("main.ClassificationDatabase")
+    config.gmail = None
+    mocker.patch("main.ImapService")
+    run = mocker.patch("main.run_classification")
 
     start_classification_run("imap", validate)
 
-    assert database.call_args.kwargs["read_only"] is validate
+    assert run.call_args.args[1] is validate

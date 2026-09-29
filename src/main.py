@@ -61,25 +61,13 @@ def start_classification_run(provider, validate):
     from mailtag.utils.db_backup import backup_all_databases, cleanup_old_backups
 
     db_dir = Path("db")
-    suggestion_db_path = db_dir / "sender_classification_db.json"
-    validated_db_path = db_dir / "validated_classification_db.json"
-
-    # Backup databases once at start of run
     logger.info("Creating database backups...")
     backup_all_databases(db_dir)
     cleanup_old_backups(db_dir / "backups", keep_count=10)
 
-    database = ClassificationDatabase(suggestion_db_path, validated_db_path, read_only=validate)
-
     providers_to_run = []
     if provider in ("imap", "all") and CONFIG.imap:
-        imap_service = ImapService(CONFIG.imap, CONFIG.fast_parse)
-        # Refresh IMAP folders at startup if configured
-        if CONFIG.general.use_imap_folders_for_classification:
-            logger.info("Refreshing IMAP folders at startup...")
-            refresh_imap_folders(imap_service)
-        providers_to_run.append(imap_service)
-    # Gmail runs through the Gmail API; its folders never replace data/imap_folders.json
+        providers_to_run.append(ImapService(CONFIG.imap, CONFIG.fast_parse))
     if provider in ("gmail", "all") and CONFIG.gmail:
         providers_to_run.append(GmailApiService(CONFIG.gmail, CONFIG.fast_parse))
 
@@ -89,7 +77,7 @@ def start_classification_run(provider, validate):
 
     for p in providers_to_run:
         logger.info(f"Running classification for provider: {type(p).__name__}")
-        run_classification(p, database, validate)
+        run_classification(p, validate)
 
 
 @click.group()
