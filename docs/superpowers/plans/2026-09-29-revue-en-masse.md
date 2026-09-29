@@ -116,9 +116,12 @@ def test_non_commercial_domain_is_never_a_validated_domain_rule(tmp_path):
 
 Group entry shape (JSON-serialisable, written by Task 3 to `data/review_scan_<provider>.json` under `"groups"`):
 ```python
-{"kind": "domain" | "sender", "mails": 12,
- "senders": {"a@shop.ch": {"name": "Shop", "mails": 10}, "b@shop.ch": {"name": "", "mails": 2}},
- "subjects": ["...", "..."]}  # at most max_subjects, first seen
+{
+    "kind": "domain" | "sender",
+    "mails": 12,
+    "senders": {"a@shop.ch": {"name": "Shop", "mails": 10}, "b@shop.ch": {"name": "", "mails": 2}},
+    "subjects": ["...", "..."],
+}  # at most max_subjects, first seen
 ```
 Group keys: the domain for `"domain"` groups, the address for `"sender"` groups.
 
@@ -144,7 +147,13 @@ from collections import defaultdict
 
 from loguru import logger
 
-from .taxonomy import REVIEW, category_folder, llm_sender_part, llm_sender_static_prompt, parse_category_number
+from .taxonomy import (
+    REVIEW,
+    category_folder,
+    llm_sender_part,
+    llm_sender_static_prompt,
+    parse_category_number,
+)
 from .taxonomy_store import normalize_address
 from .utils.domain_utils import extract_domain, is_non_commercial_domain_cached
 
@@ -213,8 +222,18 @@ def review_queue(groups, category_for, split, skipped):
         if key in split and g["kind"] == "domain":
             for address, s in senders.items():
                 if address not in skipped:
-                    rows.append((address, {"kind": "sender", "mails": s["mails"],
-                                           "senders": {address: s}, "subjects": g["subjects"], "domain": key}))
+                    rows.append(
+                        (
+                            address,
+                            {
+                                "kind": "sender",
+                                "mails": s["mails"],
+                                "senders": {address: s},
+                                "subjects": g["subjects"],
+                                "domain": key,
+                            },
+                        )
+                    )
         elif key not in skipped:
             rows.append((key, {**g, "senders": senders, "mails": sum(s["mails"] for s in senders.values())}))
     return sorted(rows, key=lambda row: -row[1]["mails"])
@@ -243,7 +262,11 @@ def refile_review(provider, category_for, pending, own, apply):
     for category, ms in moves.items():
         try:
             provider.batch_move_emails([m["uid"] for m in ms], category_folder(category))
-        except (ConnectionError, TimeoutError, OSError) as e:  # match archive.py's error set incl. imaplib.IMAP4.error
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+        ) as e:  # match archive.py's error set incl. imaplib.IMAP4.error
             logger.error(f"Could not move {len(ms)} emails to {category}: {e}")
             report["moves"][category] = 0
             continue
