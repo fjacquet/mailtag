@@ -39,7 +39,7 @@ Orchestration of one `run` for one account (IMAP or Gmail).
 
 **Key Functions:**
 
-- `run_classification(provider, validate)` - Main orchestrator
+- `run_classification(provider, validate, classifier)` - Main orchestrator (one shared `Classifier` per run)
 - `_run_fast_parse_on_folder(...)` - Pass 1: rules on headers only; routes matches, returns the UIDs left
 - `pending_archive_path(config, default)` - each account keeps its own pending archive file
 - `junk_folder(provider)` - the account's junk folder name

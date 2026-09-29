@@ -96,7 +96,7 @@ class TestMain:
     def test_main_validate_mode(self, mocker: MockerFixture, mock_app_config):
         """
         Tests that when --validate is passed, the 'validate' argument is True
-        and move_email is not called.
+        and no email is moved.
         """
         from main import cli
 

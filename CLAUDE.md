@@ -81,7 +81,7 @@ Spec: `docs/superpowers/specs/2026-09-27-taxonomie-19-categories-design.md`.
 
 There is no provider base class: both providers are `ImapService` (`src/mailtag/imap_service.py`) objects.
 
-- `ImapService`: IMAP implementation with `connect()` (context manager), `get_email_headers()` (headers only, Pass 1), `get_full_emails()` (bodies, Pass 3), `batch_move_emails()`, `select_folder()`, `move_email()`
+- `ImapService`: IMAP implementation with `connect()` (context manager), `get_email_headers()` (headers only, Pass 1), `get_full_emails()` (bodies, Pass 3), `batch_move_emails()`, `select_folder()`
 - `GmailApiService` (`src/mailtag/gmail_api.py`): the Gmail provider (`run --provider gmail`); subclasses `ImapService` and only replaces `connect()`, using `GmailLabelClient` — the same small IMAPClient subset the taxonomy flow uses, translated to Gmail API calls (labels, categories) — see below
 
 ### Data and backups

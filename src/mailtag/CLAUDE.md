@@ -29,7 +29,7 @@ Core package: classifies emails into 19 categories and files them.
 - **imap_service.py** - `ImapService`
   - `get_email_headers()` - headers only, Pass 1
   - `get_full_emails()` - full bodies, Pass 3
-  - `batch_move_emails()` / `move_email()` / `select_folder()`
+  - `batch_move_emails()` / `select_folder()`
 - **gmail_api.py** - `GmailApiService(ImapService)` and `GmailLabelClient` (IMAPClient subset over the Gmail API)
 - **gmail_auth.py** - OAuth flow for Gmail
 
