@@ -98,6 +98,7 @@ class GmailLabelClient:
         self._search_total = 0
         self._fetched = 0
         self._search_began = 0.0
+        self._fetch_kind = ""
 
     @staticmethod
     def _execute(request, ignore_status: int | None = None):
@@ -186,6 +187,7 @@ class GmailLabelClient:
             if not page_token:
                 break
         self._search_total, self._fetched, self._search_began = len(ids), 0, time.monotonic()
+        self._fetch_kind = ""
         return ids
 
     def _count_fetched(self) -> None:
@@ -198,6 +200,10 @@ class GmailLabelClient:
             logger.info(f"Gmail: {self._fetched}/{self._search_total} messages read ({rate:.0f}/s)")
 
     def fetch(self, uids: list, fields: list[bytes]) -> dict:
+        # Pass 3 reads bodies from the same search Pass 1 read headers from: count each read afresh
+        kind = "bodies" if any(b"BODY[]" in f or b"BODY.PEEK[]" in f for f in fields) else "headers"
+        if kind != self._fetch_kind:
+            self._fetch_kind, self._fetched, self._search_began = kind, 0, time.monotonic()
         result = {}
         for uid in uids:
             msg_id = str(uid)
@@ -251,9 +257,6 @@ class GmailLabelClient:
 
     def logout(self) -> None:
         pass
-
-    def is_login(self) -> bool:
-        return True
 
 
 class GmailApiService(ImapService):

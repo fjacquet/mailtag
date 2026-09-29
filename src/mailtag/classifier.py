@@ -186,7 +186,9 @@ class Classifier:
         ]
         pending = [i for i, result in enumerate(results) if result is None]
         if pending:
-            for i, result in zip(pending, self._classify_uncertain_detailed([emails[i] for i in pending])):
+            for i, result in zip(
+                pending, self._classify_uncertain_detailed([emails[i] for i in pending]), strict=True
+            ):
                 results[i] = result
         logger.info(
             f"Taxonomy batch: {len(emails) - len(pending)} by rules, "
