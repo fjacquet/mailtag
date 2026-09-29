@@ -16,7 +16,6 @@ dependencies = [
     "beautifulsoup4>=4.13.4",
     "streamlit>=1.46.1",
     "loguru>=0.7.2",
-    "pytest-mock>=3.14.1",
     "pydantic==2.11.7",
     "google-api-python-client==2.179.0",
     "google-auth-httplib2==0.2.0",
@@ -25,11 +24,7 @@ dependencies = [
     "imapclient>=3.0.1",
     "click>=8.2.1",
     "fastapi>=0.115.14",
-    "watchdog>=6.0.0",
     "PyYAML==6.0.2",
-    "google>=3.0.0",
-    "pydantic>=2.11.7",
-    "dotenv>=0.9.9",
     # MLX dependencies (Apple Silicon optimized)
     "mlx>=0.18.0",
     "mlx-lm>=0.31.0",
@@ -40,7 +35,6 @@ dependencies = [
     "einops>=0.8.1",
     # Webhook API server
     "uvicorn[standard]>=0.34.0",
-    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -60,7 +54,6 @@ gmail = [
     "google-api-python-client",
     "google-auth-httplib2",
     "google-auth-oauthlib",
-    "google>=3.0.0",
 ]
 
 docs = [
