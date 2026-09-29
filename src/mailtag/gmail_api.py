@@ -26,11 +26,9 @@ _MIN_INTERVAL = 0.025
 # at most this many times: batches mostly hit the short concurrency limit, not the minute quota.
 _RATE_LIMIT_WAIT = 60
 _RATE_LIMIT_TRIES = 8
-# Reads go in batch requests: one HTTP round trip for many messages (each still costs its own quota).
-# Gmail runs a batch's requests concurrently: 50 at once trips its per-user concurrency limit.
-_HEADER_BATCH = 10
-_BODY_BATCH = 10
-_PROGRESS_EVERY = 500  # messages between two progress lines of a long fetch
+# One request per message: batch requests run concurrently on Gmail's side and trip its per-user
+# concurrency limit, which made them slower than sequential calls in practice.
+_PROGRESS_EVERY = 500  # messages read between two progress lines, counted from the last search
 _last_call = 0.0
 
 
@@ -40,10 +38,10 @@ def _backoff(waits: int) -> None:
     time.sleep(pause)
 
 
-def _pace(calls: int = 1) -> None:
-    """Wait until `calls` more calls fit under the per-user quota, counting from the previous call."""
+def _pace() -> None:
+    """Wait until one more call fits under the per-user quota, counting from the previous call."""
     global _last_call
-    pause = _last_call + calls * _MIN_INTERVAL - time.monotonic()
+    pause = _last_call + _MIN_INTERVAL - time.monotonic()
     if pause > 0:
         time.sleep(pause)
     _last_call = time.monotonic()
@@ -97,6 +95,9 @@ class GmailLabelClient:
         self._labels: dict[str, str] = {}
         self._labels_loaded = False
         self._selected: str | None = None
+        self._search_total = 0
+        self._fetched = 0
+        self._search_began = 0.0
 
     @staticmethod
     def _execute(request, ignore_status: int | None = None):
@@ -184,87 +185,53 @@ class GmailLabelClient:
             page_token = resp.get("nextPageToken")
             if not page_token:
                 break
+        self._search_total, self._fetched, self._search_began = len(ids), 0, time.monotonic()
         return ids
 
-    def _batch_get(self, ids: list[str], build, size: int) -> dict[str, dict]:
-        """messages.get for every id, `size` per batch request; a missing (404) message is left out."""
-        found: dict[str, dict] = {}
-        began = time.monotonic()
-        for start in range(0, len(ids), size):
-            todo, waits = ids[start : start + size], 0
-            while todo:
-                limited: list[str] = []
-                failed: list[Exception] = []
-
-                def on_reply(request_id, response, exception, limited=limited, failed=failed):
-                    if exception is None:
-                        found[request_id] = response
-                    elif isinstance(exception, HttpError) and exception.resp.status == 404:
-                        logger.warning(
-                            f"Gmail message {request_id} not found (404); skipping, like a missing UID."
-                        )
-                    elif isinstance(exception, HttpError) and _rate_limited(exception):
-                        limited.append(request_id)
-                    else:
-                        failed.append(exception)
-
-                batch = self.service.new_batch_http_request(callback=on_reply)
-                for msg_id in todo:
-                    batch.add(build(msg_id), request_id=msg_id)
-                _pace(len(todo))
-                try:
-                    batch.execute()
-                except (HttpError, httplib2.HttpLib2Error, OSError) as e:
-                    raise ConnectionError(str(e)) from e
-                if failed:
-                    raise ConnectionError(str(failed[0])) from failed[0]
-                if limited and waits >= _RATE_LIMIT_TRIES:
-                    raise ConnectionError(f"Gmail quota still exceeded for {len(limited)} messages")
-                if limited:
-                    waits += 1
-                    _backoff(waits)
-                todo = limited
-            done = min(start + size, len(ids))
-            if len(ids) > _PROGRESS_EVERY and (done % _PROGRESS_EVERY < size or done == len(ids)):
-                rate = done / max(time.monotonic() - began, 1e-6)
-                logger.info(f"Gmail: {done}/{len(ids)} messages read ({rate:.0f}/s)")
-        return found
+    def _count_fetched(self) -> None:
+        """Progress of a long read, across the fetch calls that follow one search."""
+        self._fetched += 1
+        if self._search_total > _PROGRESS_EVERY and (
+            self._fetched % _PROGRESS_EVERY == 0 or self._fetched == self._search_total
+        ):
+            rate = self._fetched / max(time.monotonic() - self._search_began, 1e-6)
+            logger.info(f"Gmail: {self._fetched}/{self._search_total} messages read ({rate:.0f}/s)")
 
     def fetch(self, uids: list, fields: list[bytes]) -> dict:
-        messages = self.service.users().messages()
-        ids = list(dict.fromkeys(str(uid) for uid in uids))  # a batch refuses a repeated request id
-        replies: list[tuple[bytes, dict[str, dict]]] = []
-        for field in fields:
-            if b"BODY[]" in field or b"BODY.PEEK[]" in field:
-                got = self._batch_get(
-                    ids, lambda msg_id: messages.get(userId="me", id=msg_id, format="raw"), _BODY_BATCH
-                )
-                replies.append((b"BODY[]", got))
-            elif b"HEADER.FIELDS (" in field:
-                names = _HEADER_FIELDS_RE.search(field).group(1).decode().split()
-                got = self._batch_get(
-                    ids,
-                    lambda msg_id, names=names: messages.get(
-                        userId="me", id=msg_id, format="metadata", metadataHeaders=names
-                    ),
-                    _HEADER_BATCH,
-                )
-                replies.append((field.replace(b".PEEK", b""), got))
-            # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
-
         result = {}
         for uid in uids:
             msg_id = str(uid)
-            if any(msg_id not in got for _, got in replies):
-                continue  # missing (404) for one of the fields
             entry: dict[bytes, bytes] = {}
-            for key, got in replies:
-                resp = got[msg_id]
-                if key == b"BODY[]":
-                    entry[key] = base64.urlsafe_b64decode(resp["raw"])
-                else:
+            not_found = False
+            for field in fields:
+                if b"BODY[]" in field or b"BODY.PEEK[]" in field:
+                    resp = self._execute(
+                        self.service.users().messages().get(userId="me", id=msg_id, format="raw"),
+                        ignore_status=404,
+                    )
+                    if resp is None:
+                        not_found = True
+                        break
+                    entry[b"BODY[]"] = base64.urlsafe_b64decode(resp["raw"])
+                elif b"HEADER.FIELDS (" in field:
+                    names = _HEADER_FIELDS_RE.search(field).group(1).decode().split()
+                    resp = self._execute(
+                        self.service.users()
+                        .messages()
+                        .get(userId="me", id=msg_id, format="metadata", metadataHeaders=names),
+                        ignore_status=404,
+                    )
+                    if resp is None:
+                        not_found = True
+                        break
                     headers = resp.get("payload", {}).get("headers", [])
-                    entry[key] = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers).encode("utf-8")
+                    text = "".join(f"{h['name']}: {h['value']}\r\n" for h in headers)
+                    entry[field.replace(b".PEEK", b"")] = text.encode("utf-8")
+                # else: ignore (e.g. X-GM-LABELS, not exposed by the Gmail API metadata call)
+            self._count_fetched()
+            if not_found:
+                logger.warning(f"Gmail message {msg_id} not found (404); skipping, like a missing IMAP UID.")
+                continue
             if entry:
                 result[uid] = entry
         return result
