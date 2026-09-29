@@ -13,7 +13,6 @@ from loguru import logger
 from mailtag.config import FastParseConfig, ImapConfig
 from mailtag.metrics import configure_metrics, log_metrics, timed
 from mailtag.models import Email
-from mailtag.providers import EmailProvider
 from mailtag.utils.email_parsing import extract_body_from_message, parse_sender
 
 from .retry import retry
@@ -36,7 +35,7 @@ def list_header_flags(msg: email.message.Message) -> tuple[str, bool, bool]:
     return message_id, has_unsubscribe, is_bulk
 
 
-class ImapService(EmailProvider):
+class ImapService:
     """Handles interactions with an IMAP email server using IMAPClient."""
 
     def __init__(self, config: ImapConfig, fast_parse_config: FastParseConfig):
@@ -322,15 +321,6 @@ class ImapService(EmailProvider):
 
         # Return emails in the same order as requested UIDs
         return [results[uid] for uid in int_uids if uid in results]
-
-    def get_emails(
-        self,
-        subject: str | None = None,
-        sender: str | None = None,
-        status: str | None = None,
-    ) -> list[Email]:
-        """This method is deprecated for IMAP and will not be implemented."""
-        raise NotImplementedError("get_emails is not supported for IMAP with Fast Parse.")
 
     @timed(operation_name="imap_batch_move_emails")
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))
