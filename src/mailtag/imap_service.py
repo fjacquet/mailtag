@@ -2,12 +2,9 @@ import email
 import email.errors
 import email.header
 import imaplib
-import json
 import threading
 from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any, TypeVar
 
 from imapclient import IMAPClient
@@ -46,7 +43,6 @@ class ImapService(EmailProvider):
         self.config = config
         self.fast_parse_config = fast_parse_config
         self.client: IMAPClient | None = None
-        self.folder_cache_path = Path(config.folder_cache_file)
 
         # Thread management for metrics logging
         self._metrics_stop_event = threading.Event()
@@ -128,49 +124,6 @@ class ImapService(EmailProvider):
         """
         self.client = IMAPClient(self.config.host)
         self.client.login(self.config.user, self.config.password)
-
-    def get_folder_hierarchy(self) -> list[str]:
-        """
-        Fetches the folder hierarchy from the IMAP server and caches it.
-        """
-        # Try to load from cache if it exists and is not expired
-        if self.folder_cache_path.exists():
-            try:
-                cache_mod_time = datetime.fromtimestamp(self.folder_cache_path.stat().st_mtime)
-                if datetime.now() - cache_mod_time < timedelta(
-                    hours=self.fast_parse_config.folder_cache_ttl_hours
-                ):
-                    with self.folder_cache_path.open("r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        if content:  # Check if file is not empty
-                            try:
-                                return json.loads(content)
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"Invalid JSON in cache file: {e}. Refreshing from server.")
-            except (OSError, PermissionError) as e:
-                logger.warning(f"Error reading cache file: {e}. Refreshing from server.")
-
-        # If we get here, we need to fetch from the server
-        if not self.client:
-            raise ConnectionError("Not connected to IMAP server.")
-
-        folders = self._list_folders_with_retry()
-
-        # Ensure data directory exists
-        self.folder_cache_path.parent.mkdir(exist_ok=True)
-
-        # Save to cache
-        with self.folder_cache_path.open("w", encoding="utf-8") as f:
-            json.dump(folders, f, indent=2)
-
-        return folders
-
-    @retry(exceptions=(ConnectionError, TimeoutError, IOError))
-    def _list_folders_with_retry(self) -> list[str]:
-        """
-        Lists folders with retry support for transient failures.
-        """
-        return [folder[2] for folder in self.client.list_folders()]
 
     @timed(operation_name="imap_batch_fetch")
     @retry(exceptions=(ConnectionError, TimeoutError, IOError))

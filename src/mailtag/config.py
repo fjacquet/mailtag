@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -15,29 +16,12 @@ class LoggingConfig:
 
 
 @dataclass
-class GeneralConfig:
-    ollama_model: str
-    api_base: str
-    use_imap_folders_for_classification: bool = True
-
-
-@dataclass
-class ClassifierConfig:
-    ai_confidence_threshold: float
-    historical_confidence_threshold: float
-    min_count: int
-    num_ctx: int = 8192  # AI model context window size
-
-
-@dataclass
 class ImapConfig:
     host: str
     user: str
     password: str
-    use_gmail_extensions: bool = False
     # Per-account overrides (the Gmail account sets them; None = the global setting)
     pending_archive_file: str | None = None
-    folder_cache_file: str = "data/imap_folders.json"
     junk_folder_name: str | None = None
 
 
@@ -47,21 +31,13 @@ class GmailConfig:
     token_file: str
     # Gmail through the API (docs/superpowers/specs/2026-09-28-gmail-api-taxonomy-design.md)
     pending_archive_file: str | None = "db/pending_archive_gmail.json"
-    folder_cache_file: str = "data/gmail_labels.json"
     junk_folder_name: str | None = "SPAM"
-    use_gmail_extensions: bool = False
 
 
 @dataclass
 class FastParseConfig:
     batch_size: int = 500
-    folder_cache_ttl_hours: int = 24
-    unclassified_folder_name: str = "Unclassified"
     junk_folder_name: str = "Junk"
-    max_retries: int = 3
-    retry_delay: float = 1.0
-    retry_backoff: float = 2.0
-    retry_jitter: float = 0.1
     metrics_enabled: bool = True
     metrics_log_level: str = "DEBUG"
     metrics_log_interval_minutes: int = 10
@@ -98,7 +74,6 @@ class WebhookConfig:
 class TaxonomyConfig:
     """19-category taxonomy with action folders (see docs/superpowers/specs/2026-09-27-*)."""
 
-    enabled: bool = False
     nomic_threshold: float = 0.70
     llm_batch_size: int = 8
     archive_after_days: int = 7
@@ -115,9 +90,7 @@ class TaxonomyConfig:
 
 @dataclass
 class AppConfig:
-    general: GeneralConfig
     logging: LoggingConfig
-    classifier: ClassifierConfig
     imap: ImapConfig
     gmail: GmailConfig
     fast_parse: FastParseConfig
@@ -138,100 +111,41 @@ def _dataclass_from_dict(cls, data: dict):
 
 
 def load_config(path: Path) -> AppConfig:
-    """Loads the application configuration from a TOML file."""
+    """Loads the application configuration from a TOML file (unknown keys are ignored)."""
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
 
-            # Allow MODEL or MODEL_NAME from .env to override config.toml
-            ollama_model = (
-                os.getenv("MODEL") or os.getenv("MODEL_NAME") or data["general"].get("ollama_model")
-            )
-            if not ollama_model:
-                raise ValueError("MODEL not found in environment or config file.")
+        imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
+        if not imap_user:
+            raise ValueError("IMAP_USER not found in environment or config file.")
+        imap_password = os.getenv("IMAP_PASSWORD", data["imap"].get("password"))
+        if not imap_password:
+            raise ValueError("IMAP_PASSWORD not found in environment or config file.")
 
-            # API base is optional - required for Ollama, not needed for Gemini/others
-            ollama_api_url = (
-                os.getenv("OLLAMA_API_URL") or os.getenv("API_BASE") or data["general"].get("api_base", "")
-            )
-
-            imap_user = os.getenv("IMAP_USER", data["imap"].get("user"))
-            if not imap_user:
-                raise ValueError("IMAP_USER not found in environment or config file.")
-
-            imap_password = os.getenv("IMAP_PASSWORD", data["imap"].get("password"))
-            if not imap_password:
-                raise ValueError("IMAP_PASSWORD not found in environment or config file.")
-
-            fast_parse_config = _dataclass_from_dict(FastParseConfig, data.get("fast_parse", {}))
-            mlx_config = _dataclass_from_dict(MLXConfig, data.get("mlx", {}))
-
-            # Allow MLX_ENABLED env var to override config (for Docker/non-Apple-Silicon)
-            mlx_enabled_env = os.getenv("MLX_ENABLED")
-            if mlx_enabled_env is not None:
-                mlx_config = MLXConfig(
-                    enabled=mlx_enabled_env.lower() in ("true", "1", "yes"),
-                    embedding_model=mlx_config.embedding_model,
-                    score_threshold=mlx_config.score_threshold,
-                    embeddings_file=mlx_config.embeddings_file,
-                    llm_model=mlx_config.llm_model,
-                    llm_confidence=mlx_config.llm_confidence,
-                    llm_max_tokens=mlx_config.llm_max_tokens,
-                    llm_temperature=mlx_config.llm_temperature,
-                )
-
-            webhook_config = _dataclass_from_dict(WebhookConfig, data.get("webhook", {}))
-            # Resolve API key from environment
-            webhook_api_key = os.getenv("WEBHOOK_API_KEY", webhook_config.api_key)
-            if webhook_api_key.startswith("${"):
-                webhook_api_key = ""
-            webhook_config = WebhookConfig(
-                host=webhook_config.host,
-                port=webhook_config.port,
-                api_key=webhook_api_key,
-                allow_move=webhook_config.allow_move,
-                max_batch_size=webhook_config.max_batch_size,
+        mlx_config = _dataclass_from_dict(MLXConfig, data.get("mlx", {}))
+        # Allow MLX_ENABLED env var to override config (for Docker/non-Apple-Silicon)
+        mlx_enabled_env = os.getenv("MLX_ENABLED")
+        if mlx_enabled_env is not None:
+            mlx_config = dataclasses.replace(
+                mlx_config, enabled=mlx_enabled_env.lower() in ("true", "1", "yes")
             )
 
-            return AppConfig(
-                general=GeneralConfig(
-                    ollama_model=ollama_model,
-                    api_base=ollama_api_url,
-                    use_imap_folders_for_classification=data["general"].get(
-                        "use_imap_folders_for_classification", True
-                    ),
-                ),
-                logging=LoggingConfig(
-                    level=data["logging"]["level"],
-                    file=data["logging"]["file"],
-                ),
-                classifier=ClassifierConfig(
-                    ai_confidence_threshold=data["classifier"]["ai_confidence_threshold"],
-                    historical_confidence_threshold=data["classifier"]["historical_confidence_threshold"],
-                    min_count=data["classifier"]["min_count"],
-                    num_ctx=data["classifier"].get("num_ctx", 8192),
-                ),
-                imap=ImapConfig(
-                    host=data["imap"]["host"],
-                    user=imap_user,
-                    password=imap_password,
-                    use_gmail_extensions=data["imap"].get("use_gmail_extensions", False),
-                ),
-                gmail=GmailConfig(
-                    credentials_file=data["gmail"]["credentials_file"],
-                    token_file=data["gmail"]["token_file"],
-                    pending_archive_file=data["gmail"].get(
-                        "pending_archive_file", "db/pending_archive_gmail.json"
-                    ),
-                    folder_cache_file=data["gmail"].get("folder_cache_file", "data/gmail_labels.json"),
-                    junk_folder_name=data["gmail"].get("junk_folder_name", "SPAM"),
-                    use_gmail_extensions=data["gmail"].get("use_gmail_extensions", False),
-                ),
-                fast_parse=fast_parse_config,
-                mlx=mlx_config,
-                webhook=webhook_config,
-                taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
-            )
+        webhook_config = _dataclass_from_dict(WebhookConfig, data.get("webhook", {}))
+        webhook_api_key = os.getenv("WEBHOOK_API_KEY", webhook_config.api_key)
+        if webhook_api_key.startswith("${"):
+            webhook_api_key = ""
+        webhook_config = dataclasses.replace(webhook_config, api_key=webhook_api_key)
+
+        return AppConfig(
+            logging=LoggingConfig(level=data["logging"]["level"], file=data["logging"]["file"]),
+            imap=ImapConfig(host=data["imap"]["host"], user=imap_user, password=imap_password),
+            gmail=_dataclass_from_dict(GmailConfig, data["gmail"]),
+            fast_parse=_dataclass_from_dict(FastParseConfig, data.get("fast_parse", {})),
+            mlx=mlx_config,
+            webhook=webhook_config,
+            taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
+        )
     except (FileNotFoundError, KeyError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
 
@@ -239,46 +153,19 @@ def load_config(path: Path) -> AppConfig:
 def _validate_config(config: AppConfig) -> None:
     """Validate configuration values.
 
-    Args:
-        config: Configuration object to validate
-
     Raises:
         ValueError: If any configuration value is invalid
     """
     import re
 
     # Check email format. Skip unsubstituted template placeholders like
-    # ${IMAP_USER} (e.g. in CI where the env var is unset) — mirrors the
-    # api_base handling below.
+    # ${IMAP_USER} (e.g. in CI where the env var is unset).
     email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not config.imap.user.startswith("${") and not re.match(email_regex, config.imap.user):
         raise ValueError(f"Invalid email format: {config.imap.user}")
 
-    # Check non-empty password
     if not config.imap.password:
         raise ValueError("IMAP password cannot be empty. Set IMAP_PASSWORD environment variable.")
-
-    # Validate API base URL format (if provided and not empty)
-    # Empty string is valid for non-Ollama providers like Gemini
-    # Skip validation for template placeholders like ${VARIABLE}
-    if (
-        config.general.api_base
-        and config.general.api_base.strip()
-        and not config.general.api_base.startswith(("http://", "https://", "${"))
-    ):
-        raise ValueError(f"Invalid API base URL: {config.general.api_base}")
-
-    # Validate thresholds (0-1 range)
-    if not 0 <= config.classifier.historical_confidence_threshold <= 1:
-        raise ValueError(
-            f"Historical confidence threshold must be 0-1, "
-            f"got: {config.classifier.historical_confidence_threshold}"
-        )
-
-    if not 0 <= config.classifier.ai_confidence_threshold <= 1:
-        raise ValueError(
-            f"AI confidence threshold must be 0-1, got: {config.classifier.ai_confidence_threshold}"
-        )
 
 
 # Load the global config

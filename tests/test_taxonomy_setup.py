@@ -53,22 +53,11 @@ def test_needs_rescan_scan_newer(tmp_path):
     assert needs_rescan(scan, overrides) is False
 
 
-def test_migration_blocked_when_taxonomy_disabled(tmp_path):
-    from mailtag.config import TaxonomyConfig
-    from scripts.taxonomy_setup import migration_blocked
-
-    (tmp_path / "senders.json").write_text("{}")
-    (tmp_path / "domains.json").write_text("{}")
-    cfg = TaxonomyConfig(enabled=False, taxonomy_db_dir=str(tmp_path))
-
-    assert migration_blocked(cfg) is not None
-
-
 def test_migration_blocked_when_rules_missing(tmp_path):
     from mailtag.config import TaxonomyConfig
     from scripts.taxonomy_setup import migration_blocked
 
-    cfg = TaxonomyConfig(enabled=True, taxonomy_db_dir=str(tmp_path))
+    cfg = TaxonomyConfig(taxonomy_db_dir=str(tmp_path))
 
     assert migration_blocked(cfg) is not None
 
@@ -79,7 +68,7 @@ def test_migration_not_blocked_when_enabled_and_rules_present(tmp_path):
 
     (tmp_path / "senders.json").write_text("{}")
     (tmp_path / "domains.json").write_text("{}")
-    cfg = TaxonomyConfig(enabled=True, taxonomy_db_dir=str(tmp_path))
+    cfg = TaxonomyConfig(taxonomy_db_dir=str(tmp_path))
 
     assert migration_blocked(cfg) is None
 
@@ -189,7 +178,6 @@ def test_review_scan_calls_llm_for_groups_without_a_suggestion(tmp_path, mocker)
 def test_refile_blocked_when_rules_missing(tmp_path, mocker):
     import scripts.taxonomy_setup as ts
 
-    mocker.patch.object(ts.CONFIG.taxonomy, "enabled", True)
     mocker.patch.object(ts.CONFIG.taxonomy, "taxonomy_db_dir", str(tmp_path))
 
     with pytest.raises(SystemExit):
@@ -202,7 +190,6 @@ def test_refile_calls_refile_review_dry_run_and_leaves_pending_save_to_it(tmp_pa
 
     (tmp_path / "senders.json").write_text("{}")
     (tmp_path / "domains.json").write_text("{}")
-    mocker.patch.object(ts.CONFIG.taxonomy, "enabled", True)
     mocker.patch.object(ts.CONFIG.taxonomy, "taxonomy_db_dir", str(tmp_path))
     fake_cfg = ImapConfig(host="h", user="u", password="p", pending_archive_file=str(tmp_path / "p.json"))
     mocker.patch("scripts.taxonomy_setup._account", return_value=(FakeProvider(), fake_cfg))

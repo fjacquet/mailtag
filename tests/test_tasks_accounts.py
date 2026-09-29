@@ -19,7 +19,3 @@ def test_each_account_has_its_own_junk_folder():
     assert junk_folder(ImapService(INFOMANIAK, FAST)) == "Junk"
     assert junk_folder(GmailApiService(GMAIL_API, FAST)) == "SPAM"
 
-
-def test_gmail_never_writes_the_infomaniak_folder_cache():
-    assert ImapService(INFOMANIAK, FAST).folder_cache_path == Path("data/imap_folders.json")
-    assert GmailApiService(GMAIL_API, FAST).folder_cache_path == Path("data/gmail_labels.json")

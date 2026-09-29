@@ -3,9 +3,7 @@ from click.testing import CliRunner
 from pytest_mock import MockerFixture
 
 from mailtag.config import (
-    ClassifierConfig,
     FastParseConfig,
-    GeneralConfig,
     GmailConfig,
     ImapConfig,
     LoggingConfig,
@@ -18,20 +16,8 @@ def mock_app_config(mocker: MockerFixture, tmp_path):
     """Mocks the global CONFIG object in the main module."""
     mock_config = mocker.patch("main.CONFIG")
     mock_config.logging = LoggingConfig(level="INFO", file=str(tmp_path / "test.log"))
-    mock_config.general = GeneralConfig(
-        ollama_model="test-model",
-        api_base="http://localhost:11434",
-        use_imap_folders_for_classification=False,
-    )
-    mock_config.classifier = ClassifierConfig(
-        ai_confidence_threshold=0.7,
-        historical_confidence_threshold=0.9,
-        min_count=3,
-    )
     mock_config.fast_parse = FastParseConfig(
         batch_size=100,
-        folder_cache_ttl_hours=24,
-        unclassified_folder_name="Unclassified",
         junk_folder_name="Junk",
     )
     mock_config.imap = ImapConfig(

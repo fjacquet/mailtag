@@ -47,8 +47,6 @@ def missing_inputs(paths: list[Path]) -> list[Path]:
 
 def migration_blocked(cfg: TaxonomyConfig) -> str | None:
     """Reason `migrate`/`prune` must not run, or None if the taxonomy rules are ready."""
-    if not cfg.enabled:
-        return "Taxonomy mode is disabled ([taxonomy] enabled = false)"
     db_dir = Path(cfg.taxonomy_db_dir)
     if missing := missing_inputs([db_dir / "senders.json", db_dir / "domains.json"]):
         return f"Missing {missing[0]}: run `scan`, `crosscheck` and `build` first"

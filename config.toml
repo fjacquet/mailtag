@@ -1,25 +1,5 @@
 # Main configuration for the MailTag application.
 
-[general]
-# The name of the Ollama model to use for classification.
-# ollama_model = "ollama_chat/gemma3n"
-ollama_model = "ollama_chat/gemma4:e4b"
-# The base URL for the Ollama API.
-api_base = "${OLLAMA_API_URL}"
-
-[classifier]
-# The confidence threshold required for the AI model's suggestion to be accepted.
-# Lowered from 0.98 to 0.85 to be more realistic with JSON confidence scoring
-ai_confidence_threshold = 0.85
-# The confidence threshold required for a historical sender-based classification to be used.
-historical_confidence_threshold = 0.9
-# The minimum number of times a sender must be classified before pre-classification is used.
-min_count = 5
-# AI model context window size (tokens). Increase if you have many categories (169+ folders).
-# 2048 = basic, 4096 = moderate, 8192 = large category lists, 16384 = very large
-num_ctx = 8192
-
-
 [logging]
 # The logging level. Can be DEBUG, INFO, WARNING, ERROR, CRITICAL.
 level = "INFO"
@@ -37,29 +17,14 @@ password = "${IMAP_PASSWORD}"
 # OAuth desktop client: secrets/credentials.json + secrets/token.json (first run opens the browser).
 credentials_file = "secrets/credentials.json"
 token_file = "secrets/token.json"
-# This account's own pending-archive file, junk label and folder cache (never overwrite
-# Infomaniak's data/imap_folders.json; the Gmail sweep never treats Infomaniak's mail as orphans).
+# This account's own pending-archive file and junk label (the Gmail sweep never treats Infomaniak's mail as orphans).
 pending_archive_file = "db/pending_archive_gmail.json"
-folder_cache_file = "data/gmail_labels.json"
 junk_folder_name = "SPAM"
-use_gmail_extensions = false
 
 [fast_parse]
 # The number of emails to fetch in the first pass.
 batch_size = 500
-# The time-to-live for the folder hierarchy cache in hours.
-folder_cache_ttl_hours = 24
-# The designated folder for emails the AI cannot confidently classify.
-unclassified_folder_name = "Unclassified"
 junk_folder_name = "Spam"
-# Maximum number of retry attempts for transient failures.
-max_retries = 3
-# Initial delay between retries in seconds.
-retry_delay = 1.0
-# Multiplier for exponential backoff between retries.
-retry_backoff = 2.0
-# Random jitter factor to add to retry delays (0.0-1.0).
-retry_jitter = 0.1
 
 # Performance metrics configuration
 # Whether to enable metrics collection
@@ -95,8 +60,6 @@ llm_temperature = 0.2
 
 [taxonomy]
 # 19-category taxonomy + action folders (spec docs/superpowers/specs/2026-09-27-*)
-# Enabled 2026-09-28: rules 59/60 right on a random control sample, 54 % of INBOX classified in a dry run
-enabled = true
 # nomic alone must be very sure; below, nomic and Gemma must agree, else 5-A revoir
 nomic_threshold = 0.90
 llm_batch_size = 8

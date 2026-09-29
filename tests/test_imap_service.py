@@ -1,6 +1,5 @@
 import email as email_lib
 from email.header import Header
-from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
@@ -21,8 +20,6 @@ def fast_parse_config() -> FastParseConfig:
     """Returns a default FastParseConfig for testing."""
     return FastParseConfig(
         batch_size=10,
-        folder_cache_ttl_hours=24,
-        unclassified_folder_name="Unclassified",
         junk_folder_name="Junk",
     )
 
@@ -61,18 +58,6 @@ def test_connect_failure_raises_connection_error(
     with pytest.raises(ConnectionError, match="IMAP connection failed"):
         with imap_service.connect():
             pass
-
-
-def test_get_folder_hierarchy(
-    imap_service: ImapService, mock_imap_client: MockImapClient, mocker: MockerFixture
-):
-    """Tests that the folder hierarchy is fetched and cached."""
-    imap_service.client = mock_imap_client
-    mocker.patch.object(Path, "exists", return_value=False)
-    mock_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
-    folders = imap_service.get_folder_hierarchy()
-    assert "INBOX" in folders
-    mock_open.assert_called_once_with("w", encoding="utf-8")
 
 
 def test_get_email_senders(imap_service: ImapService, mock_imap_client: MockImapClient):

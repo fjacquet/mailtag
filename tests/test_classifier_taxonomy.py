@@ -5,9 +5,7 @@ import pytest
 from mailtag.classifier import Classifier
 from mailtag.config import (
     AppConfig,
-    ClassifierConfig,
     FastParseConfig,
-    GeneralConfig,
     GmailConfig,
     ImapConfig,
     LoggingConfig,
@@ -20,18 +18,12 @@ from mailtag.taxonomy import REVIEW, TAXONOMY
 
 def _config(tmp_path):
     return AppConfig(
-        general=GeneralConfig(ollama_model="m", api_base=""),
         logging=LoggingConfig(level="DEBUG", file=""),
-        classifier=ClassifierConfig(
-            ai_confidence_threshold=0.7, historical_confidence_threshold=0.9, min_count=3
-        ),
         imap=ImapConfig(host="", user="", password=""),
         gmail=GmailConfig(credentials_file="", token_file=""),
         fast_parse=FastParseConfig(),
         mlx=MLXConfig(enabled=False),
-        taxonomy=TaxonomyConfig(
-            enabled=True, nomic_threshold=0.70, llm_batch_size=8, taxonomy_db_dir=str(tmp_path)
-        ),
+        taxonomy=TaxonomyConfig(nomic_threshold=0.70, llm_batch_size=8, taxonomy_db_dir=str(tmp_path)),
     )
 
 

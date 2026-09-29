@@ -230,7 +230,7 @@ class GmailLabelClient:
 
 class GmailApiService(ImapService):
     """The Gmail inbox through the Gmail API, using the same taxonomy flow as `ImapService`
-    (`get_email_headers`, `get_full_emails`, `batch_move_emails`, `get_folder_hierarchy` are inherited
+    (`get_email_headers`, `get_full_emails`, `batch_move_emails` are inherited
     unchanged; only `connect()` is replaced)."""
 
     def __init__(self, config: GmailConfig, fast_parse_config: FastParseConfig):
