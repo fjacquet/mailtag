@@ -12,6 +12,7 @@ from mailtag.config import (
     LayaConfig,
     LayaThresholds,
     LoggingConfig,
+    LogRegConfig,
     MLXConfig,
     TaxonomyConfig,
 )
@@ -334,3 +335,75 @@ def test_laya_mode_agreements_teach_rules(tmp_path, mocker):
 
 def test_mlx_mode_builds_no_laya_classifier(classifier):
     assert classifier._laya is None
+
+
+def _logreg_classifier(tmp_path, answers, mocker, classify=0.9, learn=0.97):
+    config = _config(tmp_path)
+    config.mlx = MLXConfig(enabled=True)
+    config.classifier = ClassifierConfig(mode="logreg")
+    config.logreg = LogRegConfig(classify_threshold=classify, learn_threshold=learn)
+    classifier = Classifier(config=config)
+    mocker.patch.object(classifier._logreg, "classify", return_value=answers)
+    return classifier
+
+
+def test_logreg_mode_applies_its_thresholds_inclusively(tmp_path, mocker):
+    answers = [
+        ("Santé", 0.89),  # below classify
+        ("Santé", 0.9),  # exactly classify: inclusive
+        ("Achats", 0.97),  # exactly learn: inclusive
+        None,  # the model could not answer
+    ]
+    classifier = _logreg_classifier(tmp_path, answers, mocker)
+
+    assert classifier._classify_uncertain_detailed([mail(i) for i in range(4)]) == [
+        (REVIEW, False),
+        ("Santé", False),
+        ("Achats", True),
+        (REVIEW, False),
+    ]
+
+
+def test_logreg_mode_never_learns_with_the_inert_default(tmp_path, mocker):
+    classifier = _logreg_classifier(tmp_path, [("Santé", 1.0)], mocker, classify=0.5, learn=1.01)
+
+    assert classifier._classify_uncertain_detailed([mail()]) == [("Santé", False)]
+
+
+def test_logreg_mode_runs_rules_first_and_never_calls_gemma_or_centroids(tmp_path, mocker):
+    write(tmp_path, "validated", {"v@x.ch": "Santé"})
+    classifier = _logreg_classifier(tmp_path, [("Achats", 0.99)], mocker)
+    mlx = mocker.patch.object(classifier, "_init_mlx_components")
+    llm = mocker.patch.object(classifier, "_llm_categories")
+
+    result = classifier.classify_detailed([mail(1, sender="v@x.ch"), mail(2, sender="new@shop.ch")])
+
+    assert result == [("Santé", False), ("Achats", True)]
+    assert [e.sender_address for e in classifier._logreg.classify.call_args.args[0]] == ["new@shop.ch"]
+    mlx.assert_not_called()
+    llm.assert_not_called()
+
+
+def test_logreg_mode_agreements_teach_rules(tmp_path, mocker):
+    classifier = _logreg_classifier(tmp_path, [("Santé", 0.98)], mocker)
+
+    classify_and_learn(classifier, [mail(sender="doc@clinic.ch")])
+    classify_and_learn(classifier, [mail(sender="doc@clinic.ch")])
+
+    learned = json.loads((tmp_path / "senders.json").read_text(encoding="utf-8"))
+    assert learned["doc@clinic.ch"]["category"] == "Santé"
+
+
+def test_logreg_mode_without_mlx_sends_uncovered_mail_to_review(tmp_path, mocker):
+    network = mocker.patch("socket.socket.connect", side_effect=AssertionError("no network"))
+    config = _config(tmp_path)  # MLX disabled
+    config.classifier = ClassifierConfig(mode="logreg")
+    classifier = Classifier(config=config)
+
+    assert classifier._logreg is None
+    assert classify_and_learn(classifier, [mail(sender="new@unknown.ch")]) == [REVIEW]
+    network.assert_not_called()
+
+
+def test_mlx_mode_builds_no_logreg_classifier(classifier):
+    assert classifier._logreg is None

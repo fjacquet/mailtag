@@ -18,6 +18,7 @@ Core package: classifies emails into 19 categories and files them.
 - **semantic_router.py** - `SemanticRouter`: nomic centroids (`top_batch()`, `load_embeddings()`, `save_embeddings()`, `build_from_examples()`)
 - **mlx_provider.py** - `MLXEmbedder` (nomic) and `MLXLLM` (Gemma, `classify_batch()`), lazy loaded
 - **laya_provider.py** - `LayaClassifier`: Laya Router, one 19-category `choice` question per mail, `(category, answer_confidence, checkpoint)` (mode = "laya")
+- **logreg_provider.py** - `LogRegClassifier`: logistic regression over nomic embeddings, `(category, probability)` per mail (mode = "logreg"); `train`, `predict`, `save_model`, `load_model`
 
 ### Routing and archive
 

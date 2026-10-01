@@ -408,3 +408,73 @@ def test_load_config_refuses_unknown_mode(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="mode"):
         load_config(toml)
+
+
+def test_logreg_defaults_and_mode():
+    from mailtag.config import ClassifierConfig, LogRegConfig
+
+    assert ClassifierConfig(mode="logreg").mode == "logreg"
+    cfg = LogRegConfig()
+    assert cfg.model_file == "data/taxonomy_logreg.npz"
+    assert cfg.C == 100.0
+    assert cfg.classify_threshold == 1.01
+    assert cfg.learn_threshold == 1.01
+
+
+def test_app_config_without_logreg_gets_defaults():
+    from mailtag.config import (
+        AppConfig,
+        FastParseConfig,
+        GmailConfig,
+        ImapConfig,
+        LoggingConfig,
+        LogRegConfig,
+        MLXConfig,
+    )
+
+    cfg = AppConfig(
+        logging=LoggingConfig(level="INFO", file=""),
+        imap=ImapConfig(host="", user="", password=""),
+        gmail=GmailConfig(credentials_file="", token_file=""),
+        fast_parse=FastParseConfig(),
+        mlx=MLXConfig(enabled=False),
+    )
+    assert cfg.logreg == LogRegConfig()
+
+
+def test_load_config_reads_logreg(tmp_path, monkeypatch):
+    from mailtag.config import load_config
+
+    monkeypatch.setenv("IMAP_USER", "user@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    toml = tmp_path / "config.toml"
+    toml.write_text(
+        """
+[logging]
+level = "INFO"
+file = ""
+
+[imap]
+host = "imap.test.com"
+
+[gmail]
+credentials_file = "c.json"
+token_file = "t.json"
+
+[classifier]
+mode = "logreg"
+
+[logreg]
+model_file = "m.npz"
+C = 10.0
+classify_threshold = 0.9
+"""
+    )
+
+    cfg = load_config(toml)
+
+    assert cfg.classifier.mode == "logreg"
+    assert cfg.logreg.model_file == "m.npz"
+    assert cfg.logreg.C == 10.0
+    assert cfg.logreg.classify_threshold == 0.9
+    assert cfg.logreg.learn_threshold == 1.01

@@ -4,6 +4,7 @@
     uv run python scripts/taxonomy_setup.py crosscheck  # Gemma category per sender (resumable, ~1 s/sender)
     uv run streamlit run scripts/taxonomy_review.py     # review disagreements
     uv run python scripts/taxonomy_setup.py build       # rules, corpus and the 19 nomic centroids
+    uv run python scripts/taxonomy_setup.py train       # logistic regression from the corpus (build runs it)
 
 No preparation step moves an email. Legacy folder migration (docs/superpowers/specs/
 2026-09-28-migration-dossiers-design.md), a dry run unless given --apply:
@@ -148,6 +149,28 @@ def build() -> None:
     router = build_centroids(MLXEmbedder(CONFIG.mlx.embedding_model), corpus)
     router.save_embeddings(Path(cfg.centroids_file))
     logger.info(f"Centroids for {router.num_categories} categories from {len(corpus)} mails")
+    train()
+
+
+def train() -> None:
+    """Fit the [logreg] model on every corpus mail (no IMAP, no rule touched)."""
+    from mailtag.logreg_provider import corpus_texts, embed, save_model
+    from mailtag.logreg_provider import train as fit
+    from mailtag.mlx_provider import MLXEmbedder
+
+    if missing := missing_inputs([CORPUS]):
+        sys.exit(f"Missing {missing[0]}: run `build` first")
+    corpus = _read(CORPUS)
+    if len({m["category"] for m in corpus}) < 3:
+        sys.exit(f"{CORPUS} needs mails in at least 3 categories to train")
+    embedding_model = CONFIG.mlx.embedding_model
+    embeddings = embed(MLXEmbedder(embedding_model), corpus_texts(corpus))
+    model = fit(embeddings, [m["category"] for m in corpus], CONFIG.logreg.C)
+    save_model(Path(CONFIG.logreg.model_file), model, embedding_model)
+    logger.info(
+        f"Logistic regression from {len(corpus)} mails, {len(model['classes'])} categories "
+        f"-> {CONFIG.logreg.model_file}"
+    )
 
 
 def migrate(apply: bool) -> None:
@@ -271,7 +294,8 @@ def main() -> None:
     parser.add_argument(
         "command",
         choices=[
-            "scan", "crosscheck", "build", "migrate", "prune", "reorganize", "review-scan", "refile-review",
+            "scan", "crosscheck", "build", "train", "migrate", "prune", "reorganize", "review-scan",
+            "refile-review",
         ],
     )  # fmt: skip
     parser.add_argument("--apply", action="store_true", help="Actually move/delete (default: dry run)")
@@ -284,7 +308,7 @@ def main() -> None:
     elif args.command == "refile-review":
         refile(args.provider, args.apply)
     else:
-        {"scan": scan, "crosscheck": crosscheck, "build": build}[args.command]()
+        {"scan": scan, "crosscheck": crosscheck, "build": build, "train": train}[args.command]()
 
 
 if __name__ == "__main__":
