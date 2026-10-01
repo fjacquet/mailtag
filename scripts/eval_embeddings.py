@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Measure the taxonomy chain (Signals 5-6) on verified mails and pick the nomic threshold.
+"""Measure the taxonomy chain (Signals 5-6) on verified mails and pick the nomic threshold,
+or measure Laya and propose its per-checkpoint thresholds.
 
     uv run python scripts/eval_embeddings.py chain -n 500
+    uv run python scripts/eval_embeddings.py laya -n 500 [--routing multilingual] [--rotations]
 
 Category centroids are built leave-sender-out from data/taxonomy_corpus.json, and the LLM step
-runs through Classifier._llm_categories, so results reflect what production would do.
+runs through Classifier._llm_categories, so results reflect what production would do. Laya runs
+through LayaClassifier with the [laya] settings of config.toml (overridable by flag).
 """
 
 import argparse
@@ -86,6 +89,27 @@ def best_threshold(sweep, min_precision=0.90):
     return max(ok, key=lambda row: (row["auto"], row["threshold"])) if ok else None
 
 
+def confidence_sweep(answers, labels, thresholds):
+    """Laya result for each threshold: its category at or above it, else review."""
+    from mailtag.taxonomy import REVIEW
+
+    rows = []
+    for t in thresholds:
+        results = [a[0] if a and a[1] >= t else REVIEW for a in answers]
+        m = chain_metrics(results, labels, 0.0, 0)
+        classified = sum(r != REVIEW for r in results)
+        rows.append(
+            {"threshold": t, "auto": m["auto"], "precision": m["precision"], "classified": classified}
+        )
+    return rows
+
+
+def learn_threshold(sweep, min_precision=0.97, min_mails=30):
+    """Lowest threshold whose precision reaches `min_precision` on at least `min_mails` mails, else 1.01."""
+    ok = [row for row in sweep if row["precision"] >= min_precision and row["classified"] >= min_mails]
+    return min(row["threshold"] for row in ok) if ok else 1.01
+
+
 def chain_eval(n: int, seed: int) -> None:
     """Replay signals 5-6 on verified mails (leave-sender-out centroids) and pick the nomic threshold."""
     import random
@@ -149,6 +173,74 @@ def chain_eval(n: int, seed: int) -> None:
     print("PASS" if best and precision >= 0.90 else "FAIL")
 
 
+def laya_eval(n: int, seed: int, overrides: dict) -> None:
+    """Run Laya on the verified mails `chain` uses, sweep thresholds per checkpoint, propose them."""
+    import dataclasses
+    import random
+
+    from mailtag.config import CONFIG
+    from mailtag.laya_provider import LayaClassifier
+    from mailtag.models import Email
+    from mailtag.taxonomy import REVIEW
+
+    config = dataclasses.replace(CONFIG.laya, **overrides)
+    corpus = json.loads(Path("data/taxonomy_corpus.json").read_text(encoding="utf-8"))
+    verified = [m for m in corpus if m["verified"]]
+    test = random.Random(seed).sample(verified, min(n, len(verified)))
+    emails = [
+        Email(msg_id=str(i), subject=m["subject"], sender_address=m["sender"], sender_name=m["sender_name"],
+              body=m["body"])
+        for i, m in enumerate(test)
+    ]  # fmt: skip
+    labels = [m["category"] for m in test]
+
+    classifier = LayaClassifier(config)
+    start = time.perf_counter()
+    answers = []
+    for i in range(0, len(emails), 50):
+        answers += classifier.classify(emails[i : i + 50])
+        logger.info(
+            f"Laya {len(answers)}/{len(emails)} ({(time.perf_counter() - start) / len(answers):.2f} s/email)"
+        )
+    seconds = time.perf_counter() - start
+
+    print(f"\n{len(test)} verified mails (seed {seed}), {config}")
+    print(f"devices: {classifier.devices()}, {seconds / len(emails):.2f} s/email")
+    print(f"unanswered: {sum(a is None for a in answers)}")
+
+    thresholds = [round(0.30 + 0.01 * i, 2) for i in range(70)]
+    proposed = {}
+    for checkpoint in ("english", "multilingual"):
+        idx = [i for i, a in enumerate(answers) if a and a[2] == checkpoint]
+        if not idx:
+            continue
+        sub_answers = [answers[i][:2] for i in idx]
+        sub_labels = [labels[i] for i in idx]
+        top1 = sum(a[0] == lab for a, lab in zip(sub_answers, sub_labels, strict=True)) / len(idx)
+        sweep = confidence_sweep(sub_answers, sub_labels, thresholds)
+        print(f"\n[{checkpoint}] {len(idx)} mails ({len(idx) / len(test):.0%}), top-1 accuracy {top1:.1%}")
+        print(" threshold  auto   precision  classified")
+        for row in sweep[::5]:
+            print(
+                f"   {row['threshold']:.2f}    {row['auto']:5.1%}  {row['precision']:6.1%}  "
+                f"{row['classified']:6d}"
+            )
+        best = best_threshold(sweep)
+        proposed[checkpoint] = (best["threshold"] if best else 1.01, learn_threshold(sweep))
+
+    print("\nProposed [laya] thresholds:")
+    for checkpoint, (classify_t, learn_t) in proposed.items():
+        print(f"{checkpoint} = {{ classify_threshold = {classify_t:.2f}, learn_threshold = {learn_t:.2f} }}")
+
+    results = [a[0] if a and a[1] >= proposed.get(a[2], (1.01, 1.01))[0] else REVIEW for a in answers]
+    m = chain_metrics(results, labels, seconds, len(emails))
+    print(
+        f"\nWith these thresholds: {m['auto']:.1%} classified at {m['precision']:.1%}, "
+        f"{m['sec_per_llm_email']:.2f} s/email -> {'PASS' if m['passed'] else 'FAIL'}"
+    )
+    print(f"Compare with: uv run python scripts/eval_embeddings.py chain -n {n} --seed {seed}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -161,12 +253,36 @@ def main():
     p_chain.add_argument("-n", type=int, default=500)
     p_chain.add_argument("--seed", type=int, default=3)
 
+    p_laya = sub.add_parser("laya", help="Measure Laya on verified mails and propose its thresholds")
+    p_laya.add_argument("-n", type=int, default=500)
+    p_laya.add_argument("--seed", type=int, default=3)
+    p_laya.add_argument("--routing", choices=["router", "multilingual"])
+    p_laya.add_argument("--rotations", action="store_true", default=None)
+    p_laya.add_argument("--head-max-len", type=int)
+    p_laya.add_argument("--max-len", type=int)
+    p_laya.add_argument("--body-chars", type=int)
+    p_laya.add_argument("--calibration", help='calibration JSON path, "" for the shipped temperatures')
+
     args = parser.parse_args()
     logger.remove()
     logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:<7} | {message}")
 
     if args.command == "chain":
         chain_eval(args.n, args.seed)
+    elif args.command == "laya":
+        overrides = {
+            key: value
+            for key, value in {
+                "routing": args.routing,
+                "rotations": args.rotations,
+                "head_max_len": args.head_max_len,
+                "max_len": args.max_len,
+                "body_chars": args.body_chars,
+                "calibration": args.calibration,
+            }.items()
+            if value is not None
+        }
+        laya_eval(args.n, args.seed, overrides)
 
 
 if __name__ == "__main__":
