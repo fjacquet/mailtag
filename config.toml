@@ -43,6 +43,7 @@ llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
 [classifier]
 # Pass 3 model: "mlx" (nomic + Gemma, above) | "laya" (feasibility study,
 # docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md; needs `uv sync --extra laya`)
+# | "logreg" (logistic regression over nomic, docs/superpowers/specs/2026-10-01-logreg-pass3-design.md)
 mode = "mlx"
 
 [laya]
@@ -57,6 +58,13 @@ calibration = "data/laya_neutral_calibration.json"  # "" = shipped temperatures
 # Thresholds on answer_confidence, set by `scripts/eval_embeddings.py laya` (1.01 = never)
 english = { classify_threshold = 1.01, learn_threshold = 1.01 }
 multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
+
+[logreg]
+model_file = "data/taxonomy_logreg.npz"  # written by `scripts/taxonomy_setup.py train`
+C = 100.0
+# Thresholds on the top probability, set by `scripts/eval_embeddings.py logreg` (1.01 = never)
+classify_threshold = 1.01
+learn_threshold = 1.01
 
 [taxonomy]
 # 19-category taxonomy + action folders (spec docs/superpowers/specs/2026-09-27-*)

@@ -11,7 +11,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Remove Apple Silicon-only MLX dependencies and re-lock without them
-RUN sed -i '/^\s*"mlx>=/d; /^\s*"mlx-lm>=/d; /^\s*"sentence-transformers>=/d; /^\s*"transformers>=/d; /^\s*# 5.17 removed/d; /^\s*"einops>=/d; /^\s*# MLX dependencies/d' pyproject.toml \
+RUN sed -i '/^\s*"mlx>=/d; /^\s*"mlx-lm>=/d; /^\s*"sentence-transformers>=/d; /^\s*"scikit-learn>=/d; /^\s*"transformers>=/d; /^\s*# 5.17 removed/d; /^\s*"einops>=/d; /^\s*# MLX dependencies/d' pyproject.toml \
     && rm uv.lock
 
 # Install runtime deps only (no dev, no MLX)

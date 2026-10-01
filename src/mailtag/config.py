@@ -53,13 +53,14 @@ class MLXConfig:
 
 @dataclass
 class ClassifierConfig:
-    """Pass 3 model: "mlx" (nomic + Gemma) or "laya" (docs/superpowers/specs/2026-10-01-laya-*)."""
+    """Pass 3 model: "mlx" (nomic + Gemma), "laya" (docs/superpowers/specs/2026-10-01-laya-*)
+    or "logreg" (docs/superpowers/specs/2026-10-01-logreg-pass3-design.md)."""
 
     mode: str = "mlx"
 
     def __post_init__(self):
-        if self.mode not in ("mlx", "laya"):
-            raise ValueError(f"[classifier] mode must be 'mlx' or 'laya', got {self.mode!r}")
+        if self.mode not in ("mlx", "laya", "logreg"):
+            raise ValueError(f"[classifier] mode must be 'mlx', 'laya' or 'logreg', got {self.mode!r}")
 
 
 @dataclass
@@ -124,6 +125,17 @@ class TaxonomyConfig:
 
 
 @dataclass
+class LogRegConfig:
+    """Logistic regression over nomic embeddings (mode = "logreg"). Thresholds on the top probability
+    come from `scripts/eval_embeddings.py logreg` (1.01 = never)."""
+
+    model_file: str = "data/taxonomy_logreg.npz"
+    C: float = 100.0  # LogisticRegression regularisation
+    classify_threshold: float = 1.01
+    learn_threshold: float = 1.01
+
+
+@dataclass
 class AppConfig:
     logging: LoggingConfig
     imap: ImapConfig
@@ -134,6 +146,7 @@ class AppConfig:
     taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
     classifier: ClassifierConfig = None  # type: ignore[assignment]
     laya: LayaConfig = None  # type: ignore[assignment]
+    logreg: LogRegConfig = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.webhook is None:
@@ -144,6 +157,8 @@ class AppConfig:
             self.classifier = ClassifierConfig()
         if self.laya is None:
             self.laya = LayaConfig()
+        if self.logreg is None:
+            self.logreg = LogRegConfig()
 
 
 def _dataclass_from_dict(cls, data: dict):
@@ -198,6 +213,7 @@ def load_config(path: Path) -> AppConfig:
             taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
             classifier=_dataclass_from_dict(ClassifierConfig, data.get("classifier", {})),
             laya=_laya_config(data.get("laya", {})),
+            logreg=_dataclass_from_dict(LogRegConfig, data.get("logreg", {})),
         )
     except (FileNotFoundError, KeyError, TypeError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e
