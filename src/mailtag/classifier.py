@@ -6,6 +6,7 @@ from loguru import logger
 
 from .config import AppConfig
 from .laya_provider import LayaClassifier
+from .logreg_provider import LogRegClassifier
 from .models import Email
 from .taxonomy import (
     REVIEW,
@@ -29,7 +30,8 @@ class Classifier:
 
     Rules first (validated sender, learned sender, domain), then nomic embeddings above the
     threshold, else nomic and the LLM must agree; anything else goes to review.
-    With [classifier] mode = "laya", Laya replaces nomic and the LLM.
+    With [classifier] mode = "laya", Laya replaces nomic and the LLM; with mode = "logreg", a logistic
+    regression over nomic embeddings does.
     """
 
     def __init__(self, config: AppConfig, read_only: bool = False):
@@ -51,6 +53,12 @@ class Classifier:
         )
         # Laya replaces nomic + Gemma in Pass 3 (feasibility study, mode = "laya")
         self._laya = LayaClassifier(config.laya) if config.classifier.mode == "laya" else None
+        # Logistic regression over nomic replaces centroids + Gemma in Pass 3 (mode = "logreg")
+        self._logreg = (
+            LogRegClassifier(config.logreg, config.mlx.embedding_model)
+            if config.classifier.mode == "logreg" and config.mlx.enabled
+            else None
+        )
         logger.info(f"Using the {len(self.categories)}-category taxonomy")
 
     def _embeddings_path(self) -> Path:
@@ -169,9 +177,12 @@ class Classifier:
 
     def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
         """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement.
-        In laya mode, Laya alone with its per-checkpoint thresholds."""
+        In laya mode, Laya alone with its per-checkpoint thresholds; in logreg mode, the logistic regression
+        alone."""
         if self._laya is not None:
             return self._classify_laya(emails)
+        if self.config.classifier.mode == "logreg":
+            return self._classify_logreg(emails)
         results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
         need_llm: list[tuple[int, str]] = []
         for i, (category, score) in enumerate(self._nomic_top(emails)):
@@ -200,6 +211,19 @@ class Classifier:
             else:
                 results.append((REVIEW, False))
         return results
+
+    def _classify_logreg(self, emails: list[Email]) -> list[tuple[str, bool]]:
+        """(category, sure enough to learn from) per email; below classify_threshold, or without MLX,
+        → review."""
+        if self._logreg is None:
+            return [(REVIEW, False)] * len(emails)
+        thresholds = self.config.logreg
+        return [
+            (answer[0], answer[1] >= thresholds.learn_threshold)
+            if answer is not None and answer[1] >= thresholds.classify_threshold
+            else (REVIEW, False)
+            for answer in self._logreg.classify(emails)
+        ]
 
     def classify_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
         """(category, nomic and LLM agreed) per email: rules, then the nomic/LLM chain. Learns nothing."""
