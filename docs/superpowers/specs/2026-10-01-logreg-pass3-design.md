@@ -120,3 +120,17 @@ pytest + pytest-mock, faux embedder, aucun téléchargement.
 ## Documentation
 
 `CLAUDE.md`, `src/mailtag/CLAUDE.md`, `scripts/CLAUDE.md`, `config.toml`, `CHANGELOG.md` (`[Unreleased]`).
+
+## Résultat (2026-10-01)
+
+`uv run python scripts/eval_embeddings.py logreg` sur 403 mails vérifiés (94 expéditeurs), 5 plis groupés par expéditeur :
+
+| | Valeur |
+|---|---|
+| Top-1 régression logistique | 51,4 % |
+| Top-1 centroïdes (mêmes plis) | 37,5 % |
+| `classify_threshold` proposé | 0,91 (20,3 % classés, 85,4 % de précision) |
+| `learn_threshold` proposé | 1,01 |
+| Secondes par mail | 0,021 |
+
+Seuils écrits dans `config.toml` ; `mode` reste `mlx` jusqu'à la bascule par le propriétaire.

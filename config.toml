@@ -63,7 +63,7 @@ multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
 model_file = "data/taxonomy_logreg.npz"  # written by `scripts/taxonomy_setup.py train`
 C = 100.0
 # Thresholds on the top probability, set by `scripts/eval_embeddings.py logreg` (1.01 = never)
-classify_threshold = 1.01
+classify_threshold = 0.91
 learn_threshold = 1.01
 
 [taxonomy]

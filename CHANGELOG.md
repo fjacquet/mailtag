@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `[classifier] mode = "logreg"`: a logistic regression over nomic embeddings alone decides Pass 3 (no Gemma, no centroids), with `[logreg]` thresholds; `scripts/taxonomy_setup.py train` (also run by `build`) fits it and `scripts/eval_embeddings.py logreg` measures it on unknown senders and proposes the thresholds. The default mode stays `mlx`.
+
 ## [2.0.0] - 2026-10-01
 
 Taxonomy-only release: the 19-category taxonomy is now the only classification mode, and the legacy modes are removed. A 1.x `config.toml` needs the new `[taxonomy]` section and loses its legacy sections.
