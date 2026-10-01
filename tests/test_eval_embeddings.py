@@ -76,3 +76,19 @@ def test_learn_threshold_needs_precision_and_enough_mails():
     assert learn_threshold(sweep) == 0.9
     assert learn_threshold(sweep, min_mails=60) == 1.01
     assert learn_threshold([]) == 1.01
+
+
+def test_sender_folds_never_share_a_sender_and_test_each_verified_mail_once():
+    from scripts.eval_embeddings import sender_folds
+
+    senders = [f"s{i % 7}@x.ch" for i in range(40)]  # 7 senders
+    test_idx = [i for i in range(40) if i % 2 == 0]  # the "verified" mails
+
+    tested = []
+    for train, test in sender_folds(senders, test_idx, n_splits=3):
+        assert not {senders[i] for i in train} & {senders[i] for i in test}
+        assert set(test) <= set(test_idx)
+        assert len(train) > 0
+        tested += test.tolist()
+
+    assert sorted(tested) == test_idx

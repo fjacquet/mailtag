@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Measure the taxonomy chain (Signals 5-6) on verified mails and pick the nomic threshold,
-or measure Laya and propose its per-checkpoint thresholds.
+measure Laya and propose its per-checkpoint thresholds, or measure the logistic regression
+and propose the [logreg] thresholds.
 
     uv run python scripts/eval_embeddings.py chain -n 500
     uv run python scripts/eval_embeddings.py laya -n 500 [--routing multilingual] [--rotations]
+    uv run python scripts/eval_embeddings.py logreg [--C 100] [--min-precision 0.85]
 
 Category centroids are built leave-sender-out from data/taxonomy_corpus.json, and the LLM step
 runs through Classifier._llm_categories, so results reflect what production would do. Laya runs
-through LayaClassifier with the [laya] settings of config.toml (overridable by flag).
+through LayaClassifier with the [laya] settings of config.toml (overridable by flag). The logistic
+regression trains per fold on the corpus minus the fold's senders, with logreg_provider's functions.
 """
 
 import argparse
@@ -246,6 +249,82 @@ def laya_eval(n: int, seed: int, overrides: dict) -> None:
     print(f"Compare with: uv run python scripts/eval_embeddings.py chain -n {n} --seed {seed}")
 
 
+def sender_folds(senders: list[str], test_idx: list[int], n_splits: int = 5):
+    """(train, test) index arrays: each fold tests some of `test_idx`, grouped by sender, and trains on
+    every corpus mail whose sender is not among the fold's senders (as Pass 3 meets unknown senders)."""
+    from sklearn.model_selection import GroupKFold
+
+    senders_arr = np.array(senders)
+    test_arr = np.array(test_idx)
+    for _, fold in GroupKFold(n_splits=n_splits).split(test_arr, groups=senders_arr[test_arr]):
+        test = test_arr[fold]
+        yield np.where(~np.isin(senders_arr, senders_arr[test]))[0], test
+
+
+def logreg_eval(C: float, min_precision: float) -> None:
+    """Train per sender-grouped fold, test on the verified mails, propose the [logreg] thresholds."""
+    from mailtag.config import CONFIG
+    from mailtag.logreg_provider import corpus_texts, embed, predict, train
+    from mailtag.mlx_provider import MLXEmbedder
+
+    corpus = json.loads(Path("data/taxonomy_corpus.json").read_text(encoding="utf-8"))
+    senders = [m["sender"] for m in corpus]
+    categories = [m["category"] for m in corpus]
+    test_idx = [i for i, m in enumerate(corpus) if m["verified"]]
+    embedder = MLXEmbedder(CONFIG.mlx.embedding_model)
+    texts = corpus_texts(corpus)
+    emb = embed(embedder, texts)
+    doc = embedder.encode(texts, prefix="search_document: ")
+    query = embedder.encode(texts, prefix="search_query: ")
+
+    answers: dict[int, tuple[str, float]] = {}
+    centroid: dict[int, str | None] = {}
+    for train_idx, fold in sender_folds(senders, test_idx):
+        model = train(emb[train_idx], [categories[i] for i in train_idx], C)
+        cats, probs = predict(model, emb[fold])
+        answers.update({int(i): (c, float(p)) for i, c, p in zip(fold, cats, probs, strict=True)})
+        top = leave_sender_out_top(
+            doc[train_idx],
+            [categories[i] for i in train_idx],
+            [senders[i] for i in train_idx],
+            query[fold],
+            [senders[i] for i in fold],
+        )
+        centroid.update({int(i): c for i, (c, _) in zip(fold, top, strict=True)})
+
+    # Production cost per mail: embed + predict with a model trained on the whole corpus
+    model = train(emb, categories, C)
+    start = time.perf_counter()
+    predict(model, embed(embedder, [texts[i] for i in test_idx]))
+    seconds = (time.perf_counter() - start) / len(test_idx)
+
+    labels = [categories[i] for i in test_idx]
+    ordered = [answers[i] for i in test_idx]
+    logreg_top1 = np.mean([a[0] == y for a, y in zip(ordered, labels, strict=True)])
+    centroid_top1 = np.mean([centroid[i] == categories[i] for i in test_idx])
+    print(f"\n{len(test_idx)} verified mails, {len({senders[i] for i in test_idx})} senders, C={C:g}")
+    print(f"top-1: logistic regression {logreg_top1:.1%}, centroids {centroid_top1:.1%}")
+    print(f"{seconds:.3f} s/email (embedding + prediction)")
+
+    sweep = confidence_sweep(ordered, labels, [round(0.30 + 0.01 * i, 2) for i in range(70)])
+    print(" threshold  auto   precision  mails")
+    for row in sweep:
+        t, auto, precision, n = row["threshold"], row["auto"], row["precision"], row["classified"]
+        print(f"   {t:.2f}    {auto:5.1%}  {precision:6.1%}  {n:5}")
+
+    best = best_threshold(sweep, min_precision)
+    classify = best["threshold"] if best else 1.01
+    if best:
+        print(
+            f"\nclassify_threshold {classify:.2f}: {best['auto']:.1%} classified at {best['precision']:.1%}"
+        )
+        if best["classified"] < 30:
+            print(f"WARNING: classify_threshold rests on {best['classified']} mails (< 30)")
+    else:
+        print(f"\nNo threshold reaches {min_precision:.0%} precision")
+    print(f"\n[logreg]\nclassify_threshold = {classify:.2f}\nlearn_threshold = {learn_threshold(sweep):.2f}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -268,6 +347,10 @@ def main():
     p_laya.add_argument("--body-chars", type=int)
     p_laya.add_argument("--calibration", help='calibration JSON path, "" for the shipped temperatures')
 
+    p_logreg = sub.add_parser("logreg", help="Measure the logistic regression and propose its thresholds")
+    p_logreg.add_argument("--C", type=float, help="regularisation (default: [logreg] C)")
+    p_logreg.add_argument("--min-precision", type=float, default=0.85)
+
     args = parser.parse_args()
     logger.remove()
     logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level:<7} | {message}")
@@ -288,6 +371,10 @@ def main():
             if value is not None
         }
         laya_eval(args.n, args.seed, overrides)
+    elif args.command == "logreg":
+        from mailtag.config import CONFIG
+
+        logreg_eval(args.C if args.C is not None else CONFIG.logreg.C, args.min_precision)
 
 
 if __name__ == "__main__":
