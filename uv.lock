@@ -1123,6 +1123,22 @@ wheels = [
 ]
 
 [[package]]
+name = "laya"
+version = "0.3.22"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "numpy" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/a7/d3cf23b51f8c7db94b7bbcacd0da16570f0edf70f02fc16e3fcec47fc844/laya-0.3.22.tar.gz", hash = "sha256:2c26d1b8e70f5620f990c4ed0cda66f17730fd51965450f755f4707255fb20c4", size = 670882, upload-time = "2026-09-29T17:48:27.061Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/b0/81cae4af718581caf783457bc22b2ab6e3ecca22a9d3dd494d50c8c67654/laya-0.3.22-py3-none-any.whl", hash = "sha256:408e716b946a0566a9d4090117d4df9647540b6435e2f3dfed0b2c6b1abeed8a", size = 251583, upload-time = "2026-09-29T17:48:25.621Z" },
+]
+
+[[package]]
 name = "librt"
 version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1374,6 +1390,9 @@ gmail = [
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
 ]
+laya = [
+    { name = "laya" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1396,6 +1415,7 @@ requires-dist = [
     { name = "google-auth-oauthlib", specifier = "==1.2.2" },
     { name = "google-auth-oauthlib", marker = "extra == 'gmail'" },
     { name = "imapclient", specifier = ">=3.0.1" },
+    { name = "laya", marker = "extra == 'laya'", specifier = ">=0.3.22" },
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "mkdocs-gen-files", marker = "extra == 'docs'", specifier = ">=0.5.0" },
     { name = "mkdocs-literate-nav", marker = "extra == 'docs'", specifier = ">=0.6.0" },
@@ -1419,7 +1439,7 @@ requires-dist = [
     { name = "yamlfix", marker = "extra == 'dev'" },
     { name = "yamllint", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev", "gmail", "docs"]
+provides-extras = ["dev", "gmail", "laya", "docs"]
 
 [package.metadata.requires-dev]
 dev = [

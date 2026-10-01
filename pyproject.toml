@@ -56,6 +56,11 @@ gmail = [
     "google-auth-oauthlib",
 ]
 
+# Laya classifier, `[classifier] mode = "laya"` (docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md)
+laya = [
+    "laya>=0.3.22",
+]
+
 docs = [
     "mkdocs-material>=9.6.0",
     "mkdocstrings[python]>=0.29.0",
