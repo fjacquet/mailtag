@@ -29,7 +29,9 @@ junk_folder_name = "Spam"
 [mlx]
 # MLX-based classification (Apple Silicon optimized)
 # false = rules only (validated/learned senders, domains); everything else goes to 5-A revoir
-enabled = true
+# Pass 3 at rest (2026-10-01): no model reaches 85 % precision on mail no rule covers; rules only, the rest
+# goes to 5-A revoir. crosscheck and review-scan still use Gemma.
+enabled = false
 
 # Semantic Router (Signal 5) - embedding-based instant classification
 # Model for generating embeddings (nomic supports French and long context)
@@ -62,8 +64,9 @@ multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
 [logreg]
 model_file = "data/taxonomy_logreg.npz"  # written by `scripts/taxonomy_setup.py train`
 C = 100.0
+per_sender = 10         # mails per sender taken from data/training_corpus.json (when data/training_corpus.json is present)
 # Thresholds on the top probability, set by `scripts/eval_embeddings.py logreg` (1.01 = never)
-classify_threshold = 0.91
+classify_threshold = 1.01
 learn_threshold = 1.01
 
 [taxonomy]

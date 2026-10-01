@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/taxonomy_setup.py harvest`: read-only training corpus for the logistic regression from the category folders (mail whose sender's rule matches its folder, at most 20 per sender); `train` prefers it, capped to `[logreg] per_sender`.
+
+### Changed
+
+- `scripts/eval_embeddings.py logreg` groups folds by domain (by sender on personal domains) and compares training corpora.
+- `[logreg]` settings from the domain-grouped evaluation: both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 44.4 %, centroids 34.2 %), and `per_sender` is 10. The harvested corpus gained 2 points of top-1 but classifies no more mail at 85 % than `data/taxonomy_corpus.json` (0 % vs 0 %), so `train` keeps the old corpus. `logreg` mode classifies nothing; the default stays `mlx`.
+- `scripts/eval_embeddings.py logreg` now tests only the verified mails whose domain has no domain rule (the only ones that reach Pass 3) and keeps `data/taxonomy_corpus.json` unless the harvested corpus classifies strictly more mails at the target precision.
+- `config.toml`: `[mlx] enabled = false` — Pass 3 at rest: rules only, everything else goes to `5-A revoir` (set it back to `true` to restore nomic + Gemma).
+
+### Fixed
+
+- `build` no longer overwrites `data/taxonomy_corpus.json` (the verified test set) with a re-read that lost more than half of it, as happens once legacy folders are migrated.
+- The 2.1.0 logistic-regression figures (51.4 % top-1, 85.4 % precision at 20.3 % classified) were inflated: 246 of the 403 test mails come from domains that have a domain rule and never reach Pass 3. On the 157 others, threshold 0.90 gives about 18–25 % classified at 67–71 % precision (small sample).
+
 ## [2.1.0] - 2026-10-01
 
 Logistic regression for Pass 3, behind a switch: on unknown senders it finds the right category first 51.4 % of the time (nomic centroids: 37.5 %) and classifies 20.3 % of them at 85.4 % precision, in 0.021 s per mail. The default mode stays `mlx`.

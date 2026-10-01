@@ -22,7 +22,7 @@ The classification chain, first match wins:
 5. **Nomic and Gemma agreeing** — local Gemma 4 E4B answers by category number and must agree with nomic's top choice
 6. **`5-A revoir`** — anything else
 
-IMAP runs in two steps: rules on message headers first (junk folder and INBOX), then the models on the full body of the rest. Filing a mail out of `5-A revoir` teaches MailTag its sender. The rules were learned from the legacy folders with `scripts/taxonomy_setup.py` and a local Streamlit review page; see the [usage docs](https://fjacquet.github.io/mailtag/getting-started/usage/). Day-to-day use (folders, archiving, teaching MailTag, Gmail) is in the [user guide](https://fjacquet.github.io/mailtag/user-guide/).
+IMAP runs in two steps: rules on message headers first (junk folder and INBOX), then the models on the full body of the rest (Pass 3, nomic + Gemma, is currently at rest with `[mlx] enabled = false`: the rules classify and everything else goes to `5-A revoir`). Filing a mail out of `5-A revoir` teaches MailTag its sender. The rules were learned from the legacy folders with `scripts/taxonomy_setup.py` and a local Streamlit review page; see the [usage docs](https://fjacquet.github.io/mailtag/getting-started/usage/). Day-to-day use (folders, archiving, teaching MailTag, Gmail) is in the [user guide](https://fjacquet.github.io/mailtag/user-guide/).
 
 ## Prerequisites
 

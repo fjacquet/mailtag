@@ -19,9 +19,11 @@ uv sync -U --all-extras
 
 One AI path: the **MLX local path**, configured in `config.toml [mlx]`. It uses `nomic-ai/nomic-embed-text-v1.5` for embeddings (nomic centroids) and `mlx-community/gemma-4-e4b-it-OptiQ-4bit` for the LLM (Gemma answers by category number). `[mlx] enabled = false` (the Docker image) means rules only: everything the rules do not cover goes to `5-A revoir`. There is no cloud or Ollama path and no `MODEL` variable.
 
+**Current setting: Pass 3 at rest** (`[mlx] enabled = false` in `config.toml`, 2026-10-01): measured on mail no rule covers, no model reaches 85 % precision (logistic regression ≈ 67–71 % at threshold 0.90 on ≈ 20 % of it), so rules classify and everything else goes to `5-A revoir`.
+
 **Laya (feasibility study)**: `[classifier] mode = "laya"` (default `"mlx"`) replaces nomic and Gemma in Pass 3 with the Laya classifier (`src/mailtag/laya_provider.py`, `uv sync --extra laya`; spec `docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md`). A `laya.Router` sends each mail to the `english` or `multilingual` checkpoint (`[laya] routing`), which answers one `choice` question over the 19 categories (English labels from `TAXONOMY_EN` for the English checkpoint). A mail is classified at `answer_confidence ≥ classify_threshold` and counts as an agreement at `≥ learn_threshold`, both per checkpoint in `[laya]` and inert (1.01) until `uv run python scripts/eval_embeddings.py laya` proposes them. `data/laya_neutral_calibration.json` neutralises the English checkpoint's shipped temperatures, which sharpen confidence past 11 options. Zero-shot was measured and rejected (verdict in the spec); the default stays `mlx`.
 
-**Logistic regression**: `[classifier] mode = "logreg"` replaces nomic centroids and Gemma in Pass 3 with a logistic regression over nomic embeddings (`src/mailtag/logreg_provider.py`; spec `docs/superpowers/specs/2026-10-01-logreg-pass3-design.md`). `scripts/taxonomy_setup.py train` (also run by `build`) fits it on `data/taxonomy_corpus.json` and writes `data/taxonomy_logreg.npz` (classes, coefficients, intercepts, embedding model; numpy only at run time). A mail is classified at top probability ≥ `[logreg] classify_threshold` and counts as an agreement at ≥ `learn_threshold`; `uv run python scripts/eval_embeddings.py logreg` proposes both (target 85 % precision on unknown senders). Gemma stays for `crosscheck` and `review-scan`; with `[mlx] enabled = false` logreg mode sends uncovered mail to `5-A revoir`.
+**Logistic regression**: `[classifier] mode = "logreg"` replaces nomic centroids and Gemma in Pass 3 with a logistic regression over nomic embeddings (`src/mailtag/logreg_provider.py`; spec `docs/superpowers/specs/2026-10-01-logreg-pass3-design.md`). `scripts/taxonomy_setup.py train` (also run by `build`) fits it on `data/training_corpus.json` when that file exists (see `harvest` below), else on `data/taxonomy_corpus.json`, and writes `data/taxonomy_logreg.npz` (classes, coefficients, intercepts, embedding model; numpy only at run time). `scripts/taxonomy_setup.py harvest` (read-only, IMAP) builds `data/training_corpus.json` from the category folders: a mail counts only if its sender's rule gives its folder's category, at most 20 per sender; `train` prefers it, capped to `[logreg] per_sender`. Re-running `harvest` makes `train` use `data/training_corpus.json`; keep it only if `eval_embeddings.py logreg` says it wins (otherwise move it aside). `data/taxonomy_corpus.json` stays the test set (its verified mails) and the centroid source; `build` keeps it when a re-read loses more than half of it. The evaluation groups its folds by domain (by sender on personal domains). A mail is classified at top probability ≥ `[logreg] classify_threshold` and counts as an agreement at ≥ `learn_threshold`; `uv run python scripts/eval_embeddings.py logreg` proposes both (target 85 % precision on unknown senders). Measured with domain-grouped folds, no threshold reaches 85 % on unknown domains, so the `[logreg]` thresholds are 1.01 (inert: logreg mode classifies nothing and sends uncovered mail to `5-A revoir`) until a better model or taxonomy changes it. The harvested corpus gained 2 points of top-1 but did not beat `data/taxonomy_corpus.json` on that criterion (0 % vs 0 % classified at 85 %), so it is kept aside as `data/training_corpus.rejected.json` and `train` uses the old corpus. Gemma stays for `crosscheck` and `review-scan`.
 
 ### Testing
 
@@ -50,7 +52,7 @@ python src/main.py serve                           # Start webhook API server
 python src/main.py serve --host 0.0.0.0 --reload   # Dev mode with auto-reload
 ```
 
-Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` subcommands (`scan`, `crosscheck`, `build`, `train`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`), described under Taxonomy below. `src/app.py` is a small Streamlit front end for `run` (`scripts/streamlit.sh`).
+Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` subcommands (`scan`, `crosscheck`, `build`, `train`, `harvest`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`), described under Taxonomy below. `src/app.py` is a small Streamlit front end for `run` (`scripts/streamlit.sh`).
 
 ## Architecture
 
@@ -59,7 +61,7 @@ Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` 
 `run` (`src/mailtag/utils/tasks.py`) works per account, IMAP or Gmail (`GmailApiService` is an `ImapService`), with a `PendingArchive` and one `TaxonomyStore`:
 
 1. **Pass 1 (rules, headers only)** on the junk folder, then INBOX, in batches of `fast_parse.batch_size`: validated sender → learned sender → validated domain → computed domain. A match is routed to its action folder and recorded in the account's `pending_archive` file.
-2. **Pass 3 (models, full body)** for the rest (`classifier.py`): nomic centroids classify at score ≥ `nomic_threshold`; otherwise Gemma must agree with nomic's top choice; otherwise the mail goes to `5-A revoir`. In laya mode Laya alone decides, in logreg mode the logistic regression alone (see AI Model Configuration). Routing to action folders (`routing.py`, `action_rules.py`) records a `pending_archive` entry per mail.
+2. **Pass 3 (models, full body)** for the rest (`classifier.py`): nomic centroids classify at score ≥ `nomic_threshold`; otherwise Gemma must agree with nomic's top choice; otherwise the mail goes to `5-A revoir`. In laya mode Laya alone decides, in logreg mode the logistic regression alone (see AI Model Configuration). Pass 3 is currently at rest (`[mlx] enabled = false`, so everything the rules miss goes to `5-A revoir`). Routing to action folders (`routing.py`, `action_rules.py`) records a `pending_archive` entry per mail.
 3. **Archive sweep** (`archive.py`): seen, unflagged mail older than `archive_after_days` moves into its category folder.
 
 `--validate` moves nothing and writes nothing (`Classifier(read_only=True)`).
@@ -94,7 +96,7 @@ Rule state lives in JSON files, no database class:
 
 - `db/taxonomy/`: `validated.json`, `senders.json`, `domains.json`, `validated_domains.json`, `folder_overrides.json`, `control.json` (managed by `TaxonomyStore`)
 - `db/pending_archive.json`, `db/pending_archive_gmail.json`: category of each mail waiting in an action folder, keyed by Message-ID (`PendingArchive`)
-- `data/taxonomy_centroids.npz`, `data/taxonomy_logreg.npz`, `data/legacy_folders.json`, `data/non_commercial_domains.yaml`
+- `data/taxonomy_centroids.npz`, `data/taxonomy_logreg.npz`, `data/training_corpus.json` (when present), `data/legacy_folders.json`, `data/non_commercial_domains.yaml`
 
 All lookups lowercase-normalize sender addresses and domains. **Automatic backups**: `db/taxonomy/*.json` and `db/pending_archive*.json` are copied to `db/backups/` at the start of each `run` (`utils/db_backup.py`), 10 most recent copies per file.
 

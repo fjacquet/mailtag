@@ -78,17 +78,75 @@ def test_learn_threshold_needs_precision_and_enough_mails():
     assert learn_threshold([]) == 1.01
 
 
-def test_sender_folds_never_share_a_sender_and_test_each_verified_mail_once():
-    from scripts.eval_embeddings import sender_folds
+def test_fold_group_is_the_domain_or_the_address_on_personal_domains():
+    from scripts.eval_embeddings import fold_group
 
-    senders = [f"s{i % 7}@x.ch" for i in range(40)]  # 7 senders
-    test_idx = [i for i in range(40) if i % 2 == 0]  # the "verified" mails
+    assert fold_group("News@Shop.ch") == "shop.ch"
+    assert fold_group("jane.doe@gmail.com") == "jane.doe@gmail.com"
+
+
+def test_group_folds_never_share_a_group_and_test_each_mail_once():
+    from scripts.eval_embeddings import group_folds
+
+    train_groups = [f"d{i % 7}.ch" for i in range(60)]  # 7 domains in the training corpus
+    test_groups = [f"d{i % 6}.ch" for i in range(30)]  # 6 of them in the test set
 
     tested = []
-    for train, test in sender_folds(senders, test_idx, n_splits=3):
-        assert not {senders[i] for i in train} & {senders[i] for i in test}
-        assert set(test) <= set(test_idx)
+    for train, test in group_folds(train_groups, test_groups, n_splits=3):
+        assert not {train_groups[i] for i in train} & {test_groups[i] for i in test}
         assert len(train) > 0
         tested += test.tolist()
 
-    assert sorted(tested) == test_idx
+    assert sorted(tested) == list(range(30))
+
+
+def test_pick_winner_keeps_the_baseline_on_a_tie():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.0, 0.70, "base"), (0.0, 0.72, "h per_sender=5"), (0.0, 0.71, "h per_sender=10")]
+
+    assert pick_winner(scored, "base") == "base"
+
+
+def test_pick_winner_adopts_a_harvested_corpus_only_when_strictly_better():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.10, 0.70, "base"), (0.12, 0.69, "h per_sender=5"), (0.10, 0.80, "h per_sender=10")]
+
+    assert pick_winner(scored, "base") == "h per_sender=5"
+
+
+def test_pick_winner_among_harvested_prefers_coverage_then_top1():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.0, 0.70, "base"), (0.2, 0.60, "h5"), (0.2, 0.65, "h10"), (0.1, 0.90, "h20")]
+
+    assert pick_winner(scored, "base") == "h10"
+
+
+def test_pick_winner_baseline_alone():
+    from scripts.eval_embeddings import pick_winner
+
+    assert pick_winner([(0.3, 0.7, "base")], "base") == "base"
+
+
+def test_reaches_pass3_drops_only_mails_whose_domain_has_a_rule():
+    from scripts.eval_embeddings import reaches_pass3
+
+    rules = {"shop.ch": "Achats"}
+    mails = [
+        {"sender": "jane@gmail.com"},
+        {"sender": "news@unknown.org"},
+        {"sender": "news@shop.ch"},
+        {"sender": "News@SHOP.CH"},
+    ]
+
+    kept = reaches_pass3(mails, rules.get)
+
+    assert [m["sender"] for m in kept] == ["jane@gmail.com", "news@unknown.org"]
+
+
+def test_reaches_pass3_keeps_a_personal_domain_even_if_a_rule_claims_it():
+    from scripts.eval_embeddings import reaches_pass3
+
+    assert reaches_pass3([{"sender": "jane@gmail.com"}], lambda d: "Achats") == [{"sender": "jane@gmail.com"}]

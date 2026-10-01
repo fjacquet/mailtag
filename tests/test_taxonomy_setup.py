@@ -267,6 +267,7 @@ def _train_setup(tmp_path, monkeypatch, mocker, mails):
     if mails is not None:
         corpus.write_text(json.dumps(mails), encoding="utf-8")
     monkeypatch.setattr(setup, "CORPUS", corpus)
+    monkeypatch.setattr(setup, "TRAINING_CORPUS", tmp_path / "training.json")
     monkeypatch.setattr(CONFIG, "logreg", LogRegConfig(model_file=str(tmp_path / "logreg.npz")))
     mocker.patch("mailtag.mlx_provider.MLXEmbedder", FakeEmbedder)
     return setup, mocker.patch.object(setup, "_imap")
@@ -298,3 +299,72 @@ def test_train_with_too_few_categories_exits_with_a_message(tmp_path, monkeypatc
     with pytest.raises(SystemExit, match="3 categories"):
         setup.train()
     assert not (tmp_path / "logreg.npz").exists()
+
+
+HARVESTED = [
+    {"sender": f"h{i % 3}@x.ch", "sender_name": "", "subject": word, "body": "", "category": cat,
+     "verified": False}
+    for i, (word, cat) in enumerate(
+        [("pizza", "Achats"), ("impot", "Impôts & Administration"), ("train", "Transports & Mobilité")] * 6
+    )
+]  # fmt: skip
+
+
+def test_train_prefers_the_training_corpus_capped_per_sender(tmp_path, monkeypatch, mocker):
+    import mailtag.logreg_provider
+    from mailtag.config import CONFIG, LogRegConfig
+
+    setup, _ = _train_setup(tmp_path, monkeypatch, mocker, TRAIN_MAILS)
+    (tmp_path / "training.json").write_text(json.dumps(HARVESTED), encoding="utf-8")
+    monkeypatch.setattr(CONFIG, "logreg", LogRegConfig(model_file=str(tmp_path / "logreg.npz"), per_sender=5))
+    fit = mocker.spy(mailtag.logreg_provider, "train")
+
+    setup.train()
+
+    # 3 senders x 5 mails: neither the 18 harvested rows nor the 12 rows of TRAIN_MAILS
+    assert len(fit.call_args.args[1]) == 15
+    assert fit.call_args.args[0].shape[0] == 15
+
+
+def test_train_falls_back_to_the_taxonomy_corpus(tmp_path, monkeypatch, mocker):
+    import mailtag.logreg_provider
+
+    setup, _ = _train_setup(tmp_path, monkeypatch, mocker, TRAIN_MAILS)
+    fit = mocker.spy(mailtag.logreg_provider, "train")
+
+    setup.train()
+
+    assert fit.call_args.args[1] == [m["category"] for m in TRAIN_MAILS]
+
+
+def _harvest_setup(tmp_path, monkeypatch, mocker, corpus):
+    import scripts.taxonomy_setup as setup
+
+    monkeypatch.setattr(setup, "TRAINING_CORPUS", tmp_path / "training.json")
+    store = mocker.MagicMock()
+    store.validated = {}
+    mocker.patch.object(setup, "_store", return_value=store)
+    mocker.patch.object(setup, "_imap")
+    read = mocker.patch("mailtag.taxonomy_build.read_folder_senders", return_value={"Archive/Achats": {}})
+    mocker.patch("mailtag.taxonomy_build.harvest_refs", return_value=[{"uid": 1}] if corpus else [])
+    mocker.patch("mailtag.taxonomy_build.fetch_corpus", return_value=corpus)
+    return setup, read
+
+
+def test_harvest_reads_the_19_category_folders_and_writes_the_training_corpus(tmp_path, monkeypatch, mocker):
+    from mailtag.taxonomy import TAXONOMY, category_folder
+
+    setup, read = _harvest_setup(tmp_path, monkeypatch, mocker, HARVESTED)
+
+    setup.harvest(per_sender=20)
+
+    assert sorted(read.call_args.args[1]) == sorted(category_folder(c) for c in TAXONOMY)
+    assert json.loads((tmp_path / "training.json").read_text(encoding="utf-8")) == HARVESTED
+
+
+def test_harvest_with_nothing_collected_exits_without_writing(tmp_path, monkeypatch, mocker):
+    setup, _ = _harvest_setup(tmp_path, monkeypatch, mocker, [])
+
+    with pytest.raises(SystemExit, match="Nothing harvested"):
+        setup.harvest(per_sender=20)
+    assert not (tmp_path / "training.json").exists()

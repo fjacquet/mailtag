@@ -8,6 +8,7 @@ from loguru import logger
 
 from .semantic_router import SemanticRouter
 from .taxonomy import nomic_text
+from .taxonomy_store import normalize_address
 from .utils.domain_utils import is_non_commercial_domain_cached
 
 
@@ -163,6 +164,50 @@ def fetch_corpus(provider, refs: list[dict]) -> list[dict]:
                      "sender_name": mail.sender_name, "subject": mail.subject, "body": mail.body}
                 )  # fmt: skip
     return corpus
+
+
+def read_folder_senders(provider, folders: list[str]) -> dict[str, dict[str, str]]:
+    """Folder -> {uid: sender address} for every mail, read-only; unreadable folders are skipped."""
+    result: dict[str, dict[str, str]] = {}
+    for folder in folders:
+        try:
+            provider.client.select_folder(folder, readonly=True)
+            headers = provider.get_email_headers(provider.client.search(["ALL"]))
+        except (imaplib.IMAP4.error, ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"Could not read folder {folder}: {e}")
+            continue
+        result[folder] = {str(uid): h["sender_address"] for uid, h in headers.items()}
+    return result
+
+
+def harvest_refs(
+    folder_senders: dict[str, dict[str, str]],
+    folders: dict[str, str],
+    rule_category,
+    validated,
+    per_sender: int,
+) -> list[dict]:
+    """References of mails whose sender's rule gives their folder's category, at most `per_sender` per
+    sender over all folders, highest UIDs (most recent) first in each folder."""
+    counts: Counter = Counter()
+    refs = []
+    for folder, senders in folder_senders.items():
+        category = folders[folder]
+        for uid in sorted(senders, key=int, reverse=True):
+            sender = normalize_address(senders[uid])
+            if not sender or counts[sender] >= per_sender or rule_category(sender) != category:
+                continue
+            counts[sender] += 1
+            refs.append(
+                {"sender": sender, "category": category, "verified": sender in validated,
+                 "folder": folder, "uid": int(uid)}
+            )  # fmt: skip
+    return refs
+
+
+def corpus_to_keep(new: list[dict], old: list[dict] | None) -> list[dict]:
+    """The re-read corpus, unless it lost more than half of the existing one (its folders are gone)."""
+    return old if old is not None and len(new) < len(old) / 2 else new
 
 
 def build_centroids(embedder, corpus: list[dict]) -> SemanticRouter:

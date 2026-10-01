@@ -5,6 +5,7 @@ from mailtag.config import LogRegConfig
 from mailtag.logreg_provider import (
     PREFIX,
     LogRegClassifier,
+    capped_indices,
     corpus_texts,
     embed,
     load_model,
@@ -181,3 +182,10 @@ def test_failed_batch_goes_to_review_and_next_batch_retries(tmp_path, mocker):
     assert first[0][0] == "Achats"
     assert clf.classify([mail(2, "pizza")]) == [None]
     assert clf.classify([mail(3, "train")])[0][0] == "Transports & Mobilité"
+
+
+def test_capped_indices_keeps_the_first_mails_of_each_sender_in_order():
+    corpus = [{"sender": s} for s in ["a", "b", "a", "a", "c", "b", "a"]]
+
+    assert capped_indices(corpus, 2) == [0, 1, 2, 4, 5]
+    assert capped_indices(corpus, 10) == list(range(7))
