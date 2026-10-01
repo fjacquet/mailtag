@@ -17,6 +17,7 @@ Core package: classifies emails into 19 categories and files them.
 - **taxonomy_store.py** - `TaxonomyStore`: validated and learned senders, validated and computed domains, folder overrides; `category_for()`, `is_own()`, `record_agreement()`, `set_validated()` (both ignore `own_addresses`), `set_validated_domain()`, `save()` (flock, replays operations)
 - **semantic_router.py** - `SemanticRouter`: nomic centroids (`top_batch()`, `load_embeddings()`, `save_embeddings()`, `build_from_examples()`)
 - **mlx_provider.py** - `MLXEmbedder` (nomic) and `MLXLLM` (Gemma, `classify_batch()`), lazy loaded
+- **laya_provider.py** - `LayaClassifier`: Laya Router, one 19-category `choice` question per mail, `(category, answer_confidence, checkpoint)` (mode = "laya")
 
 ### Routing and archive
 

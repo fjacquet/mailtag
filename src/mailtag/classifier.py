@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from .config import AppConfig
+from .laya_provider import LayaClassifier
 from .models import Email
 from .taxonomy import (
     REVIEW,
@@ -28,6 +29,7 @@ class Classifier:
 
     Rules first (validated sender, learned sender, domain), then nomic embeddings above the
     threshold, else nomic and the LLM must agree; anything else goes to review.
+    With [classifier] mode = "laya", Laya replaces nomic and the LLM.
     """
 
     def __init__(self, config: AppConfig, read_only: bool = False):
@@ -47,6 +49,8 @@ class Classifier:
             own_addresses=config.taxonomy.own_addresses,
             read_only=read_only,
         )
+        # Laya replaces nomic + Gemma in Pass 3 (feasibility study, mode = "laya")
+        self._laya = LayaClassifier(config.laya) if config.classifier.mode == "laya" else None
         logger.info(f"Using the {len(self.categories)}-category taxonomy")
 
     def _embeddings_path(self) -> Path:
@@ -164,7 +168,10 @@ class Classifier:
         return [parse_category_number(answer) for answer in answers]
 
     def _classify_uncertain_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:
-        """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement."""
+        """Signals 5-6: (category, nomic and LLM agreed) — nomic above threshold, else LLM agreement.
+        In laya mode, Laya alone with its per-checkpoint thresholds."""
+        if self._laya is not None:
+            return self._classify_laya(emails)
         results: list[tuple[str, bool]] = [(REVIEW, False)] * len(emails)
         need_llm: list[tuple[int, str]] = []
         for i, (category, score) in enumerate(self._nomic_top(emails)):
@@ -177,6 +184,21 @@ class Classifier:
             for (i, nomic_category), llm_category in zip(need_llm, answers, strict=True):
                 if llm_category and llm_category == nomic_category:
                     results[i] = (llm_category, True)
+        return results
+
+    def _classify_laya(self, emails: list[Email]) -> list[tuple[str, bool]]:
+        """(category, confident enough to learn from) per email; below classify_threshold → review."""
+        results: list[tuple[str, bool]] = []
+        for answer in self._laya.classify(emails):
+            if answer is None:
+                results.append((REVIEW, False))
+                continue
+            category, confidence, checkpoint = answer
+            thresholds = self.config.laya.thresholds(checkpoint)
+            if confidence >= thresholds.classify_threshold:
+                results.append((category, confidence >= thresholds.learn_threshold))
+            else:
+                results.append((REVIEW, False))
         return results
 
     def classify_detailed(self, emails: list[Email]) -> list[tuple[str, bool]]:

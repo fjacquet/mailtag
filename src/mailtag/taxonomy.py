@@ -26,6 +26,59 @@ TAXONOMY = {
     "Contacts": "personnes qui écrivent directement",
 }
 
+# English label and description per category, for Laya's English checkpoint (which cannot read French)
+TAXONOMY_EN = {
+    "Banque & Placements": (
+        "Banking & Investments",
+        "banks, credit cards, payments, stock market, crypto, crowdfunding, budget",
+    ),
+    "Assurances & Retraite": (
+        "Insurance & Pensions",
+        "health, car, home and travel insurance, pension funds, retirement",
+    ),
+    "Impôts & Administration": (
+        "Taxes & Government",
+        "taxes, municipality, public services, digital identity, legal",
+    ),
+    "Énergie & Télécom": ("Energy & Telecom", "electricity, phone, internet, telecom bills"),
+    "Santé": ("Health", "doctors, medical bills, connected health, wellness, hairdresser"),
+    "Famille & École": ("Family & School", "children, school, daycare, family members"),
+    "Logement & Maison": (
+        "Housing & Home",
+        "real estate, property management, rental, moving, maintenance, smart home",
+    ),
+    "Achats": ("Shopping", "shops, e-commerce, supermarkets, orders, loyalty cards"),
+    "Colis & Livraisons": ("Parcels & Deliveries", "parcel tracking, post office, carriers"),
+    "Transports & Mobilité": ("Transport & Mobility", "trains, taxis, car, parking, bikes, carpooling"),
+    "Voyages & Loisirs": (
+        "Travel & Leisure",
+        "flights, hotels, car rental, holidays, restaurants, spas, outings",
+    ),
+    "Médias & Divertissement": (
+        "Media & Entertainment",
+        "newspapers, streaming, music, games, recipes, culture",
+    ),
+    "Veille & Newsletters pro": (
+        "Professional Newsletters",
+        "professional newsletters, tech, marketing, startups, technical books",
+    ),
+    "Éditeurs IT & Cloud": (
+        "IT Vendors & Cloud",
+        "enterprise software vendors, cloud, infrastructure, IT webinars",
+    ),
+    "Outils & Services en ligne": (
+        "Online Tools & Services",
+        "online tools, development, AI, productivity, hosting, software",
+    ),
+    "Sécurité & Comptes": (
+        "Security & Accounts",
+        "login alerts, passwords, antivirus, backups, bounced emails",
+    ),
+    "Carrière & Formation": ("Career & Training", "jobs, recruiting, LinkedIn, certifications, courses"),
+    "Associations & Communauté": ("Associations & Community", "associations, donations, communities, parish"),
+    "Contacts": ("Personal Contacts", "people writing directly"),
+}  # fmt: skip
+
 # PARA grouping of the category folders (Areas, Resources, Archives); projects are the owner's own
 # folders. "Archive" is the providers' standard folder, reused rather than duplicated.
 PARA = {

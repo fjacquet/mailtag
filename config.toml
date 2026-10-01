@@ -40,6 +40,24 @@ embedding_model = "nomic-ai/nomic-embed-text-v1.5"
 # llm_model = "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
 llm_model = "mlx-community/gemma-4-e4b-it-OptiQ-4bit"
 
+[classifier]
+# Pass 3 model: "mlx" (nomic + Gemma, above) | "laya" (feasibility study,
+# docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md; needs `uv sync --extra laya`)
+mode = "mlx"
+
+[laya]
+routing = "router"      # "router" (language → english/multilingual checkpoint) | "multilingual"
+device = "auto"         # auto | mps | cpu
+batch_size = 16
+head_max_len = 512      # room for the 19 options (~26 tokens each)
+max_len = 1024
+rotations = false       # average over 19 option orders (position bias), 19 rows per mail
+body_chars = 1500
+calibration = "data/laya_neutral_calibration.json"  # "" = shipped temperatures
+# Thresholds on answer_confidence, set by `scripts/eval_embeddings.py laya` (1.01 = never)
+english = { classify_threshold = 1.01, learn_threshold = 1.01 }
+multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
+
 [taxonomy]
 # 19-category taxonomy + action folders (spec docs/superpowers/specs/2026-09-27-*)
 # nomic alone must be very sure; below, nomic and Gemma must agree, else 5-A revoir

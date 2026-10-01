@@ -5,9 +5,12 @@ import pytest
 from mailtag.classifier import Classifier
 from mailtag.config import (
     AppConfig,
+    ClassifierConfig,
     FastParseConfig,
     GmailConfig,
     ImapConfig,
+    LayaConfig,
+    LayaThresholds,
     LoggingConfig,
     MLXConfig,
     TaxonomyConfig,
@@ -265,3 +268,69 @@ def test_classify_detailed_learns_nothing_until_learn_is_called(classifier, tmp_
     assert json.loads((tmp_path / "senders.json").read_text(encoding="utf-8")) == {
         "doc@clinic.ch": {"category": "Santé", "agreements": 1}
     }
+
+
+def _laya_classifier(tmp_path, answers, mocker, **thresholds):
+    config = _config(tmp_path)
+    config.classifier = ClassifierConfig(mode="laya")
+    config.laya = LayaConfig(
+        english=thresholds.get("english", LayaThresholds(0.7, 0.95)),
+        multilingual=thresholds.get("multilingual", LayaThresholds(0.6, 0.9)),
+    )
+    classifier = Classifier(config=config)
+    mocker.patch.object(classifier._laya, "classify", return_value=answers)
+    return classifier
+
+
+def test_laya_mode_applies_each_checkpoints_thresholds(tmp_path, mocker):
+    answers = [
+        ("Santé", 0.65, "english"),  # below english classify (0.7)
+        ("Santé", 0.65, "multilingual"),  # above multilingual classify (0.6), below learn
+        ("Achats", 0.95, "english"),  # exactly english learn: inclusive
+        ("Achats", 0.6, "multilingual"),  # exactly multilingual classify: inclusive
+        None,  # Laya could not answer
+    ]
+    classifier = _laya_classifier(tmp_path, answers, mocker)
+
+    assert classifier._classify_uncertain_detailed([mail(i) for i in range(5)]) == [
+        (REVIEW, False),
+        ("Santé", False),
+        ("Achats", True),
+        ("Achats", False),
+        (REVIEW, False),
+    ]
+
+
+def test_laya_mode_never_learns_with_the_inert_default(tmp_path, mocker):
+    classifier = _laya_classifier(
+        tmp_path, [("Santé", 1.0, "multilingual")], mocker, multilingual=LayaThresholds(0.5, 1.01)
+    )
+
+    assert classifier._classify_uncertain_detailed([mail()]) == [("Santé", False)]
+
+
+def test_laya_mode_runs_rules_first_and_never_loads_mlx(tmp_path, mocker):
+    write(tmp_path, "validated", {"v@x.ch": "Santé"})
+    classifier = _laya_classifier(tmp_path, [("Achats", 0.99, "multilingual")], mocker)
+    mlx = mocker.patch.object(classifier, "_init_mlx_components")
+
+    result = classifier.classify_detailed([mail(1, sender="v@x.ch"), mail(2, sender="new@shop.ch")])
+
+    assert result == [("Santé", False), ("Achats", True)]
+    classifier._laya.classify.assert_called_once()
+    assert [e.sender_address for e in classifier._laya.classify.call_args.args[0]] == ["new@shop.ch"]
+    mlx.assert_not_called()
+
+
+def test_laya_mode_agreements_teach_rules(tmp_path, mocker):
+    classifier = _laya_classifier(tmp_path, [("Santé", 0.97, "multilingual")], mocker)
+
+    classify_and_learn(classifier, [mail(sender="doc@clinic.ch")])
+    classify_and_learn(classifier, [mail(sender="doc@clinic.ch")])
+
+    learned = json.loads((tmp_path / "senders.json").read_text(encoding="utf-8"))
+    assert learned["doc@clinic.ch"]["category"] == "Santé"
+
+
+def test_mlx_mode_builds_no_laya_classifier(classifier):
+    assert classifier._laya is None

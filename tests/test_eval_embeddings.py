@@ -50,3 +50,29 @@ def test_threshold_sweep_and_best():
     assert sweep[1] == {"threshold": 0.8, "auto": 0.5, "precision": 1.0}
     assert best_threshold(sweep) == sweep[1]
     assert best_threshold(sweep, min_precision=1.1) is None
+
+
+def test_confidence_sweep():
+    from scripts.eval_embeddings import confidence_sweep
+
+    answers = [("A", 0.9), ("B", 0.6), ("C", 0.95), None]
+    labels = ["A", "A", "C", "B"]
+
+    sweep = confidence_sweep(answers, labels, [0.5, 0.8])
+
+    assert sweep[0] == {"threshold": 0.5, "auto": 0.75, "precision": pytest.approx(2 / 3), "classified": 3}
+    assert sweep[1] == {"threshold": 0.8, "auto": 0.5, "precision": 1.0, "classified": 2}
+
+
+def test_learn_threshold_needs_precision_and_enough_mails():
+    from scripts.eval_embeddings import learn_threshold
+
+    sweep = [
+        {"threshold": 0.8, "auto": 0.9, "precision": 0.95, "classified": 90},
+        {"threshold": 0.9, "auto": 0.5, "precision": 0.98, "classified": 50},
+        {"threshold": 0.95, "auto": 0.2, "precision": 1.0, "classified": 20},
+    ]
+
+    assert learn_threshold(sweep) == 0.9
+    assert learn_threshold(sweep, min_mails=60) == 1.01
+    assert learn_threshold([]) == 1.01
