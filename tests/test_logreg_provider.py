@@ -102,6 +102,17 @@ def test_model_file_round_trip(tmp_path):
     assert np.array_equal(loaded["intercept"], model["intercept"])
 
 
+def test_model_file_without_npz_suffix_lands_exactly_at_the_configured_path(tmp_path):
+    x, y = clusters()
+    model = train(x, y, C=10.0)
+    path = tmp_path / "taxonomy_logreg"
+    save_model(path, model, MODEL_NAME)
+
+    assert path.is_file()
+    assert not (tmp_path / "taxonomy_logreg.npz").exists()
+    assert load_model(path, MODEL_NAME)["classes"].tolist() == model["classes"].tolist()
+
+
 def test_load_model_refuses_another_embedding_model(tmp_path):
     x, y = clusters()
     save_model(tmp_path / "m.npz", train(x, y, C=10.0), "other/model")

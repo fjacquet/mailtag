@@ -133,4 +133,6 @@ pytest + pytest-mock, faux embedder, aucun téléchargement.
 | `learn_threshold` proposé | 1,01 |
 | Secondes par mail | 0,021 |
 
+Le seuil proposé repose sur 82 mails : les 85,4 % de précision sont dans le bruit d'échantillonnage de la cible de 85 % (environ ±8 points à 95 %), et toute précision mesurée au-dessus de 0,95 repose sur moins de 60 mails.
+
 Seuils écrits dans `config.toml` ; `mode` reste `mlx` jusqu'à la bascule par le propriétaire.

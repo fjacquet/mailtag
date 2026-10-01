@@ -55,13 +55,14 @@ def predict(model: dict, embeddings: np.ndarray) -> tuple[list[str], np.ndarray]
 
 def save_model(path: Path, model: dict, embedding_model: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        path,
-        classes=model["classes"],
-        coef=model["coef"],
-        intercept=model["intercept"],
-        embedding_model=np.array(embedding_model),
-    )
+    with path.open("wb") as f:  # a file handle: np.savez would append ".npz" to a bare path
+        np.savez(
+            f,
+            classes=model["classes"],
+            coef=model["coef"],
+            intercept=model["intercept"],
+            embedding_model=np.array(embedding_model),
+        )
 
 
 def load_model(path: Path, embedding_model: str) -> dict:
