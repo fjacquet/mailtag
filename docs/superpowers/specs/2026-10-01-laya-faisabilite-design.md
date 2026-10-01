@@ -40,9 +40,10 @@ routing = "router"      # "router" (langue → english/multilingual) | "multilin
 device = "auto"         # auto | mps | cpu
 batch_size = 16
 head_max_len = 512      # place des 19 options (~26 tokens chacune)
-max_len = 1024          # multilingual ; le checkpoint anglais reste à 512
+max_len = 1024          # les deux checkpoints (le défaut anglais de 512 laisserait ~100 tokens au mail)
 rotations = false       # moyenne sur 19 option_order (biais de position), 19 lignes par mail
 body_chars = 1500       # corps après smart_truncate
+calibration = "data/laya_neutral_calibration.json"  # "" = températures livrées
 # seuils par checkpoint sur answer_confidence, fixés par `eval_embeddings.py laya`
 english = { classify_threshold = 1.01, learn_threshold = 1.01 }
 multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
@@ -54,18 +55,19 @@ multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
 
 ### `taxonomy.py`
 
-`TAXONOMY_EN` : les 19 mêmes clés que `TAXONOMY`, descriptions en anglais. Les clés (noms de catégorie français) sont les étiquettes renvoyées par Laya pour les deux checkpoints ; ce sont des étiquettes sémantiques, jamais `yes`/`no`/`true`/`false`.
+`TAXONOMY_EN` : les 19 mêmes clés que `TAXONOMY`, valeur `(étiquette anglaise, description anglaise)`. Laya affiche les clés de `criteria` telles quelles au modèle : le checkpoint anglais voit donc les étiquettes anglaises, et la réponse est retraduite en catégorie française. Étiquettes sémantiques, jamais `yes`/`no`/`true`/`false`.
 
 ### `laya_provider.py` (nouveau)
 
 `LayaClassifier(laya_config)` :
 
-- Chargement paresseux sous verrou (même schéma que `_mlx_lock`), un seul essai ; `USE_TF=0` posé avant l'import de `laya`.
+- `Router` construit paresseusement sous verrou (même schéma que `_mlx_lock`), un seul essai ; `USE_TF=0` posé avant l'import de `laya`. Les checkpoints se chargent au premier `predict_batch`.
 - `classify(emails) -> list[tuple[str, float, str] | None]` : `(catégorie, answer_confidence, checkpoint)` par mail, `None` si Laya n'a pas répondu.
 - État : `{"from": "Nom <adresse>", "subject": ..., "body": smart_truncate(body, body_chars)}`.
 - Question : un `choice` dont les `criteria` sont `TAXONOMY` (multilingual) ou `TAXONOMY_EN` (english), consigne dans la même langue.
 - `predict_batch(..., batch_size, sort_by_length=True, head_max_len, max_len)`.
-- `routing = "router"` : chaque mail est d'abord routé (détection de langue du `Router`), puis chaque groupe passe sur son checkpoint avec sa question. Le mécanisme exact (`Router.route_batch` puis `Router.predict_batch` avec `model=`, ou deux `Agent` chargés par `laya.load` et `Router.route`) est vérifié dans le code de `laya` au moment du plan. `routing = "multilingual"` : un seul `Agent`, tous les mails.
+- Un seul `Router(default="multilingual", agent_kwargs={"calibration": ...})` (vérifié dans `laya` 0.3.22). `routing = "router"` : `Router.route_batch` choisit le checkpoint de chaque mail sans rien charger ; `routing = "multilingual"` : tous les mails sur `multilingual`. Puis `Router.predict_batch(requests, batch_size, sort_by_length=True)`, une requête par mail avec `model=` explicite, sa question dans la langue du checkpoint, `max_len` et `head_max_len` (le Router accepte des questions différentes par requête).
+- Calibration : le checkpoint anglais est livré avec un « sharpener » qui renvoie une confiance de 1,0 au-delà de 11 options (`laya/common.py`, issue #394), ce qui rendrait tout seuil inutile. `data/laya_neutral_calibration.json` (`{"temperature": [1.0, 1.0, 1.0], "temperature_by_options": {}}`) remet le softmax brut, qui garde l'ordre des confiances ; les seuils mesurés font le reste. L'ajustement des températures sur nos données relève du fine-tuning.
 - `rotations = true` : 19 questions `option_order` décalées dans la même requête, probabilités moyennées, réponse = maximum de la moyenne, confiance = cette moyenne.
 
 ### `Classifier`
@@ -105,8 +107,8 @@ Les descriptions des catégories s'ajustent dans `taxonomy.py`. La présélectio
 Un modèle indisponible n'arrête jamais un `run` ; les mails sans règle vont dans `5-A revoir`.
 
 - `laya` absent (`ImportError`) : avertissement, `REVIEW`.
-- Chargement en échec (`OSError`, `RuntimeError`, `ValueError`) : erreur, `REVIEW` jusqu'à la fin du processus.
-- `predict_batch` en échec : le lot en `REVIEW`, log ; le lot suivant réessaie.
+- Construction du `Router` en échec : erreur, `REVIEW` jusqu'à la fin du processus.
+- `predict_batch` en échec (y compris le premier chargement d'un checkpoint, qui a lieu là) : le lot en `REVIEW`, log ; le lot suivant réessaie.
 
 ## Tests
 
