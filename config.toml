@@ -62,9 +62,9 @@ multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
 [logreg]
 model_file = "data/taxonomy_logreg.npz"  # written by `scripts/taxonomy_setup.py train`
 C = 100.0
-per_sender = 10         # mails per sender taken from data/training_corpus.json (set by the evaluation)
+per_sender = 5          # mails per sender taken from data/training_corpus.json (set by the evaluation)
 # Thresholds on the top probability, set by `scripts/eval_embeddings.py logreg` (1.01 = never)
-classify_threshold = 0.91
+classify_threshold = 1.01
 learn_threshold = 1.01
 
 [taxonomy]

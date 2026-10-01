@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/taxonomy_setup.py harvest`: read-only training corpus for the logistic regression from the category folders (mail whose sender's rule matches its folder, at most 20 per sender); `train` prefers it, capped to `[logreg] per_sender`.
+
+### Changed
+
+- `scripts/eval_embeddings.py logreg` groups folds by domain (by sender on personal domains) and compares training corpora.
+- `[logreg]` set from the new evaluation: `per_sender = 5`, and both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 46.4 %, centroids 34.2 %). `logreg` mode classifies nothing until a better signal exists; the default stays `mlx`.
+
+### Fixed
+
+- `build` no longer overwrites `data/taxonomy_corpus.json` (the verified test set) with a re-read that lost more than half of it, as happens once legacy folders are migrated.
+
 ## [2.1.0] - 2026-10-01
 
 Logistic regression for Pass 3, behind a switch: on unknown senders it finds the right category first 51.4 % of the time (nomic centroids: 37.5 %) and classifies 20.3 % of them at 85.4 % precision, in 0.021 s per mail. The default mode stays `mlx`.

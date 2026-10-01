@@ -21,7 +21,7 @@ One AI path: the **MLX local path**, configured in `config.toml [mlx]`. It uses 
 
 **Laya (feasibility study)**: `[classifier] mode = "laya"` (default `"mlx"`) replaces nomic and Gemma in Pass 3 with the Laya classifier (`src/mailtag/laya_provider.py`, `uv sync --extra laya`; spec `docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md`). A `laya.Router` sends each mail to the `english` or `multilingual` checkpoint (`[laya] routing`), which answers one `choice` question over the 19 categories (English labels from `TAXONOMY_EN` for the English checkpoint). A mail is classified at `answer_confidence ≥ classify_threshold` and counts as an agreement at `≥ learn_threshold`, both per checkpoint in `[laya]` and inert (1.01) until `uv run python scripts/eval_embeddings.py laya` proposes them. `data/laya_neutral_calibration.json` neutralises the English checkpoint's shipped temperatures, which sharpen confidence past 11 options. Zero-shot was measured and rejected (verdict in the spec); the default stays `mlx`.
 
-**Logistic regression**: `[classifier] mode = "logreg"` replaces nomic centroids and Gemma in Pass 3 with a logistic regression over nomic embeddings (`src/mailtag/logreg_provider.py`; spec `docs/superpowers/specs/2026-10-01-logreg-pass3-design.md`). `scripts/taxonomy_setup.py train` (also run by `build`) fits it on `data/taxonomy_corpus.json` and writes `data/taxonomy_logreg.npz` (classes, coefficients, intercepts, embedding model; numpy only at run time). A mail is classified at top probability ≥ `[logreg] classify_threshold` and counts as an agreement at ≥ `learn_threshold`; `uv run python scripts/eval_embeddings.py logreg` proposes both (target 85 % precision on unknown senders). Gemma stays for `crosscheck` and `review-scan`; with `[mlx] enabled = false` logreg mode sends uncovered mail to `5-A revoir`.
+**Logistic regression**: `[classifier] mode = "logreg"` replaces nomic centroids and Gemma in Pass 3 with a logistic regression over nomic embeddings (`src/mailtag/logreg_provider.py`; spec `docs/superpowers/specs/2026-10-01-logreg-pass3-design.md`). `scripts/taxonomy_setup.py train` (also run by `build`) fits it on `data/taxonomy_corpus.json` and writes `data/taxonomy_logreg.npz` (classes, coefficients, intercepts, embedding model; numpy only at run time). `scripts/taxonomy_setup.py harvest` (read-only, IMAP) builds `data/training_corpus.json` from the category folders: a mail counts only if its sender's rule gives its folder's category, at most 20 per sender; `train` prefers it, capped to `[logreg] per_sender`. `data/taxonomy_corpus.json` stays the test set (its verified mails) and the centroid source; `build` keeps it when a re-read loses more than half of it. The evaluation groups its folds by domain (by sender on personal domains). A mail is classified at top probability ≥ `[logreg] classify_threshold` and counts as an agreement at ≥ `learn_threshold`; `uv run python scripts/eval_embeddings.py logreg` proposes both (target 85 % precision on unknown senders). Gemma stays for `crosscheck` and `review-scan`; with `[mlx] enabled = false` logreg mode sends uncovered mail to `5-A revoir`.
 
 ### Testing
 
@@ -50,7 +50,7 @@ python src/main.py serve                           # Start webhook API server
 python src/main.py serve --host 0.0.0.0 --reload   # Dev mode with auto-reload
 ```
 
-Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` subcommands (`scan`, `crosscheck`, `build`, `train`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`), described under Taxonomy below. `src/app.py` is a small Streamlit front end for `run` (`scripts/streamlit.sh`).
+Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` subcommands (`scan`, `crosscheck`, `build`, `train`, `harvest`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`), described under Taxonomy below. `src/app.py` is a small Streamlit front end for `run` (`scripts/streamlit.sh`).
 
 ## Architecture
 
@@ -94,7 +94,7 @@ Rule state lives in JSON files, no database class:
 
 - `db/taxonomy/`: `validated.json`, `senders.json`, `domains.json`, `validated_domains.json`, `folder_overrides.json`, `control.json` (managed by `TaxonomyStore`)
 - `db/pending_archive.json`, `db/pending_archive_gmail.json`: category of each mail waiting in an action folder, keyed by Message-ID (`PendingArchive`)
-- `data/taxonomy_centroids.npz`, `data/taxonomy_logreg.npz`, `data/legacy_folders.json`, `data/non_commercial_domains.yaml`
+- `data/taxonomy_centroids.npz`, `data/taxonomy_logreg.npz`, `data/training_corpus.json`, `data/legacy_folders.json`, `data/non_commercial_domains.yaml`
 
 All lookups lowercase-normalize sender addresses and domains. **Automatic backups**: `db/taxonomy/*.json` and `db/pending_archive*.json` are copied to `db/backups/` at the start of each `run` (`utils/db_backup.py`), 10 most recent copies per file.
 

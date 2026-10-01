@@ -98,3 +98,16 @@ pytest + pytest-mock, IMAP simulé, faux embedder, aucun réseau.
 ## Documentation
 
 `CLAUDE.md` (commande `harvest`, rôles des deux corpus, plis par domaine), `scripts/CLAUDE.md`, `config.toml`, `CHANGELOG.md` (`[Unreleased]`).
+
+## Résultat (2026-10-01)
+
+`harvest` : 11 350 mails, 2 095 expéditeurs. Évaluation (`eval_embeddings.py logreg --per-sender 5 10 20`), 403 mails vérifiés, 77 groupes de plis (domaines ou expéditeurs de domaines personnels), plis groupés par domaine :
+
+| Corpus d'entraînement | Mails | Expéditeurs | Top-1 | Classés à 85 % |
+|---|---|---|---|---|
+| taxonomy_corpus.json | 2 525 | 567 | 44,4 % | 0,0 % |
+| training_corpus.json, per_sender=5 | 5 876 | 2 095 | 46,4 % | 0,0 % |
+| training_corpus.json, per_sender=10 | 8 335 | 2 095 | 44,2 % | 0,0 % |
+| training_corpus.json, per_sender=20 | 11 350 | 2 095 | 44,9 % | 0,0 % |
+
+Centroïdes (mêmes plis) : 34,2 % de top-1. Décision : `training_corpus.json` avec `per_sender = 5` (meilleur top-1, +2,0 points sur l'ancien corpus), mais aucun seuil n'atteint 85 % de précision : à 0,90, 26,1 % des mails sont classés avec 61,0 % de précision (105 mails) ; à 0,99, 4,2 % avec 64,7 % (17 mails). `classify_threshold = 1,01` et `learn_threshold = 1,01` (jamais), donc le mode `logreg` ne classe rien et reste hors service ; le mode par défaut reste `mlx`. Les écarts entre corpus (2 points) sont dans le bruit d'échantillonnage de 403 mails. Le top-1 de 51,4 % annoncé en 2.1.0 reposait sur des plis par expéditeur : un domaine présent des deux côtés des plis gonflait la mesure. Un meilleur corpus n'y change rien ; l'écart vient du protocole.

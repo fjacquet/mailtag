@@ -47,7 +47,7 @@ Run the test suite.
 
 ### taxonomy_setup.py
 
-Taxonomy preparation, migration and bulk review. Subcommands: `scan`, `crosscheck`, `build`, `train`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`. Those that move mail (`migrate`, `prune`, `reorganize`, `refile-review`) are dry runs unless `--apply`; `scan`, `crosscheck`, `build`, `train` and `review-scan` move nothing. `train` fits `data/taxonomy_logreg.npz` from the corpus (`build` runs it).
+Taxonomy preparation, migration and bulk review. Subcommands: `scan`, `crosscheck`, `build`, `train`, `harvest`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`. Those that move mail (`migrate`, `prune`, `reorganize`, `refile-review`) are dry runs unless `--apply`; `scan`, `crosscheck`, `build`, `train`, `harvest` and `review-scan` move nothing. `train` fits `data/taxonomy_logreg.npz` from the corpus (`build` runs it). `harvest [--per-sender N]` (read-only, IMAP; default 20) writes `data/training_corpus.json` from the category folders: a mail is kept when its sender's rule gives the folder's category.
 
 ### taxonomy_review.py
 
@@ -55,7 +55,7 @@ Local Streamlit review page (folder audit, scan senders, senders learned during 
 
 ### eval_embeddings.py
 
-`chain` replays nomic and Gemma on verified mail and picks `nomic_threshold`. `logreg` trains per sender-grouped fold and proposes the `[logreg]` thresholds (`--min-precision`, default 0.85).
+`chain` replays nomic and Gemma on verified mail and picks `nomic_threshold`. `logreg` trains on domain-grouped folds, compares `data/taxonomy_corpus.json` with `data/training_corpus.json` at each `--per-sender` value and proposes the `[logreg]` settings of the best (`--min-precision`, default 0.85).
 
 ## Running Scripts
 
