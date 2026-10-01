@@ -29,7 +29,9 @@ junk_folder_name = "Spam"
 [mlx]
 # MLX-based classification (Apple Silicon optimized)
 # false = rules only (validated/learned senders, domains); everything else goes to 5-A revoir
-enabled = true
+# Pass 3 at rest (2026-10-01): no model reaches 85 % precision on mail no rule covers; rules only, the rest
+# goes to 5-A revoir. crosscheck and review-scan still use Gemma.
+enabled = false
 
 # Semantic Router (Signal 5) - embedding-based instant classification
 # Model for generating embeddings (nomic supports French and long context)

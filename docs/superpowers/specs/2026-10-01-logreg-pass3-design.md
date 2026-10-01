@@ -136,3 +136,11 @@ pytest + pytest-mock, faux embedder, aucun téléchargement.
 Le seuil proposé repose sur 82 mails : les 85,4 % de précision sont dans le bruit d'échantillonnage de la cible de 85 % (environ ±8 points à 95 %), et toute précision mesurée au-dessus de 0,95 repose sur moins de 60 mails.
 
 Seuils écrits dans `config.toml` ; `mode` reste `mlx` jusqu'à la bascule par le propriétaire.
+
+## Correction (2026-10-01)
+
+Les chiffres de la section « Résultat » sont gonflés. Sur les 403 mails vérifiés de `data/taxonomy_corpus.json`, 246 viennent d'un domaine qui a une règle de domaine (`db/taxonomy/domains.json` ou `validated_domains.json`) : en production ils n'atteignent jamais la passe 3, et ce sont les plus faciles. L'évaluation de la version 2.1.0 les mélangeait aux autres (51,4 % de top-1, 85,4 % de précision pour 20,3 % de mails classés au seuil de 0,91).
+
+Sur les 157 autres mails (36 expéditeurs, 16 domaines ; petit échantillon, environ ±10 points), la régression logistique donne au seuil de 0,90 : 24,8 % de mails classés avec 66,7 % de précision (plis par expéditeur) ou 17,8 % avec 71,4 % (plis par domaine) ; au seuil de 0,80 : 37,6 % avec 59,3 % / 33,8 % avec 62,3 %. Top-1 : 51,0 % / 49,7 %. Le chiffre de 64,5 % de la chaîne nomic + Gemma (comparaison de la version 2.1.0) a été mesuré avec le même biais : sa précision réelle sur le courrier de la passe 3 est probablement plus basse.
+
+`classify_threshold = 0,91` avait donc été fixé sur des chiffres gonflés. Aucun modèle n'atteint 85 % de précision sur le courrier qu'aucune règle ne couvre. Suite et décision : `2026-10-01-logreg-corpus-design.md`.
