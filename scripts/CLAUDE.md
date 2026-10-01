@@ -47,7 +47,7 @@ Run the test suite.
 
 ### taxonomy_setup.py
 
-Taxonomy preparation, migration and bulk review. Subcommands: `scan`, `crosscheck`, `build`, `train`, `harvest`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`. Those that move mail (`migrate`, `prune`, `reorganize`, `refile-review`) are dry runs unless `--apply`; `scan`, `crosscheck`, `build`, `train`, `harvest` and `review-scan` move nothing. `train` fits `data/taxonomy_logreg.npz` from the corpus (`build` runs it). `harvest [--per-sender N]` (read-only, IMAP; default 20) writes `data/training_corpus.json` from the category folders: a mail is kept when its sender's rule gives the folder's category.
+Taxonomy preparation, migration and bulk review. Subcommands: `scan`, `crosscheck`, `build`, `train`, `harvest`, `migrate`, `prune`, `reorganize`, `review-scan`, `refile-review`. Those that move mail (`migrate`, `prune`, `reorganize`, `refile-review`) are dry runs unless `--apply`; `scan`, `crosscheck`, `build`, `train`, `harvest` and `review-scan` move nothing. `train` fits `data/taxonomy_logreg.npz` from the corpus (`build` runs it). `harvest [--per-sender N]` (read-only, IMAP; default 20) writes `data/training_corpus.json` from the category folders: a mail is kept when its sender's rule gives the folder's category. Re-running `harvest` makes `train` use `data/training_corpus.json`; keep it only if `eval_embeddings.py logreg` says it wins (otherwise move it aside).
 
 ### taxonomy_review.py
 

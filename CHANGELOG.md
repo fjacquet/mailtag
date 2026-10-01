@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `scripts/eval_embeddings.py logreg` groups folds by domain (by sender on personal domains) and compares training corpora.
-- `[logreg]` settings from the domain-grouped evaluation: both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 44.4 %, centroids 34.2 %), and `per_sender` stays 10. The harvested corpus gained 2 points of top-1 but classifies no more mail at 85 % than `data/taxonomy_corpus.json` (0 % vs 0 %), so `train` keeps the old corpus. `logreg` mode classifies nothing; the default stays `mlx`.
+- `[logreg]` settings from the domain-grouped evaluation: both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 44.4 %, centroids 34.2 %), and `per_sender` is 10. The harvested corpus gained 2 points of top-1 but classifies no more mail at 85 % than `data/taxonomy_corpus.json` (0 % vs 0 %), so `train` keeps the old corpus. `logreg` mode classifies nothing; the default stays `mlx`.
+- `scripts/eval_embeddings.py logreg` now tests only the verified mails whose domain has no domain rule (the only ones that reach Pass 3) and keeps `data/taxonomy_corpus.json` unless the harvested corpus classifies strictly more mails at the target precision.
 - `config.toml`: `[mlx] enabled = false` — Pass 3 at rest: rules only, everything else goes to `5-A revoir` (set it back to `true` to restore nomic + Gemma).
 
 ### Fixed
