@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-01
+
+Logistic regression for Pass 3, behind a switch: on unknown senders it finds the right category first 51.4 % of the time (nomic centroids: 37.5 %) and classifies 20.3 % of them at 85.4 % precision, in 0.021 s per mail. The default mode stays `mlx`.
+
 ### Added
 
-- `[classifier] mode = "logreg"`: a logistic regression over nomic embeddings alone decides Pass 3 (no Gemma, no centroids), with `[logreg]` thresholds; `scripts/taxonomy_setup.py train` (also run by `build`) fits it and `scripts/eval_embeddings.py logreg` measures it on unknown senders and proposes the thresholds. The default mode stays `mlx`.
+- `[classifier] mode = "logreg"`: a logistic regression over nomic embeddings alone decides Pass 3 (no Gemma, no centroids), with `[logreg]` thresholds; `scripts/taxonomy_setup.py train` (also run by `build`) fits it and `scripts/eval_embeddings.py logreg` measures it on unknown senders and proposes the thresholds. The default mode stays `mlx` (#59).
 
 ## [2.0.0] - 2026-10-01
 
