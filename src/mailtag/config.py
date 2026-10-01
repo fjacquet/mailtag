@@ -52,6 +52,49 @@ class MLXConfig:
 
 
 @dataclass
+class ClassifierConfig:
+    """Pass 3 model: "mlx" (nomic + Gemma) or "laya" (docs/superpowers/specs/2026-10-01-laya-*)."""
+
+    mode: str = "mlx"
+
+    def __post_init__(self):
+        if self.mode not in ("mlx", "laya"):
+            raise ValueError(f"[classifier] mode must be 'mlx' or 'laya', got {self.mode!r}")
+
+
+@dataclass
+class LayaThresholds:
+    """Per-checkpoint thresholds on Laya's answer_confidence (1.01 = never)."""
+
+    classify_threshold: float = 1.01
+    learn_threshold: float = 1.01
+
+
+@dataclass
+class LayaConfig:
+    """Laya classifier (mode = "laya"); thresholds come from `scripts/eval_embeddings.py laya`."""
+
+    routing: str = "router"  # "router" (language → english/multilingual) | "multilingual"
+    device: str = "auto"  # auto | mps | cpu
+    batch_size: int = 16
+    head_max_len: int = 512
+    max_len: int = 1024
+    rotations: bool = False
+    body_chars: int = 1500
+    calibration: str = "data/laya_neutral_calibration.json"  # "" = the checkpoints' shipped temperatures
+    english: LayaThresholds = field(default_factory=LayaThresholds)
+    multilingual: LayaThresholds = field(default_factory=LayaThresholds)
+
+    def __post_init__(self):
+        if self.routing not in ("router", "multilingual"):
+            raise ValueError(f"[laya] routing must be 'router' or 'multilingual', got {self.routing!r}")
+
+    def thresholds(self, checkpoint: str) -> LayaThresholds:
+        """Thresholds of `checkpoint`; anything but "english" is the multilingual checkpoint."""
+        return self.english if checkpoint == "english" else self.multilingual
+
+
+@dataclass
 class WebhookConfig:
     """Configuration for the webhook API server."""
 
@@ -89,17 +132,33 @@ class AppConfig:
     mlx: MLXConfig
     webhook: WebhookConfig = None  # type: ignore[assignment]
     taxonomy: TaxonomyConfig = None  # type: ignore[assignment]
+    classifier: ClassifierConfig = None  # type: ignore[assignment]
+    laya: LayaConfig = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.webhook is None:
             self.webhook = WebhookConfig()
         if self.taxonomy is None:
             self.taxonomy = TaxonomyConfig()
+        if self.classifier is None:
+            self.classifier = ClassifierConfig()
+        if self.laya is None:
+            self.laya = LayaConfig()
 
 
 def _dataclass_from_dict(cls, data: dict):
     """Create a dataclass from a dict, ignoring unknown keys and using dataclass defaults for missing ones."""
     return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
+def _laya_config(data: dict) -> LayaConfig:
+    """`[laya]`, with its per-checkpoint threshold tables turned into LayaThresholds."""
+    thresholds = {
+        name: _dataclass_from_dict(LayaThresholds, data[name])
+        for name in ("english", "multilingual")
+        if name in data
+    }
+    return _dataclass_from_dict(LayaConfig, {**data, **thresholds})
 
 
 def load_config(path: Path) -> AppConfig:
@@ -137,6 +196,8 @@ def load_config(path: Path) -> AppConfig:
             mlx=mlx_config,
             webhook=webhook_config,
             taxonomy=_dataclass_from_dict(TaxonomyConfig, data.get("taxonomy", {})),
+            classifier=_dataclass_from_dict(ClassifierConfig, data.get("classifier", {})),
+            laya=_laya_config(data.get("laya", {})),
         )
     except (FileNotFoundError, KeyError, TypeError, tomllib.TOMLDecodeError, ValueError) as e:
         raise RuntimeError(f"Failed to load or parse config file: {e}") from e

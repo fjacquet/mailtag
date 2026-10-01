@@ -296,3 +296,115 @@ credentials_file = "c.json"
 
     with pytest.raises(RuntimeError, match="Failed to load or parse config file"):
         load_config(path)
+
+
+def test_classifier_and_laya_defaults():
+    from mailtag.config import ClassifierConfig, LayaConfig, LayaThresholds
+
+    assert ClassifierConfig().mode == "mlx"
+    cfg = LayaConfig()
+    assert cfg.routing == "router"
+    assert cfg.device == "auto"
+    assert cfg.batch_size == 16
+    assert cfg.head_max_len == 512
+    assert cfg.max_len == 1024
+    assert cfg.rotations is False
+    assert cfg.body_chars == 1500
+    assert cfg.calibration == "data/laya_neutral_calibration.json"
+    assert cfg.english == LayaThresholds(classify_threshold=1.01, learn_threshold=1.01)
+    assert cfg.multilingual == LayaThresholds(classify_threshold=1.01, learn_threshold=1.01)
+
+
+def test_laya_thresholds_by_checkpoint():
+    from mailtag.config import LayaConfig, LayaThresholds
+
+    cfg = LayaConfig(english=LayaThresholds(0.5, 0.9), multilingual=LayaThresholds(0.6, 0.95))
+    assert cfg.thresholds("english") == LayaThresholds(0.5, 0.9)
+    assert cfg.thresholds("multilingual") == LayaThresholds(0.6, 0.95)
+    assert cfg.thresholds("typed-decisions") == LayaThresholds(0.6, 0.95)
+
+
+def test_unknown_mode_or_routing_is_refused():
+    from mailtag.config import ClassifierConfig, LayaConfig
+
+    with pytest.raises(ValueError, match="mode"):
+        ClassifierConfig(mode="gemma")
+    with pytest.raises(ValueError, match="routing"):
+        LayaConfig(routing="english")
+
+
+def test_app_config_without_classifier_or_laya_gets_defaults():
+    from mailtag.config import (
+        AppConfig,
+        ClassifierConfig,
+        FastParseConfig,
+        GmailConfig,
+        ImapConfig,
+        LayaConfig,
+        LoggingConfig,
+        MLXConfig,
+    )
+
+    cfg = AppConfig(
+        logging=LoggingConfig(level="INFO", file=""),
+        imap=ImapConfig(host="", user="", password=""),
+        gmail=GmailConfig(credentials_file="", token_file=""),
+        fast_parse=FastParseConfig(),
+        mlx=MLXConfig(enabled=False),
+    )
+    assert cfg.classifier == ClassifierConfig()
+    assert cfg.laya == LayaConfig()
+
+
+def test_load_config_reads_classifier_and_laya(tmp_path, monkeypatch):
+    from mailtag.config import LayaThresholds, load_config
+
+    monkeypatch.setenv("IMAP_USER", "user@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    toml = tmp_path / "config.toml"
+    toml.write_text(
+        """
+[logging]
+level = "INFO"
+file = ""
+
+[imap]
+host = "imap.test.com"
+
+[gmail]
+credentials_file = "c.json"
+token_file = "t.json"
+
+[classifier]
+mode = "laya"
+
+[laya]
+routing = "multilingual"
+batch_size = 4
+english = { classify_threshold = 0.7, learn_threshold = 0.95 }
+multilingual = { classify_threshold = 0.8 }
+"""
+    )
+
+    cfg = load_config(toml)
+
+    assert cfg.classifier.mode == "laya"
+    assert cfg.laya.routing == "multilingual"
+    assert cfg.laya.batch_size == 4
+    assert cfg.laya.english == LayaThresholds(0.7, 0.95)
+    assert cfg.laya.multilingual == LayaThresholds(0.8, 1.01)
+
+
+def test_load_config_refuses_unknown_mode(tmp_path, monkeypatch):
+    from mailtag.config import load_config
+
+    monkeypatch.setenv("IMAP_USER", "user@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    toml = tmp_path / "config.toml"
+    toml.write_text(
+        '[logging]\nlevel = "INFO"\nfile = ""\n[imap]\nhost = "h"\n'
+        '[gmail]\ncredentials_file = "c"\ntoken_file = "t"\n[classifier]\nmode = "gemma"\n'
+    )
+
+    with pytest.raises(RuntimeError, match="mode"):
+        load_config(toml)
