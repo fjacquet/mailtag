@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-01
+
+Taxonomy-only release: the 19-category taxonomy is now the only classification mode, and the legacy modes are removed. A 1.x `config.toml` needs the new `[taxonomy]` section and loses its legacy sections.
+
 ### Added
 
 - **User guide** (`docs-site/user-guide.md`): folders, daily routine, archiving, teaching MailTag, bulk review, Gmail specifics
-- **Taxonomy mode** (`[taxonomy]`, enabled in `config.toml`): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `5-A revoir`) and is archived into its category after `archive_after_days` (#36)
+- **Taxonomy** (`[taxonomy]`, the only classification mode): 19 business-sector categories replace the 611 IMAP folders; new mail goes to action folders (`1-A traiter` … `5-A revoir`) and is archived into its category after `archive_after_days` (#36)
 - **Learned taxonomy rules** in `db/taxonomy/`: validated senders, senders learned after two nomic/Gemma agreements, business domain rules, and 19 nomic centroids built from verified mail (#38)
 - **Taxonomy setup** `scripts/taxonomy_setup.py` (`scan`, `crosscheck`, `build`) and the local Streamlit review page `scripts/taxonomy_review.py` (folder audit, sender review, runtime-learned senders, rule control sample) (#38, #39, #40, #41)
 - **Owner's addresses** (`own_addresses`) are never a rule and never learned from (#41)
@@ -18,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PARA folders**: categories live under `Domaines/`, `Ressources/` and the standard `Archive/`; `taxonomy_setup.py reorganize [--apply]` renames existing folders and merges duplicate system folders (`Archives`, `Junk`, `Deleted Messages`, `Sent Messages`) into Infomaniak's (`Archive`, `Spam`, `Trash`, `Sent`); Pass 1 now reads `Spam`
 - **Gmail through the API**: `run --provider gmail` (`GmailApiService`) classifies the Gmail inbox through the Gmail API (OAuth) with the same taxonomy flow as Infomaniak; shared `db/taxonomy/` rules, per-account pending archive, junk label and folder cache (#44, #48)
 - **Bulk review of `5-A revoir`**: validated domain rules (`db/taxonomy/validated_domains.json`, never replaced by `build`); `taxonomy_setup.py review-scan --provider imap|gmail` groups review mail by domain or sender with a Gemma suggestion; the review page's stage 5 lets the owner decide per domain or per sender; `taxonomy_setup.py refile-review --provider imap|gmail [--apply]` moves the mail a rule now covers to its category, dry run by default
+- **Laya feasibility mode** (`[classifier] mode = "laya"`, optional extra `uv sync --extra laya`): the Laya classifier can replace nomic and Gemma in Pass 3, with per-checkpoint thresholds (inert by default) and `scripts/eval_embeddings.py laya` to measure it. Zero-shot was measured and rejected (13-24 % top-1 against 38.5 % for nomic); the default stays `mlx` (#58)
+- **Automatic backups** of `db/taxonomy/*.json` and `db/pending_archive*.json` to `db/backups/` at the start of each `run`
 
 ### Changed
 
@@ -26,13 +32,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `nomic_threshold` set to 0.90 in `config.toml` (#42)
 - Gmail OAuth files live in the git-ignored `secrets/` directory (`secrets/credentials.json`, `secrets/token.json`)
 - AI classification proposals are written to `logs/proposals.log` (was `proposals.log` at the repository root); the old `CLASSIFICATION_IMPROVEMENTS_SPEC.md` moved to `docs/classification-improvements-spec.md`; the unused `old/` files were removed
-- Gmail uses the Gmail API (OAuth) instead of IMAP; Gmail's Promotions category is reused (#48)
+- Gmail uses the Gmail API (OAuth) instead of IMAP; Gmail's Promotions category is reused (#48); long fetches log their progress and back off on rate limits (#52, #53, #54)
+- The webhook API is taxonomy-only: `/classify-and-move` routes the mail to its action folder and records its pending entry like `run`
+- The Docker image runs rules only (no MLX, no litellm): what the rules do not cover goes to `5-A revoir`
+
+### Removed
+
+- Legacy classification modes and their modules, scripts and tests: Pass 2, label-based classification, the classification database, the pass-3 manual matching dump, the metrics module, the folder cache
+- The cloud/Ollama path (litellm) and the `MODEL` variable; MLX keeps only what the taxonomy chain uses
+- Legacy `config.toml` sections and the taxonomy on/off flag; CLI commands other than `run` and `serve`
 
 ### Fixed
 
 - Tests no longer write `test.log` at the repository root
 - `TaxonomyStore` shared safely between threads and between `serve` and `run` processes (file lock, operation replay) (#39)
 - RFC 2047 encoded sender names decoded; `--validate` leaves the databases untouched (#37)
+- Senders are learned only from mails whose move succeeded; `/classify` and `/classify-batch` never learn; `own_addresses` handled in one place, the store (#56)
+- `PendingArchive` saves lock and replay, so `serve` and `run` never overwrite each other's entries (#56)
+- `--validate` skips database backups; an incomplete `[gmail]` section is reported as a config error
 
 ## [1.1.1] - 2026-09-13
 
