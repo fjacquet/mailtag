@@ -51,7 +51,9 @@ class FakeRouter:
         return ["multilingual"]
 
     def load(self, name):
-        return types.SimpleNamespace(device="mps")
+        return types.SimpleNamespace(
+            device="mps", dtype_for=lambda rows: "torch.float16" if rows >= 4 else "torch.float32"
+        )
 
 
 @pytest.fixture
@@ -177,6 +179,47 @@ def test_failed_batch_goes_to_review_and_next_batch_retries(fake_laya):
     assert len(fake_laya.instances) == 1  # the Router is built once
 
 
+def test_any_batch_failure_goes_to_review_and_next_batch_retries(fake_laya, mocker):
+    class DownloadError(Exception):
+        pass
+
+    classifier = LayaClassifier(LayaConfig())
+    router = classifier._load()
+    mocker.patch.object(router, "predict_batch", side_effect=[DownloadError("read timeout"), []])
+
+    assert classifier.classify([mail(1), mail(2)]) == [None, None]
+    assert classifier.classify([]) == []
+    assert router.predict_batch.call_count == 1
+    classifier.classify([mail(3)])  # retried
+    assert router.predict_batch.call_count == 2
+
+
+def test_router_build_failure_sends_everything_to_review_once(monkeypatch):
+    class ProxyError(Exception):
+        pass
+
+    builds = []
+
+    def build(**kwargs):
+        builds.append(kwargs)
+        raise ProxyError("boom")
+
+    monkeypatch.setitem(sys.modules, "laya", types.SimpleNamespace(Router=build))
+    classifier = LayaClassifier(LayaConfig())
+
+    assert classifier.classify([mail(1), mail(2)]) == [None, None]
+    assert classifier.classify([mail(3)]) == [None]
+    assert len(builds) == 1
+
+
+def test_missing_calibration_file_sends_everything_to_review_without_a_router(fake_laya, tmp_path):
+    classifier = LayaClassifier(LayaConfig(calibration=str(tmp_path / "absent.json")))
+
+    assert classifier.classify([mail(1), mail(2)]) == [None, None]
+    assert classifier.classify([mail(3)]) == [None]
+    assert fake_laya.instances == []
+
+
 def test_missing_laya_sends_everything_to_review(monkeypatch):
     monkeypatch.setitem(sys.modules, "laya", None)  # import laya -> ImportError
 
@@ -187,11 +230,25 @@ def test_missing_laya_sends_everything_to_review(monkeypatch):
 
 
 def test_devices_reports_loaded_checkpoints(fake_laya):
-    classifier = LayaClassifier(LayaConfig())
+    classifier = LayaClassifier(LayaConfig(batch_size=2))
     assert classifier.devices() == {}
     classifier.classify([mail()])
 
-    assert classifier.devices() == {"multilingual": "mps"}
+    assert classifier.devices() == {"multilingual": "mps/torch.float32"}  # 2 rows: below the fake's cutoff
+
+
+def test_devices_gives_the_dtype_of_a_full_batch(fake_laya):
+    classifier = LayaClassifier(LayaConfig(batch_size=4))
+    classifier.classify([mail()])
+
+    assert classifier.devices() == {"multilingual": "mps/torch.float16"}
+
+
+def test_devices_counts_a_row_per_rotation(fake_laya):
+    classifier = LayaClassifier(LayaConfig(batch_size=1, rotations=True))
+    classifier.classify([mail()])
+
+    assert classifier.devices() == {"multilingual": "mps/torch.float16"}  # 19 rows
 
 
 def test_real_laya_router_routes_by_language_without_loading_a_checkpoint(monkeypatch):

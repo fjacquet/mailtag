@@ -210,6 +210,7 @@ def laya_eval(n: int, seed: int, overrides: dict) -> None:
 
     thresholds = [round(0.30 + 0.01 * i, 2) for i in range(70)]
     proposed = {}
+    thin = {}  # checkpoint -> mails behind a proposed classify_threshold, when too few to trust it
     for checkpoint in ("english", "multilingual"):
         idx = [i for i, a in enumerate(answers) if a and a[2] == checkpoint]
         if not idx:
@@ -227,10 +228,14 @@ def laya_eval(n: int, seed: int, overrides: dict) -> None:
             )
         best = best_threshold(sweep)
         proposed[checkpoint] = (best["threshold"] if best else 1.01, learn_threshold(sweep))
+        if best and best["classified"] < 30:
+            thin[checkpoint] = best["classified"]
 
     print("\nProposed [laya] thresholds:")
     for checkpoint, (classify_t, learn_t) in proposed.items():
         print(f"{checkpoint} = {{ classify_threshold = {classify_t:.2f}, learn_threshold = {learn_t:.2f} }}")
+        if checkpoint in thin:
+            print(f"# warning: {checkpoint} classify_threshold rests on {thin[checkpoint]} mails")
 
     results = [a[0] if a and a[1] >= proposed.get(a[2], (1.01, 1.01))[0] else REVIEW for a in answers]
     m = chain_metrics(results, labels, seconds, len(emails))

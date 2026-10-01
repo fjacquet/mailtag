@@ -6,6 +6,7 @@ mail is routed to (docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md)
 
 import os
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -91,6 +92,12 @@ class LayaClassifier:
             except ImportError as e:
                 logger.warning(f"laya is not installed (uv sync --extra laya), sending emails to review: {e}")
                 return None
+            if self.config.calibration and not Path(self.config.calibration).is_file():
+                # Agent reads it only after loading the weights: a missing file costs a load per batch
+                logger.error(
+                    f"Laya calibration file not found: {self.config.calibration}, sending emails to review"
+                )
+                return None
             agent_kwargs = {"calibration": self.config.calibration} if self.config.calibration else {}
             try:
                 self._router = Router(
@@ -98,8 +105,10 @@ class LayaClassifier:
                     default="multilingual",
                     agent_kwargs=agent_kwargs,
                 )
-            except (OSError, RuntimeError, ValueError, TypeError) as e:
-                logger.error(f"Failed to build the Laya router, sending emails to review: {e}")
+            except Exception as e:  # a failed Laya must never stop a run
+                logger.error(
+                    f"Failed to build the Laya router ({type(e).__name__}), sending emails to review: {e}"
+                )
             return self._router
 
     def _checkpoints(self, router: "Router", states: list[dict]) -> list[str]:
@@ -132,12 +141,18 @@ class LayaClassifier:
                 (*category_answer(result["answers"], checkpoint), checkpoint)
                 for result, checkpoint in zip(results, checkpoints, strict=True)
             ]
-        except (RuntimeError, ValueError, OSError, KeyError, TypeError) as e:
-            logger.error(f"Laya batch failed, sending emails to review: {e}")
+        except Exception as e:  # download, safetensors, torch import...: never stop a run
+            logger.error(f"Laya batch failed ({type(e).__name__}), sending emails to review: {e}")
             return [None] * len(emails)
 
     def devices(self) -> dict[str, str]:
-        """Device of each loaded checkpoint (for the evaluation report)."""
+        """Device and dtype of each loaded checkpoint, as "device/dtype" (for the evaluation report).
+
+        The dtype is the one a forward pass of one full batch runs in: on MPS small calls stay float32.
+        """
         if self._router is None:
             return {}
-        return {name: str(self._router.load(name).device) for name in self._router.loaded}
+        per_state = len(TAXONOMY) if self.config.rotations else 1  # question rows per mail
+        rows = self.config.batch_size * per_state
+        agents = {name: self._router.load(name) for name in self._router.loaded}
+        return {name: f"{agent.device}/{agent.dtype_for(rows)}" for name, agent in agents.items()}
