@@ -67,7 +67,7 @@ multilingual = { classify_threshold = 1.01, learn_threshold = 1.01 }
 - Question : un `choice` dont les `criteria` sont `TAXONOMY` (multilingual) ou `TAXONOMY_EN` (english), consigne dans la même langue.
 - `predict_batch(..., batch_size, sort_by_length=True, head_max_len, max_len)`.
 - Un seul `Router(default="multilingual", agent_kwargs={"calibration": ...})` (vérifié dans `laya` 0.3.22). `routing = "router"` : `Router.route_batch` choisit le checkpoint de chaque mail sans rien charger ; `routing = "multilingual"` : tous les mails sur `multilingual`. Puis `Router.predict_batch(requests, batch_size, sort_by_length=True)`, une requête par mail avec `model=` explicite, sa question dans la langue du checkpoint, `max_len` et `head_max_len` (le Router accepte des questions différentes par requête).
-- Calibration : le checkpoint anglais est livré avec un « sharpener » qui renvoie une confiance de 1,0 au-delà de 11 options (`laya/common.py`, issue #394), ce qui rendrait tout seuil inutile. `data/laya_neutral_calibration.json` (`{"temperature": [1.0, 1.0, 1.0], "temperature_by_options": {}}`) remet le softmax brut, qui garde l'ordre des confiances ; les seuils mesurés font le reste. L'ajustement des températures sur nos données relève du fine-tuning.
+- Calibration : le checkpoint anglais est livré avec un « sharpener » pour 11 options et plus (`laya/common.py`, issue #394 ; `laya` 0.3.22 le borne à une température de 0,5, ce qui affûte encore les probabilités d'un facteur 2). `data/laya_neutral_calibration.json` (`{"temperature": [1.0, 1.0, 1.0], "temperature_by_options": {}}`) remet le softmax brut, qui garde l'ordre des confiances ; les seuils mesurés font le reste. L'ajustement des températures sur nos données relève du fine-tuning.
 - `rotations = true` : 19 questions `option_order` décalées dans la même requête, probabilités moyennées, réponse = maximum de la moyenne, confiance = cette moyenne.
 
 ### `Classifier`
@@ -120,3 +120,20 @@ pytest + pytest-mock, faux agent Laya, aucun téléchargement.
 - Config : défauts ; `ValueError` sur `mode`/`routing` inconnu.
 - Évaluation : balayage à une confiance et choix de `learn_threshold` (≥ 97 % sur ≥ 30 mails, sinon 1,01) sur données synthétiques.
 - Le vrai modèle ne tourne que dans l'évaluation, à la main sur le Mac.
+
+## Verdict (2026-10-01)
+
+Mesuré sur la branche `feat/laya-feasibility`, Mac Apple Silicon (MPS, fp16), `laya` 0.3.22, 403 mails `verified` (`-n 500 --seed 3` ; le corpus n'en a que 403), même échantillon pour toutes les lignes.
+
+| Configuration | Top-1 | Meilleure précision (couverture) | s/mail | Critères |
+|---|---|---|---|---|
+| `chain` (nomic + Gemma, aujourd'hui) | 38,5 % (nomic seul) | 67,7 % (32,3 %) | 0,61 | FAIL |
+| Laya, Router (english 92 mails / multilingual 311) | 23,9 % / 13,2 % | < 40 %, aucun seuil à 90 % | 0,22 | FAIL |
+| Laya, multilingual seul | 13,9 % | 25 % (16 %) | 0,12 | FAIL |
+| Laya, températures livrées (`--calibration ""`) | 23,9 % / 13,2 % | 38 % (english, 28 %) | 0,16 | FAIL |
+| Laya, `--head-max-len 384` | identique au Router | identique | 0,16 | FAIL |
+| Laya, `--rotations` | arrêté après 50 mails | — | 52 | FAIL (latence) |
+
+Hasard sur 19 catégories : 5,3 %. La confiance de Laya ne trie pas ses réponses : la précision reste sous 25 % (multilingual) à tous les seuils.
+
+**Décision : zero-shot rejeté ; fine-tuning à décider en projet séparé.** Selon la règle de cette spec, Laya est au-dessus du hasard mais sous les critères, d'où « fine-tuning ». En zero-shot il est 2 à 3 fois moins juste que nomic seul, ce qui confirme la mise en garde des auteurs (« a fast base to specialise »). Il est 3 à 5 fois plus rapide que la chaîne actuelle. Le mode `laya` reste dans le code, inactif (`mode = "mlx"`, seuils 1,01) ; le fine-tuning partirait de notre corpus (403 mails vérifiés, 2 525 au total). La chaîne actuelle échoue aussi aux critères sur cet échantillon (67,7 % au mieux).
