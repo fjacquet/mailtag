@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-01
+
+Pass 3 at rest: measured on mail no rule covers, no model reaches 85 % precision, so rules classify and everything else goes to `5-A revoir` (`[mlx] enabled = false`; set it back to `true` to restore nomic + Gemma). The 2.1.0 logistic-regression figures are corrected (#60).
+
 ### Added
 
 - `scripts/taxonomy_setup.py harvest`: read-only training corpus for the logistic regression from the category folders (mail whose sender's rule matches its folder, at most 20 per sender); `train` prefers it, capped to `[logreg] per_sender`.
