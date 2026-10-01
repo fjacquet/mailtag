@@ -143,3 +143,13 @@ def test_every_category_has_a_para_folder():
 def test_para_folder_maps_back_to_its_category():
     assert to_category("Domaines/Santé") == "Santé"
     assert to_category("Archive/Achats") == "Achats"
+
+
+def test_taxonomy_en_covers_every_category_with_distinct_labels():
+    from mailtag.taxonomy import TAXONOMY, TAXONOMY_EN
+
+    assert list(TAXONOMY_EN) == list(TAXONOMY)
+    labels = [label for label, _ in TAXONOMY_EN.values()]
+    assert len(set(labels)) == len(labels)
+    assert all(label and description for label, description in TAXONOMY_EN.values())
+    assert not {label.lower() for label in labels} & {"yes", "no", "true", "false"}
