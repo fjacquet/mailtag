@@ -11,9 +11,11 @@ and propose the [logreg] thresholds.
 Category centroids are built leave-sender-out from data/taxonomy_corpus.json, and the LLM step
 runs through Classifier._llm_categories, so results reflect what production would do. Laya runs
 through LayaClassifier with the [laya] settings of config.toml (overridable by flag).
-The logistic regression is tested on the verified mails of data/taxonomy_corpus.json with 5 folds grouped by
-domain (by sender on personal domains); each fold trains on the training corpus minus the fold's groups.
-data/taxonomy_corpus.json and data/training_corpus.json (one row per --per-sender value) are compared.
+The logistic regression is tested on the verified mails of data/taxonomy_corpus.json whose sender's domain has
+no domain rule (only those reach Pass 3 in production), with 5 folds grouped by domain (by sender on personal
+domains); each fold trains on the training corpus minus the fold's groups. data/taxonomy_corpus.json and
+data/training_corpus.json (one row per --per-sender value) are compared; the harvested corpus is adopted only
+if it classifies strictly more mails at the target precision (spec decision 7).
 """
 
 import argparse
@@ -272,21 +274,54 @@ def group_folds(train_groups: list[str], test_groups: list[str], n_splits: int =
         yield np.where(~np.isin(train_arr, test_arr[fold]))[0], fold
 
 
+def reaches_pass3(mails: list[dict], domain_rule) -> list[dict]:
+    """Mails whose sender's domain has no domain rule (`domain_rule(domain)` is None): only those
+    reach Pass 3 in production. Personal domains never have a domain rule."""
+    from mailtag.utils.domain_utils import extract_domain, is_non_commercial_domain_cached
+
+    kept = []
+    for mail in mails:
+        domain = extract_domain(mail["sender"].strip().lower())
+        if is_non_commercial_domain_cached(domain) or domain_rule(domain) is None:
+            kept.append(mail)
+    return kept
+
+
+def pick_winner(scored: list[tuple[float, float, str]], baseline: str) -> str:
+    """The baseline corpus unless a harvested candidate classifies strictly more mails at the target
+    precision (spec decision 7); among harvested candidates, the best (coverage, top-1)."""
+    base = next(row for row in scored if row[2] == baseline)
+    others = [row for row in scored if row[2] != baseline]
+    best = max(others, default=None)
+    return best[2] if best is not None and best[0] > base[0] else baseline
+
+
 TAXONOMY_CORPUS = Path("data/taxonomy_corpus.json")
 TRAINING_CORPUS = Path("data/training_corpus.json")
 
 
 def logreg_eval(C: float, min_precision: float, train_corpus: Path | None, per_senders: list[int]) -> None:
-    """Compare training corpora on the verified mails (domain-grouped folds), propose the [logreg]
-    settings of the best one."""
+    """Compare training corpora on the verified mails that can reach Pass 3 (domain-grouped folds),
+    propose the [logreg] settings of the best one."""
     from mailtag.config import CONFIG
     from mailtag.logreg_provider import capped_indices, corpus_texts, embed, predict, train
     from mailtag.mlx_provider import MLXEmbedder
+    from mailtag.taxonomy_store import TaxonomyStore
 
     corpus = json.loads(TAXONOMY_CORPUS.read_text(encoding="utf-8"))
-    test = [m for m in corpus if m["verified"]]
+    store = TaxonomyStore(Path(CONFIG.taxonomy.taxonomy_db_dir), own_addresses=CONFIG.taxonomy.own_addresses)
+
+    def domain_rule(domain: str) -> str | None:
+        return store.validated_domains.get(domain) or store.domains.get(domain)
+
+    verified = [m for m in corpus if m["verified"]]
+    test = reaches_pass3(verified, domain_rule)
     labels = [m["category"] for m in test]
     test_groups = [fold_group(m["sender"]) for m in test]
+    if len(set(test_groups)) < 5:
+        sys.exit(
+            f"Only {len(set(test_groups))} fold groups among {len(test)} mails that reach Pass 3 (need 5)"
+        )
     embedder = MLXEmbedder(CONFIG.mlx.embedding_model)
     test_emb = embed(embedder, corpus_texts(test))
 
@@ -330,8 +365,9 @@ def logreg_eval(C: float, min_precision: float, train_corpus: Path | None, per_s
         for i, (c, _) in zip(fold, top, strict=True):
             centroid[int(i)] = c
     print(
-        f"\n{len(test)} verified mails, {len(set(test_groups))} fold groups (domains / personal senders), "
-        f"C={C:g}"
+        f"\n{len(verified)} verified mails, {len(verified) - len(test)} excluded (their domain has a domain "
+        f"rule: never in Pass 3), {len(test)} tested, {len(set(test_groups))} fold groups "
+        f"(domains / personal senders), C={C:g}"
     )
     print(f"centroids top-1: {np.mean([c == y for c, y in zip(centroid, labels, strict=True)]):.1%}")
 
@@ -346,7 +382,7 @@ def logreg_eval(C: float, min_precision: float, train_corpus: Path | None, per_s
         senders = len({m["sender"] for m in rows})
         print(f" {name:63} {len(rows):6} {senders:7} {top1:6.1%}  {coverage:6.1%}")
 
-    _, _, winner = max(scored)
+    winner = pick_winner(scored, str(TAXONOMY_CORPUS))
     answers, rows, n = candidates[winner]
     print(f"\nBest: {winner}")
     # Production cost per mail: embed + predict with the winner trained on all its rows
@@ -370,6 +406,18 @@ def logreg_eval(C: float, min_precision: float, train_corpus: Path | None, per_s
     if n is not None:
         print(f"per_sender = {n}")
     print(f"classify_threshold = {classify:.2f}\nlearn_threshold = {learn_threshold(sweep):.2f}")
+    if harvested_path is not None and harvested_path != TAXONOMY_CORPUS:
+        if winner == str(TAXONOMY_CORPUS):
+            print(
+                f"\nKeep {TAXONOMY_CORPUS}: move {harvested_path} aside "
+                f"(e.g. data/training_corpus.rejected.json), "
+                f"since train uses {TRAINING_CORPUS} whenever it exists."
+            )
+        else:
+            print(
+                f"\nUse {harvested_path} as {TRAINING_CORPUS}, set per_sender = {n}, "
+                "then run taxonomy_setup.py train."
+            )
 
 
 def main():

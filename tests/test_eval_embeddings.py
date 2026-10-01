@@ -98,3 +98,55 @@ def test_group_folds_never_share_a_group_and_test_each_mail_once():
         tested += test.tolist()
 
     assert sorted(tested) == list(range(30))
+
+
+def test_pick_winner_keeps_the_baseline_on_a_tie():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.0, 0.70, "base"), (0.0, 0.72, "h per_sender=5"), (0.0, 0.71, "h per_sender=10")]
+
+    assert pick_winner(scored, "base") == "base"
+
+
+def test_pick_winner_adopts_a_harvested_corpus_only_when_strictly_better():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.10, 0.70, "base"), (0.12, 0.69, "h per_sender=5"), (0.10, 0.80, "h per_sender=10")]
+
+    assert pick_winner(scored, "base") == "h per_sender=5"
+
+
+def test_pick_winner_among_harvested_prefers_coverage_then_top1():
+    from scripts.eval_embeddings import pick_winner
+
+    scored = [(0.0, 0.70, "base"), (0.2, 0.60, "h5"), (0.2, 0.65, "h10"), (0.1, 0.90, "h20")]
+
+    assert pick_winner(scored, "base") == "h10"
+
+
+def test_pick_winner_baseline_alone():
+    from scripts.eval_embeddings import pick_winner
+
+    assert pick_winner([(0.3, 0.7, "base")], "base") == "base"
+
+
+def test_reaches_pass3_drops_only_mails_whose_domain_has_a_rule():
+    from scripts.eval_embeddings import reaches_pass3
+
+    rules = {"shop.ch": "Achats"}
+    mails = [
+        {"sender": "jane@gmail.com"},
+        {"sender": "news@unknown.org"},
+        {"sender": "news@shop.ch"},
+        {"sender": "News@SHOP.CH"},
+    ]
+
+    kept = reaches_pass3(mails, rules.get)
+
+    assert [m["sender"] for m in kept] == ["jane@gmail.com", "news@unknown.org"]
+
+
+def test_reaches_pass3_keeps_a_personal_domain_even_if_a_rule_claims_it():
+    from scripts.eval_embeddings import reaches_pass3
+
+    assert reaches_pass3([{"sender": "jane@gmail.com"}], lambda d: "Achats") == [{"sender": "jane@gmail.com"}]
