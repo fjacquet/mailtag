@@ -5,12 +5,15 @@ and propose the [logreg] thresholds.
 
     uv run python scripts/eval_embeddings.py chain -n 500
     uv run python scripts/eval_embeddings.py laya -n 500 [--routing multilingual] [--rotations]
-    uv run python scripts/eval_embeddings.py logreg [--C 100] [--min-precision 0.85]
+    uv run python scripts/eval_embeddings.py logreg [--train-corpus PATH] [--per-sender 5 10 20]
+        [--min-precision 0.85]
 
 Category centroids are built leave-sender-out from data/taxonomy_corpus.json, and the LLM step
 runs through Classifier._llm_categories, so results reflect what production would do. Laya runs
-through LayaClassifier with the [laya] settings of config.toml (overridable by flag). The logistic
-regression trains per fold on the corpus minus the fold's senders, with logreg_provider's functions.
+through LayaClassifier with the [laya] settings of config.toml (overridable by flag).
+The logistic regression is tested on the verified mails of data/taxonomy_corpus.json with 5 folds grouped by
+domain (by sender on personal domains); each fold trains on the training corpus minus the fold's groups.
+data/taxonomy_corpus.json and data/training_corpus.json (one row per --per-sender value) are compared.
 """
 
 import argparse
@@ -249,80 +252,124 @@ def laya_eval(n: int, seed: int, overrides: dict) -> None:
     print(f"Compare with: uv run python scripts/eval_embeddings.py chain -n {n} --seed {seed}")
 
 
-def sender_folds(senders: list[str], test_idx: list[int], n_splits: int = 5):
-    """(train, test) index arrays: each fold tests some of `test_idx`, grouped by sender, and trains on
-    every corpus mail whose sender is not among the fold's senders (as Pass 3 meets unknown senders)."""
+def fold_group(address: str) -> str:
+    """Fold grouping key: the sender's domain, or the address itself on a non-commercial domain
+    (Pass 3 only meets senders and domains no rule covers)."""
+    from mailtag.utils.domain_utils import extract_domain, is_non_commercial_domain_cached
+
+    address = address.strip().lower()
+    domain = extract_domain(address) or address
+    return address if is_non_commercial_domain_cached(domain) else domain
+
+
+def group_folds(train_groups: list[str], test_groups: list[str], n_splits: int = 5):
+    """(train indices, test positions): GroupKFold over the test mails by group; each fold trains on the
+    training mails of every other group."""
     from sklearn.model_selection import GroupKFold
 
-    senders_arr = np.array(senders)
-    test_arr = np.array(test_idx)
-    for _, fold in GroupKFold(n_splits=n_splits).split(test_arr, groups=senders_arr[test_arr]):
-        test = test_arr[fold]
-        yield np.where(~np.isin(senders_arr, senders_arr[test]))[0], test
+    train_arr, test_arr = np.array(train_groups), np.array(test_groups)
+    for _, fold in GroupKFold(n_splits=n_splits).split(test_arr, groups=test_arr):
+        yield np.where(~np.isin(train_arr, test_arr[fold]))[0], fold
 
 
-def logreg_eval(C: float, min_precision: float) -> None:
-    """Train per sender-grouped fold, test on the verified mails, propose the [logreg] thresholds."""
+TAXONOMY_CORPUS = Path("data/taxonomy_corpus.json")
+TRAINING_CORPUS = Path("data/training_corpus.json")
+
+
+def logreg_eval(C: float, min_precision: float, train_corpus: Path | None, per_senders: list[int]) -> None:
+    """Compare training corpora on the verified mails (domain-grouped folds), propose the [logreg]
+    settings of the best one."""
     from mailtag.config import CONFIG
-    from mailtag.logreg_provider import corpus_texts, embed, predict, train
+    from mailtag.logreg_provider import capped_indices, corpus_texts, embed, predict, train
     from mailtag.mlx_provider import MLXEmbedder
 
-    corpus = json.loads(Path("data/taxonomy_corpus.json").read_text(encoding="utf-8"))
-    senders = [m["sender"] for m in corpus]
-    categories = [m["category"] for m in corpus]
-    test_idx = [i for i, m in enumerate(corpus) if m["verified"]]
+    corpus = json.loads(TAXONOMY_CORPUS.read_text(encoding="utf-8"))
+    test = [m for m in corpus if m["verified"]]
+    labels = [m["category"] for m in test]
+    test_groups = [fold_group(m["sender"]) for m in test]
     embedder = MLXEmbedder(CONFIG.mlx.embedding_model)
-    texts = corpus_texts(corpus)
-    emb = embed(embedder, texts)
-    doc = embedder.encode(texts, prefix="search_document: ")
-    query = embedder.encode(texts, prefix="search_query: ")
+    test_emb = embed(embedder, corpus_texts(test))
 
-    answers: dict[int, tuple[str, float]] = {}
-    centroid: dict[int, str | None] = {}
-    for train_idx, fold in sender_folds(senders, test_idx):
-        model = train(emb[train_idx], [categories[i] for i in train_idx], C)
-        cats, probs = predict(model, emb[fold])
-        answers.update({int(i): (c, float(p)) for i, c, p in zip(fold, cats, probs, strict=True)})
+    def answers_for(rows: list[dict], emb: np.ndarray) -> list[tuple[str, float]]:
+        answers: list = [None] * len(test)
+        for train_idx, fold in group_folds([fold_group(m["sender"]) for m in rows], test_groups):
+            model = train(emb[train_idx], [rows[i]["category"] for i in train_idx], C)
+            cats, probs = predict(model, test_emb[fold])
+            for i, c, p in zip(fold, cats, probs, strict=True):
+                answers[int(i)] = (c, float(p))
+        return answers
+
+    # name -> (answers, training rows, per_sender or None)
+    candidates: dict[str, tuple[list, list[dict], int | None]] = {}
+    candidates[str(TAXONOMY_CORPUS)] = (
+        answers_for(corpus, embed(embedder, corpus_texts(corpus))),
+        corpus,
+        None,
+    )
+    harvested_path = train_corpus or (TRAINING_CORPUS if TRAINING_CORPUS.exists() else None)
+    if harvested_path is not None and harvested_path != TAXONOMY_CORPUS:
+        harvested = json.loads(harvested_path.read_text(encoding="utf-8"))
+        harvested_emb = embed(embedder, corpus_texts(harvested))
+        for n in per_senders:
+            keep = capped_indices(harvested, n)
+            rows = [harvested[i] for i in keep]
+            candidates[f"{harvested_path} per_sender={n}"] = (answers_for(rows, harvested_emb[keep]), rows, n)
+
+    # Centroids on the taxonomy corpus, same folds, for reference
+    doc = embedder.encode(corpus_texts(corpus), prefix="search_document: ")
+    query = embedder.encode(corpus_texts(test), prefix="search_query: ")
+    centroid: list = [None] * len(test)
+    for train_idx, fold in group_folds([fold_group(m["sender"]) for m in corpus], test_groups):
         top = leave_sender_out_top(
             doc[train_idx],
-            [categories[i] for i in train_idx],
-            [senders[i] for i in train_idx],
+            [corpus[i]["category"] for i in train_idx],
+            [corpus[i]["sender"] for i in train_idx],
             query[fold],
-            [senders[i] for i in fold],
+            [test[i]["sender"] for i in fold],
         )
-        centroid.update({int(i): c for i, (c, _) in zip(fold, top, strict=True)})
+        for i, (c, _) in zip(fold, top, strict=True):
+            centroid[int(i)] = c
+    print(
+        f"\n{len(test)} verified mails, {len(set(test_groups))} fold groups (domains / personal senders), "
+        f"C={C:g}"
+    )
+    print(f"centroids top-1: {np.mean([c == y for c, y in zip(centroid, labels, strict=True)]):.1%}")
 
-    # Production cost per mail: embed + predict with a model trained on the whole corpus
-    model = train(emb, categories, C)
+    thresholds = [round(0.30 + 0.01 * i, 2) for i in range(70)]
+    print(f"\n training corpus{'':48} mails  senders  top-1  classified@{min_precision:.0%}")
+    scored = []
+    for name, (answers, rows, _) in candidates.items():
+        top1 = np.mean([a[0] == y for a, y in zip(answers, labels, strict=True)])
+        best = best_threshold(confidence_sweep(answers, labels, thresholds), min_precision)
+        coverage = best["auto"] if best else 0.0
+        scored.append((coverage, top1, name))
+        senders = len({m["sender"] for m in rows})
+        print(f" {name:63} {len(rows):6} {senders:7} {top1:6.1%}  {coverage:6.1%}")
+
+    _, _, winner = max(scored)
+    answers, rows, n = candidates[winner]
+    print(f"\nBest: {winner}")
+    # Production cost per mail: embed + predict with the winner trained on all its rows
+    model = train(embed(embedder, corpus_texts(rows)), [m["category"] for m in rows], C)
     start = time.perf_counter()
-    predict(model, embed(embedder, [texts[i] for i in test_idx]))
-    seconds = (time.perf_counter() - start) / len(test_idx)
+    predict(model, embed(embedder, corpus_texts(test)))
+    print(f"{(time.perf_counter() - start) / len(test):.3f} s/email (embedding + prediction)")
 
-    labels = [categories[i] for i in test_idx]
-    ordered = [answers[i] for i in test_idx]
-    logreg_top1 = np.mean([a[0] == y for a, y in zip(ordered, labels, strict=True)])
-    centroid_top1 = np.mean([centroid[i] == categories[i] for i in test_idx])
-    print(f"\n{len(test_idx)} verified mails, {len({senders[i] for i in test_idx})} senders, C={C:g}")
-    print(f"top-1: logistic regression {logreg_top1:.1%}, centroids {centroid_top1:.1%}")
-    print(f"{seconds:.3f} s/email (embedding + prediction)")
-
-    sweep = confidence_sweep(ordered, labels, [round(0.30 + 0.01 * i, 2) for i in range(70)])
+    sweep = confidence_sweep(answers, labels, thresholds)
     print(" threshold  auto   precision  mails")
     for row in sweep:
-        t, auto, precision, n = row["threshold"], row["auto"], row["precision"], row["classified"]
-        print(f"   {t:.2f}    {auto:5.1%}  {precision:6.1%}  {n:5}")
-
+        t, auto, precision, k = row["threshold"], row["auto"], row["precision"], row["classified"]
+        print(f"   {t:.2f}    {auto:5.1%}  {precision:6.1%}  {k:5}")
     best = best_threshold(sweep, min_precision)
     classify = best["threshold"] if best else 1.01
-    if best:
-        print(
-            f"\nclassify_threshold {classify:.2f}: {best['auto']:.1%} classified at {best['precision']:.1%}"
-        )
-        if best["classified"] < 30:
-            print(f"WARNING: classify_threshold rests on {best['classified']} mails (< 30)")
-    else:
+    if best and best["classified"] < 30:
+        print(f"WARNING: classify_threshold rests on {best['classified']} mails (< 30)")
+    if not best:
         print(f"\nNo threshold reaches {min_precision:.0%} precision")
-    print(f"\n[logreg]\nclassify_threshold = {classify:.2f}\nlearn_threshold = {learn_threshold(sweep):.2f}")
+    print("\n[logreg]")
+    if n is not None:
+        print(f"per_sender = {n}")
+    print(f"classify_threshold = {classify:.2f}\nlearn_threshold = {learn_threshold(sweep):.2f}")
 
 
 def main():
@@ -347,9 +394,15 @@ def main():
     p_laya.add_argument("--body-chars", type=int)
     p_laya.add_argument("--calibration", help='calibration JSON path, "" for the shipped temperatures')
 
-    p_logreg = sub.add_parser("logreg", help="Measure the logistic regression and propose its thresholds")
+    p_logreg = sub.add_parser("logreg", help="Compare training corpora and propose the [logreg] settings")
     p_logreg.add_argument("--C", type=float, help="regularisation (default: [logreg] C)")
     p_logreg.add_argument("--min-precision", type=float, default=0.85)
+    p_logreg.add_argument(
+        "--train-corpus", type=Path, help="harvested corpus (default: data/training_corpus.json)"
+    )
+    p_logreg.add_argument(
+        "--per-sender", type=int, nargs="+", help="caps to compare (default: [logreg] per_sender)"
+    )
 
     args = parser.parse_args()
     logger.remove()
@@ -374,7 +427,12 @@ def main():
     elif args.command == "logreg":
         from mailtag.config import CONFIG
 
-        logreg_eval(args.C if args.C is not None else CONFIG.logreg.C, args.min_precision)
+        logreg_eval(
+            args.C if args.C is not None else CONFIG.logreg.C,
+            args.min_precision,
+            args.train_corpus,
+            args.per_sender or [CONFIG.logreg.per_sender],
+        )
 
 
 if __name__ == "__main__":

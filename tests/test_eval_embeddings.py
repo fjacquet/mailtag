@@ -78,17 +78,23 @@ def test_learn_threshold_needs_precision_and_enough_mails():
     assert learn_threshold([]) == 1.01
 
 
-def test_sender_folds_never_share_a_sender_and_test_each_verified_mail_once():
-    from scripts.eval_embeddings import sender_folds
+def test_fold_group_is_the_domain_or_the_address_on_personal_domains():
+    from scripts.eval_embeddings import fold_group
 
-    senders = [f"s{i % 7}@x.ch" for i in range(40)]  # 7 senders
-    test_idx = [i for i in range(40) if i % 2 == 0]  # the "verified" mails
+    assert fold_group("News@Shop.ch") == "shop.ch"
+    assert fold_group("jane.doe@gmail.com") == "jane.doe@gmail.com"
+
+
+def test_group_folds_never_share_a_group_and_test_each_mail_once():
+    from scripts.eval_embeddings import group_folds
+
+    train_groups = [f"d{i % 7}.ch" for i in range(60)]  # 7 domains in the training corpus
+    test_groups = [f"d{i % 6}.ch" for i in range(30)]  # 6 of them in the test set
 
     tested = []
-    for train, test in sender_folds(senders, test_idx, n_splits=3):
-        assert not {senders[i] for i in train} & {senders[i] for i in test}
-        assert set(test) <= set(test_idx)
+    for train, test in group_folds(train_groups, test_groups, n_splits=3):
+        assert not {train_groups[i] for i in train} & {test_groups[i] for i in test}
         assert len(train) > 0
         tested += test.tolist()
 
-    assert sorted(tested) == test_idx
+    assert sorted(tested) == list(range(30))
