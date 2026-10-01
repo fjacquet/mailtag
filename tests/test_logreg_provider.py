@@ -23,6 +23,9 @@ MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
 def _reset_fake():
     FakeEmbedder.instances = []
     FakeEmbedder.fail_load = False
+    yield
+    FakeEmbedder.instances = []
+    FakeEmbedder.fail_load = False
 
 
 def clusters(n=20, seed=0):

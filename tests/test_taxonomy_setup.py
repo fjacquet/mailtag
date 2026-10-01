@@ -241,3 +241,60 @@ def test_review_scan_retries_unreadable_suggestions(tmp_path, mocker):
     ts.review_scan("gmail")
 
     assert json.loads(scan_path.read_text())["suggestions"]["shop.ch"] == "Banque & Placements"
+
+
+TRAIN_MAILS = [
+    {
+        "sender": f"s{i}@x.ch",
+        "sender_name": "",
+        "subject": word,
+        "body": "",
+        "category": cat,
+        "verified": False,
+    }
+    for i, (word, cat) in enumerate(
+        [("pizza", "Achats"), ("impot", "Impôts & Administration"), ("train", "Transports & Mobilité")] * 4
+    )
+]
+
+
+def _train_setup(tmp_path, monkeypatch, mocker, mails):
+    import scripts.taxonomy_setup as setup
+    from mailtag.config import CONFIG, LogRegConfig
+    from tests.fake_embedder import FakeEmbedder
+
+    corpus = tmp_path / "corpus.json"
+    if mails is not None:
+        corpus.write_text(json.dumps(mails), encoding="utf-8")
+    monkeypatch.setattr(setup, "CORPUS", corpus)
+    monkeypatch.setattr(CONFIG, "logreg", LogRegConfig(model_file=str(tmp_path / "logreg.npz")))
+    mocker.patch("mailtag.mlx_provider.MLXEmbedder", FakeEmbedder)
+    return setup, mocker.patch.object(setup, "_imap")
+
+
+def test_train_writes_the_model_without_imap(tmp_path, monkeypatch, mocker):
+    from mailtag.config import CONFIG
+    from mailtag.logreg_provider import load_model
+
+    setup, imap = _train_setup(tmp_path, monkeypatch, mocker, TRAIN_MAILS)
+
+    setup.train()
+
+    model = load_model(tmp_path / "logreg.npz", CONFIG.mlx.embedding_model)
+    assert sorted(model["classes"].tolist()) == sorted({m["category"] for m in TRAIN_MAILS})
+    imap.assert_not_called()
+
+
+def test_train_without_corpus_exits_with_a_message(tmp_path, monkeypatch, mocker):
+    setup, _ = _train_setup(tmp_path, monkeypatch, mocker, None)
+
+    with pytest.raises(SystemExit, match="build"):
+        setup.train()
+
+
+def test_train_with_too_few_categories_exits_with_a_message(tmp_path, monkeypatch, mocker):
+    setup, _ = _train_setup(tmp_path, monkeypatch, mocker, TRAIN_MAILS[:2])
+
+    with pytest.raises(SystemExit, match="3 categories"):
+        setup.train()
+    assert not (tmp_path / "logreg.npz").exists()
