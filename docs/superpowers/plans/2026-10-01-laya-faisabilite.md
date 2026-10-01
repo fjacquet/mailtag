@@ -1,5 +1,8 @@
 # Laya Feasibility Study Implementation Plan
 
+<!-- fmt:off -->
+<!-- Code blocks below are plan fragments (class bodies, call arguments), not standalone modules. -->
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a `[classifier] mode = "laya"` switch that replaces nomic + Gemma in Pass 3 with the Laya classifier, plus an evaluation command that measures it on the verified corpus and proposes per-checkpoint thresholds.
