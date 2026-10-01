@@ -19,6 +19,8 @@ uv sync -U --all-extras
 
 One AI path: the **MLX local path**, configured in `config.toml [mlx]`. It uses `nomic-ai/nomic-embed-text-v1.5` for embeddings (nomic centroids) and `mlx-community/gemma-4-e4b-it-OptiQ-4bit` for the LLM (Gemma answers by category number). `[mlx] enabled = false` (the Docker image) means rules only: everything the rules do not cover goes to `5-A revoir`. There is no cloud or Ollama path and no `MODEL` variable.
 
+**Laya (feasibility study)**: `[classifier] mode = "laya"` (default `"mlx"`) replaces nomic and Gemma in Pass 3 with the Laya classifier (`src/mailtag/laya_provider.py`, `uv sync --extra laya`; spec `docs/superpowers/specs/2026-10-01-laya-faisabilite-design.md`). A `laya.Router` sends each mail to the `english` or `multilingual` checkpoint (`[laya] routing`), which answers one `choice` question over the 19 categories (English labels from `TAXONOMY_EN` for the English checkpoint). A mail is classified at `answer_confidence ≥ classify_threshold` and counts as an agreement at `≥ learn_threshold`, both per checkpoint in `[laya]` and inert (1.01) until `uv run python scripts/eval_embeddings.py laya` proposes them. `data/laya_neutral_calibration.json` neutralises the English checkpoint's shipped temperatures, which flatten confidence to 1.0 past 11 options.
+
 ### Testing
 
 ```bash
@@ -55,7 +57,7 @@ Taxonomy preparation, migration and bulk review are `scripts/taxonomy_setup.py` 
 `run` (`src/mailtag/utils/tasks.py`) works per account, IMAP or Gmail (`GmailApiService` is an `ImapService`), with a `PendingArchive` and one `TaxonomyStore`:
 
 1. **Pass 1 (rules, headers only)** on the junk folder, then INBOX, in batches of `fast_parse.batch_size`: validated sender → learned sender → validated domain → computed domain. A match is routed to its action folder and recorded in the account's `pending_archive` file.
-2. **Pass 3 (models, full body)** for the rest (`classifier.py`): nomic centroids classify at score ≥ `nomic_threshold`; otherwise Gemma must agree with nomic's top choice; otherwise the mail goes to `5-A revoir`. Routing to action folders (`routing.py`, `action_rules.py`) records a `pending_archive` entry per mail.
+2. **Pass 3 (models, full body)** for the rest (`classifier.py`): nomic centroids classify at score ≥ `nomic_threshold`; otherwise Gemma must agree with nomic's top choice; otherwise the mail goes to `5-A revoir`. In laya mode, Laya alone decides (see AI Model Configuration). Routing to action folders (`routing.py`, `action_rules.py`) records a `pending_archive` entry per mail.
 3. **Archive sweep** (`archive.py`): seen, unflagged mail older than `archive_after_days` moves into its category folder.
 
 `--validate` moves nothing and writes nothing (`Classifier(read_only=True)`).
@@ -139,7 +141,7 @@ curl http://localhost:8000/health
 
 Two config sources:
 
-- **`config.toml`**: Main config — sections `logging`, `imap`, `gmail`, `fast_parse`, `mlx`, `taxonomy`, `webhook`. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
+- **`config.toml`**: Main config — sections `logging`, `imap`, `gmail`, `fast_parse`, `mlx`, `classifier`, `laya`, `taxonomy`, `webhook`. MLX model defaults live here (single source of truth). Dataclass defaults in `config.py` are fallbacks only.
 - **`.env`**: Secrets only — `IMAP_USER`, `IMAP_PASSWORD`, `WEBHOOK_API_KEY`. Gmail needs no `.env` entries, only `credentials_file`/`token_file` (OAuth).
 
 ### Gmail through the API
