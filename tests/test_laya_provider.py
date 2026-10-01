@@ -46,6 +46,7 @@ class FakeRouter:
             results.append({"answers": answers, "routing": {"model": r["model"]}})
         return results
 
+    @property
     def loaded(self):
         return ["multilingual"]
 
@@ -191,3 +192,34 @@ def test_devices_reports_loaded_checkpoints(fake_laya):
     classifier.classify([mail()])
 
     assert classifier.devices() == {"multilingual": "mps"}
+
+
+def test_real_laya_router_routes_by_language_without_loading_a_checkpoint(monkeypatch):
+    """Contract check against the installed laya: route_batch and `loaded` download nothing."""
+    monkeypatch.setenv("USE_TF", "0")
+    laya = pytest.importorskip("laya")
+    router = laya.Router(device="cpu", default="multilingual")
+
+    decisions = router.route_batch(
+        [
+            {
+                "state": {
+                    "from": "Shop <news@shop.com>",
+                    "subject": "Your order has shipped",
+                    "body": "Thank you for your purchase, your package will arrive on Monday.",
+                },
+                "questions": {},
+            },
+            {
+                "state": {
+                    "from": "Boutique <news@boutique.fr>",
+                    "subject": "Votre commande est expédiée",
+                    "body": "Merci pour votre achat, votre colis arrivera lundi prochain.",
+                },
+                "questions": {},
+            },
+        ]
+    )
+
+    assert [d["model"] for d in decisions] == ["english", "multilingual"]
+    assert router.loaded == []

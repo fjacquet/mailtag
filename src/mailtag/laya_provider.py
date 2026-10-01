@@ -140,4 +140,4 @@ class LayaClassifier:
         """Device of each loaded checkpoint (for the evaluation report)."""
         if self._router is None:
             return {}
-        return {name: str(self._router.load(name).device) for name in self._router.loaded()}
+        return {name: str(self._router.load(name).device) for name in self._router.loaded}
