@@ -35,6 +35,7 @@ from mailtag.taxonomy_store import TaxonomyStore, write_json_atomic
 SCAN = Path("data/mailbox_scan.json")
 CROSSCHECK = Path("data/sender_crosscheck.json")
 CORPUS = Path("data/taxonomy_corpus.json")
+TRAINING_CORPUS = Path("data/training_corpus.json")
 MIGRATION_REPORT = Path("data/migration_report.json")
 
 
@@ -153,22 +154,26 @@ def build() -> None:
 
 
 def train() -> None:
-    """Fit the [logreg] model on every corpus mail (no IMAP, no rule touched)."""
-    from mailtag.logreg_provider import corpus_texts, embed, save_model
+    """Fit the [logreg] model on data/training_corpus.json (capped to [logreg] per_sender) if it
+    exists, else on data/taxonomy_corpus.json (no IMAP, no rule touched)."""
+    from mailtag.logreg_provider import capped_indices, corpus_texts, embed, save_model
     from mailtag.logreg_provider import train as fit
     from mailtag.mlx_provider import MLXEmbedder
 
-    if missing := missing_inputs([CORPUS]):
+    source = TRAINING_CORPUS if TRAINING_CORPUS.exists() else CORPUS
+    if missing := missing_inputs([source]):
         sys.exit(f"Missing {missing[0]}: run `build` first")
-    corpus = _read(CORPUS)
+    corpus = _read(source)
+    if source == TRAINING_CORPUS:
+        corpus = [corpus[i] for i in capped_indices(corpus, CONFIG.logreg.per_sender)]
     if len({m["category"] for m in corpus}) < 3:
-        sys.exit(f"{CORPUS} needs mails in at least 3 categories to train")
+        sys.exit(f"{source} needs mails in at least 3 categories to train")
     embedding_model = CONFIG.mlx.embedding_model
     embeddings = embed(MLXEmbedder(embedding_model), corpus_texts(corpus))
     model = fit(embeddings, [m["category"] for m in corpus], CONFIG.logreg.C)
     save_model(Path(CONFIG.logreg.model_file), model, embedding_model)
     logger.info(
-        f"Logistic regression from {len(corpus)} mails, {len(model['classes'])} categories "
+        f"Logistic regression from {len(corpus)} mails of {source}, {len(model['classes'])} categories "
         f"-> {CONFIG.logreg.model_file}"
     )
 

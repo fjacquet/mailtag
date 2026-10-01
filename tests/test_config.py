@@ -478,3 +478,31 @@ classify_threshold = 0.9
     assert cfg.logreg.C == 10.0
     assert cfg.logreg.classify_threshold == 0.9
     assert cfg.logreg.learn_threshold == 1.01
+
+
+def test_logreg_per_sender_default_and_toml(tmp_path, monkeypatch):
+    from mailtag.config import LogRegConfig, load_config
+
+    assert LogRegConfig().per_sender == 10
+    monkeypatch.setenv("IMAP_USER", "user@example.com")
+    monkeypatch.setenv("IMAP_PASSWORD", "secret")
+    toml = tmp_path / "config.toml"
+    toml.write_text(
+        """
+[logging]
+level = "INFO"
+file = ""
+
+[imap]
+host = "imap.test.com"
+
+[gmail]
+credentials_file = "c.json"
+token_file = "t.json"
+
+[logreg]
+per_sender = 5
+"""
+    )
+
+    assert load_config(toml).logreg.per_sender == 5

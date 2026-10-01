@@ -131,6 +131,7 @@ class LogRegConfig:
 
     model_file: str = "data/taxonomy_logreg.npz"
     C: float = 100.0  # LogisticRegression regularisation
+    per_sender: int = 10  # mails per sender taken from data/training_corpus.json
     classify_threshold: float = 1.01
     learn_threshold: float = 1.01
 

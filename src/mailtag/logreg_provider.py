@@ -33,6 +33,17 @@ def corpus_texts(corpus: list[dict]) -> list[str]:
     return [nomic_text(m["sender_name"], m["sender"], m["subject"], m["body"]) for m in corpus]
 
 
+def capped_indices(corpus: list[dict], per_sender: int) -> list[int]:
+    """Indices of the first `per_sender` mails of each sender, in corpus order."""
+    seen: dict[str, int] = {}
+    keep = []
+    for i, mail in enumerate(corpus):
+        if seen.get(mail["sender"], 0) < per_sender:
+            seen[mail["sender"]] = seen.get(mail["sender"], 0) + 1
+            keep.append(i)
+    return keep
+
+
 def train(embeddings: np.ndarray, categories: list[str], C: float) -> dict:
     """Multinomial logistic regression; needs 3 categories or more (binary keeps a single row)."""
     if len(set(categories)) < 3:
