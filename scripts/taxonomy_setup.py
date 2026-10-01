@@ -5,6 +5,7 @@
     uv run streamlit run scripts/taxonomy_review.py     # review disagreements
     uv run python scripts/taxonomy_setup.py build       # rules, corpus and the 19 nomic centroids
     uv run python scripts/taxonomy_setup.py train       # logistic regression from the corpus (build runs it)
+    uv run python scripts/taxonomy_setup.py harvest     # training corpus from category folders (read-only)
 
 No preparation step moves an email. Legacy folder migration (docs/superpowers/specs/
 2026-09-28-migration-dossiers-design.md), a dry run unless given --apply:
@@ -126,6 +127,7 @@ def build() -> None:
     from mailtag.taxonomy_build import (
         build_centroids,
         corpus_refs,
+        corpus_to_keep,
         domain_rules,
         fetch_corpus,
         learned_senders,
@@ -146,11 +148,37 @@ def build() -> None:
 
     with _imap() as provider:
         corpus = fetch_corpus(provider, corpus_refs(senders, store.validated, learned))
-    write_json_atomic(CORPUS, corpus)
+    old = _read(CORPUS) if CORPUS.exists() else None
+    kept = corpus_to_keep(corpus, old)
+    if kept is corpus:
+        write_json_atomic(CORPUS, corpus)
+    else:
+        logger.warning(f"Re-read only {len(corpus)} mails, {CORPUS} has {len(old)}: keeping {CORPUS}")
+    corpus = kept
     router = build_centroids(MLXEmbedder(CONFIG.mlx.embedding_model), corpus)
     router.save_embeddings(Path(cfg.centroids_file))
     logger.info(f"Centroids for {router.num_categories} categories from {len(corpus)} mails")
     train()
+
+
+def harvest(per_sender: int) -> None:
+    """Training corpus from the category folders: mails whose sender's rule gives their folder's
+    category, at most `per_sender` per sender (read-only, IMAP)."""
+    from mailtag.taxonomy import TAXONOMY, category_folder
+    from mailtag.taxonomy_build import fetch_corpus, harvest_refs, read_folder_senders
+
+    store = _store()
+    folders = {category_folder(c): c for c in TAXONOMY}
+    with _imap() as provider:
+        refs = harvest_refs(
+            read_folder_senders(provider, list(folders)), folders, store.category_for, store.validated,
+            per_sender,
+        )  # fmt: skip
+        corpus = fetch_corpus(provider, refs) if refs else []
+    if not corpus:
+        sys.exit("Nothing harvested: no category-folder mail matches its sender's rule")
+    write_json_atomic(TRAINING_CORPUS, corpus)
+    logger.info(f"Wrote {TRAINING_CORPUS}: {len(corpus)} mails, {len({m['sender'] for m in corpus})} senders")
 
 
 def train() -> None:
@@ -299,12 +327,13 @@ def main() -> None:
     parser.add_argument(
         "command",
         choices=[
-            "scan", "crosscheck", "build", "train", "migrate", "prune", "reorganize", "review-scan",
-            "refile-review",
+            "scan", "crosscheck", "build", "train", "harvest", "migrate", "prune", "reorganize",
+            "review-scan", "refile-review",
         ],
     )  # fmt: skip
     parser.add_argument("--apply", action="store_true", help="Actually move/delete (default: dry run)")
     parser.add_argument("--provider", choices=["imap", "gmail"], default="imap", help="Account to use")
+    parser.add_argument("--per-sender", type=int, default=20, help="harvest: mails kept per sender")
     args = parser.parse_args()
     if args.command in ("migrate", "prune", "reorganize"):
         {"migrate": migrate, "prune": prune, "reorganize": reorganize_folders}[args.command](args.apply)
@@ -312,6 +341,8 @@ def main() -> None:
         review_scan(args.provider)
     elif args.command == "refile-review":
         refile(args.provider, args.apply)
+    elif args.command == "harvest":
+        harvest(args.per_sender)
     else:
         {"scan": scan, "crosscheck": crosscheck, "build": build, "train": train}[args.command]()
 

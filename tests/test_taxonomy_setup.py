@@ -335,3 +335,36 @@ def test_train_falls_back_to_the_taxonomy_corpus(tmp_path, monkeypatch, mocker):
     setup.train()
 
     assert fit.call_args.args[1] == [m["category"] for m in TRAIN_MAILS]
+
+
+def _harvest_setup(tmp_path, monkeypatch, mocker, corpus):
+    import scripts.taxonomy_setup as setup
+
+    monkeypatch.setattr(setup, "TRAINING_CORPUS", tmp_path / "training.json")
+    store = mocker.MagicMock()
+    store.validated = {}
+    mocker.patch.object(setup, "_store", return_value=store)
+    mocker.patch.object(setup, "_imap")
+    read = mocker.patch("mailtag.taxonomy_build.read_folder_senders", return_value={"Archive/Achats": {}})
+    mocker.patch("mailtag.taxonomy_build.harvest_refs", return_value=[{"uid": 1}] if corpus else [])
+    mocker.patch("mailtag.taxonomy_build.fetch_corpus", return_value=corpus)
+    return setup, read
+
+
+def test_harvest_reads_the_19_category_folders_and_writes_the_training_corpus(tmp_path, monkeypatch, mocker):
+    from mailtag.taxonomy import TAXONOMY, category_folder
+
+    setup, read = _harvest_setup(tmp_path, monkeypatch, mocker, HARVESTED)
+
+    setup.harvest(per_sender=20)
+
+    assert sorted(read.call_args.args[1]) == sorted(category_folder(c) for c in TAXONOMY)
+    assert json.loads((tmp_path / "training.json").read_text(encoding="utf-8")) == HARVESTED
+
+
+def test_harvest_with_nothing_collected_exits_without_writing(tmp_path, monkeypatch, mocker):
+    setup, _ = _harvest_setup(tmp_path, monkeypatch, mocker, [])
+
+    with pytest.raises(SystemExit, match="Nothing harvested"):
+        setup.harvest(per_sender=20)
+    assert not (tmp_path / "training.json").exists()

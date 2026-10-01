@@ -8,14 +8,17 @@ from mailtag.taxonomy_build import (
     control_precision,
     control_sample,
     corpus_refs,
+    corpus_to_keep,
     domain_rules,
     fetch_corpus,
     folder_category,
     folder_disagreement,
     folder_queue,
     gemma_proposals,
+    harvest_refs,
     learned_senders,
     learned_to_review,
+    read_folder_senders,
     review_queue,
     rules_precision,
 )
@@ -231,3 +234,69 @@ def test_learned_to_review_lists_promoted_senders_scan_does_not_know():
         "newer@shop.ch",
         "new@shop.ch",
     ]
+
+
+HARVEST_FOLDERS = {"Archive/Achats": "Achats", "Domaines/Santé": "Santé"}
+HARVEST_RULES = {"shop@x.ch": "Achats", "doc@clinic.ch": "Santé", "moved@x.ch": "Santé"}
+
+
+def test_harvest_refs_keep_mail_whose_rule_matches_the_folder():
+    folder_senders = {
+        "Archive/Achats": {"1": "shop@x.ch", "2": "unknown@x.ch", "3": "moved@x.ch"},
+        "Domaines/Santé": {"7": "doc@clinic.ch", "8": "moved@x.ch"},
+    }
+
+    validated = {"doc@clinic.ch": "Santé"}
+    refs = harvest_refs(folder_senders, HARVEST_FOLDERS, HARVEST_RULES.get, validated, per_sender=20)
+
+    assert sorted((r["folder"], r["uid"], r["sender"], r["category"], r["verified"]) for r in refs) == [
+        ("Archive/Achats", 1, "shop@x.ch", "Achats", False),
+        ("Domaines/Santé", 7, "doc@clinic.ch", "Santé", True),
+        ("Domaines/Santé", 8, "moved@x.ch", "Santé", False),
+    ]
+
+
+def test_harvest_refs_cap_per_sender_across_folders_highest_uids_first():
+    folder_senders = {
+        "Domaines/Santé": {str(uid): "Doc@Clinic.CH" for uid in (3, 10, 7)},
+        "Archive/Achats": {"5": "doc@clinic.ch"},  # rule says Santé: never counted here
+    }
+
+    refs = harvest_refs(folder_senders, HARVEST_FOLDERS, HARVEST_RULES.get, {}, per_sender=2)
+
+    assert [(r["uid"], r["sender"]) for r in refs] == [(10, "doc@clinic.ch"), (7, "doc@clinic.ch")]
+
+
+def test_harvest_refs_skip_senders_without_rule_or_owned():
+    owned = {"me@home.ch": None}  # category_for returns None for the owner's addresses
+
+    refs = harvest_refs({"Archive/Achats": {"1": "me@home.ch", "2": ""}}, HARVEST_FOLDERS, owned.get, {}, 20)
+
+    assert refs == []
+
+
+def test_read_folder_senders_reads_read_only_and_skips_unreadable_folders(mocker):
+    provider = mocker.MagicMock()
+
+    def select(folder, readonly):
+        if folder == "Gone":
+            raise imaplib.IMAP4.error("no such folder")
+
+    provider.client.select_folder.side_effect = select
+    provider.client.search.return_value = [1, 2]
+    provider.get_email_headers.return_value = {"1": {"sender_address": "a@x.ch"}, "2": {"sender_address": ""}}
+
+    result = read_folder_senders(provider, ["Archive/Achats", "Gone"])
+
+    assert result == {"Archive/Achats": {"1": "a@x.ch", "2": ""}}
+    provider.client.select_folder.assert_any_call("Archive/Achats", readonly=True)
+    provider.client.move.assert_not_called()
+
+
+def test_corpus_to_keep_refuses_a_re_read_that_lost_more_than_half():
+    old = [{"i": i} for i in range(10)]
+
+    assert corpus_to_keep([{"i": 0}] * 4, old) is old
+    new = [{"i": 0}] * 5
+    assert corpus_to_keep(new, old) is new
+    assert corpus_to_keep(new, None) is new
