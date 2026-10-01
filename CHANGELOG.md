@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `scripts/eval_embeddings.py logreg` groups folds by domain (by sender on personal domains) and compares training corpora.
-- `[logreg]` set from the new evaluation: `per_sender = 5`, and both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 46.4 %, centroids 34.2 %). `logreg` mode classifies nothing until a better signal exists; the default stays `mlx`.
+- `[logreg]` settings from the domain-grouped evaluation: both thresholds at 1.01 (never), because no threshold reaches 85 % precision on unseen domains (top-1 44.4 %, centroids 34.2 %), and `per_sender` stays 10. The harvested corpus gained 2 points of top-1 but classifies no more mail at 85 % than `data/taxonomy_corpus.json` (0 % vs 0 %), so `train` keeps the old corpus. `logreg` mode classifies nothing; the default stays `mlx`.
 
 ### Fixed
 
