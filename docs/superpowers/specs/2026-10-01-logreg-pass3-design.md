@@ -81,7 +81,7 @@ Chargement refusé (erreur loguée) si une classe n'est pas une clé de `TAXONOM
 
 ### Dépendances
 
-`scikit-learn` ajouté aux dépendances MLX de `pyproject.toml` (déjà présent via sentence-transformers, importé directement désormais) et retiré par le `sed` du `Dockerfile` avec les autres dépendances MLX.
+`scikit-learn>=1.5` ajouté aux dépendances MLX de `pyproject.toml` (déjà présent via sentence-transformers, importé directement désormais) et retiré par le `sed` du `Dockerfile` avec les autres dépendances MLX.
 
 ## Évaluation : `scripts/eval_embeddings.py logreg`
 
