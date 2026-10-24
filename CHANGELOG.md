@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-10-24
+
+### Security
+
+- Full `uv lock --upgrade` refresh: `pillow` 13.0.0 (41 advisories), `certifi` and
+  `opentelemetry-api` 1.45.1 to their patched releases. `osv-scanner` recursive scan is clean.
+
 ### Changed
 
 - The Security workflow also runs weekly (Monday 04:23 UTC), so new advisories surface without a push.
