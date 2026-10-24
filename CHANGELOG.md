@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- Full `uv lock --upgrade` refresh: `pillow` 13.0.0 (41 advisories), `certifi` and
-  `opentelemetry-api` 1.45.1 to their patched releases. `osv-scanner` recursive scan is clean.
+- `certifi` → 2026.10.23 for GHSA-6q48-6c7w-9gw2, `opentelemetry-api` → 1.45.1 for GHSA-xcq7-p3pf-p88h, `setuptools` 84.0.0 → 84.2.1 for GHSA-xmj3-9gf7-h52w.
+- `filelock` 4.0.4 → 4.2.4 for GHSA-v4x8-3wr5-3wq8 (High), GHSA-9vhv-jxww-xfm5 and GHSA-567q-5qvw-pf92.
 
 ### Changed
 
+- Full `uv lock --upgrade` refresh; `laya` moves 0.3.22 → 0.4.14.
 - The Security workflow also runs weekly (Monday 04:23 UTC), so new advisories surface without a push.
 
 ## [2.2.0] - 2026-10-01
