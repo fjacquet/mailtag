@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`POST /api/v1/run` and `GET /api/v1/run/status`.** The API can start `run --provider imap|gmail|all
+  [--validate]` in the background (202, 409 if a run is already going, 403 when `allow_move` is off
+  and the run is not a dry run) and report the last outcome (`idle|running|ok|error`, times, errors).
+  Errors that `run_classification` only logs (IMAP or Gmail connection failures) count as `error`.
+  This lets a scheduler such as n8n trigger and check the sort of the container.
+
 ## [2.2.2] - 2026-10-24
 
 ### Security

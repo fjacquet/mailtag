@@ -3,6 +3,8 @@
 All models include json_schema_extra with realistic examples for Swagger UI.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -150,3 +152,14 @@ class ErrorResponse(BaseModel):
 
     detail: str = Field(..., description="Human-readable error description")
     error_code: str = Field(..., description="Machine-readable error code")
+
+
+class RunStatus(BaseModel):
+    """State of the last (or current) classification run."""
+
+    state: Literal["idle", "running", "ok", "error"] = Field(..., description="idle, running, ok or error")
+    provider: str | None = Field(default=None, description="imap, gmail or all")
+    validate_only: bool | None = Field(default=None, serialization_alias="validate", description="Dry run")
+    started_at: str | None = Field(default=None, description="UTC start time (ISO 8601)")
+    finished_at: str | None = Field(default=None, description="UTC end time (ISO 8601)")
+    error: str | None = Field(default=None, description="Errors logged or raised during the run")
