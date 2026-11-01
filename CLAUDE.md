@@ -114,7 +114,8 @@ Both use lazy loading — models are only loaded on first use.
 FastAPI-based HTTP API (`src/mailtag/api/`) for external integrations (N8N, webhooks):
 
 - **App factory**: `create_app()` in `src/mailtag/api/__init__.py` — lifespan manages the Classifier lifecycle
-- **Routes**: `src/mailtag/api/routes/classify.py` (POST classify, classify-batch, classify-and-move) and `health.py` (GET health, status)
+- **Routes**: `src/mailtag/api/routes/classify.py` (POST classify, classify-batch, classify-and-move), `run.py` (POST `/api/v1/run?provider=&validate=`, GET `/api/v1/run/status`) and `health.py` (GET health, status)
+- **`/run`**: starts `main.start_classification_run` in a background thread (one at a time: 409 otherwise; 403 for a real run when `allow_move` is false). `/run/status` reports `idle|running|ok|error`; mail-connection failures that `run_classification` only logs are collected through a loguru sink on the run thread and make the state `error`. Tests must never reach the real mailboxes: `tests/test_run_api.py` stubs `main.start_classification_run` in its fixture.
 - **Auth**: `X-API-Key` header via `APIKeyMiddleware` — exempts `/health`, `/docs`, `/redoc`, `/openapi.json`
 - **Schemas**: Pydantic models in `src/mailtag/api/schemas.py` with Swagger examples
 - **State**: `AppState` singleton in `src/mailtag/api/dependencies.py`

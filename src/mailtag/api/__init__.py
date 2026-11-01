@@ -11,7 +11,7 @@ from mailtag.config import CONFIG
 
 from .dependencies import app_state
 from .middleware import APIKeyMiddleware
-from .routes import classify, health
+from .routes import classify, health, run
 
 API_VERSION = "1.0.0"
 
@@ -91,5 +91,6 @@ def create_app() -> FastAPI:
     # Register routes
     app.include_router(health.router)
     app.include_router(classify.router, prefix="/api/v1", tags=["classification"])
+    app.include_router(run.router, prefix="/api/v1", tags=["run"])
 
     return app
