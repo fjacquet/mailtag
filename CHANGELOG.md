@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-01
+
 ### Added
 
 - **`POST /api/v1/run` and `GET /api/v1/run/status`.** The API can start `run --provider imap|gmail|all
@@ -14,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the run is not a dry run) and report the last outcome (`idle|running|ok|error`, times, errors).
   Errors that `run_classification` only logs (IMAP or Gmail connection failures) count as `error`.
   This lets a scheduler such as n8n trigger and check the sort of the container.
+
+### Security
+
+- Full `uv lock --upgrade` refresh; `pyasn1` 0.6.4 → 0.6.5 for GHSA-2qm8-x737-gmw5,
+  GHSA-9m75-vc3g-4x39, GHSA-fm9c-5rcf-2q5p and GHSA-mm57-4v3p-rchx.
 
 ## [2.2.2] - 2026-10-24
 
